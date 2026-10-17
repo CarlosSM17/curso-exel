@@ -1,29 +1,29 @@
-/* Catálogo del curso (versión 2): 13 módulos en 3 sesiones de 3 horas. */
+/* Catálogo del curso «Excel para Ciencias de la Salud»: 13 módulos en 3 sesiones de 3 horas. */
 (function () {
   'use strict';
   const LT = (window.LT = window.LT || {});
 
   const NIVELES = [
-    { id: 'basico', nombre: 'Básico', sesion: 1, horas: 'Sesión 1 · 3 horas', color: '#1e7145', capa: 'Conocer Excel, capturar, calcular y presentar el reporte semanal.', modulos: [1, 2, 3, 4, 5, 6, 7], integrador: 'Reporte semanal de ventas' },
-    { id: 'intermedio', nombre: 'Intermedio', sesion: 2, horas: 'Sesión 2 · 3 horas', color: '#2463a6', capa: 'Limpiar, organizar y dar formato a la base de ventas.', modulos: [8, 9, 10, 11], integrador: 'Base de pedidos confiable' },
-    { id: 'avanzado', nombre: 'Avanzado', sesion: 3, horas: 'Sesión 3 · 3 horas', color: '#7b3f9e', capa: 'Analizar el año con tablas dinámicas y automatizar la gestión de pedidos.', modulos: [12, 13], integrador: 'Tablero y gestión automatizada' },
+    { id: 'basico', nombre: 'Fundamentos', sesion: 1, horas: 'Sesión 1 · 3 horas', color: '#0f766e', capa: 'Consolidar lo básico: capturar, calcular con criterio clínico, presentar y graficar.', modulos: [1, 2, 3, 4, 5, 6, 7], integrador: 'Reporte semanal de atenciones' },
+    { id: 'intermedio', nombre: 'Análisis de datos', sesion: 2, horas: 'Sesión 2 · 3 horas', color: '#2463a6', capa: 'Depurar, organizar y resumir datos de la clínica con tablas y tablas dinámicas.', modulos: [8, 9, 10, 11], integrador: 'Base de requisiciones confiable' },
+    { id: 'avanzado', nombre: 'Gestión y tableros', sesion: 3, horas: 'Sesión 3 · 3 horas', color: '#7b3f9e', capa: 'Diseñar bases de datos, automatizar tareas, generar documentos y construir dashboards de indicadores.', modulos: [12, 13], integrador: 'Tablero y gestión automatizada' },
   ];
 
   // id, título, nivel, sesión, minutos, entorno, reto principal, glifo de insignia, micro-retos
   const MODULOS = [
-    [1, 'Inicio: la pantalla de Excel', 'basico', 1, 15, 'Simulador + Excel real', 'Recorrido por la pantalla y tu barra de acceso rápido', '⌂', 3],
-    [2, 'Editar un libro de trabajo', 'basico', 1, 20, 'Simulador', 'Pasar a limpio la lista de precios', '✎', 3],
-    [3, 'Fórmulas básicas', 'basico', 1, 35, 'Simulador', 'Corte de caja del día', 'Σ', 3],
-    [4, 'Formato a hojas de trabajo', 'basico', 1, 25, 'Excel real', 'Reporte semanal presentable', 'A', 3],
-    [5, 'Insertar objetos', 'basico', 1, 15, 'Excel real', 'Encabezado del menú con logo y enlace', '◆', 2],
-    [6, 'Ver y administrar hojas de cálculo', 'basico', 1, 15, 'Excel real', 'Una hoja por sucursal y una de resumen', '▤', 2],
-    [7, 'Gráficos', 'basico', 1, 30, 'Simulador + Excel real', '¿Qué producto vende más y cómo cambia por mes?', '▮', 3],
-    [8, 'Fórmulas intermedias', 'intermedio', 2, 50, 'Simulador', 'Comisiones de los vendedores', 'ƒ', 4],
-    [9, 'Organizar datos', 'intermedio', 2, 35, 'Simulador + Excel real', 'Limpiar la base de clientes', '⇅', 3],
-    [10, 'Tablas', 'intermedio', 2, 35, 'Excel real', 'Tabla de pedidos con totales y filtros visuales', '▦', 2],
-    [11, 'Formato intermedio', 'intermedio', 2, 35, 'Excel real', 'Semáforo de inventario', '●', 3],
-    [12, 'Tablas dinámicas', 'avanzado', 3, 70, 'Simulador + Excel real', 'Analizar el año: sucursales, trimestres y tablero', '⊞', 4],
-    [13, 'Gestionar y automatizar información', 'avanzado', 3, 85, 'Simulador + Excel y Word', 'Registro de pedidos: captura, consulta, macro y cartas', '⚙', 4],
+    [1, 'Editar un libro de trabajo', 'basico', 1, 15, 'Simulador + Excel real', 'Depurar el catálogo de servicios', '✎', 3],
+    [2, 'Fórmulas básicas', 'basico', 1, 25, 'Simulador + Excel real', 'Somatometría y balance hídrico del turno', 'Σ', 3],
+    [3, 'Formato a hojas de trabajo', 'basico', 1, 20, 'Simulador + Excel real', 'Reporte semanal de atenciones presentable', 'A', 3],
+    [4, 'Insertar objetos', 'basico', 1, 10, 'Simulador + Excel real', 'Encabezado de la hoja de indicaciones', '◆', 2],
+    [5, 'Ver y administrar hojas de cálculo', 'basico', 1, 15, 'Simulador + Excel real', 'Una hoja por sede y una de resumen', '▤', 2],
+    [6, 'Gráficos', 'basico', 1, 30, 'Simulador + Excel real', '¿Qué servicio se usa más y cuándo se vacuna más?', '▮', 3],
+    [7, 'Fórmulas intermedias', 'basico', 1, 40, 'Simulador + Excel real', 'Clasificación de la glucosa en ayuno', 'ƒ', 4],
+    [8, 'Organizar datos', 'intermedio', 2, 35, 'Simulador + Excel real', 'Depurar el padrón de pacientes', '⇅', 3],
+    [9, 'Tablas', 'intermedio', 2, 30, 'Simulador + Excel real', 'Requisiciones de insumos con totales y filtros', '▦', 2],
+    [10, 'Formato intermedio', 'intermedio', 2, 30, 'Simulador + Excel real', 'Semáforo de la farmacia', '●', 3],
+    [11, 'Tablas dinámicas', 'intermedio', 2, 60, 'Simulador + Excel real', 'Atenciones del año: sedes, trimestres y tablero', '⊞', 4],
+    [12, 'Gestionar y automatizar información', 'avanzado', 3, 85, 'Simulador + Excel y Word', 'Órdenes de estudios: captura, consulta, macro y cartas', '⚙', 4],
+    [13, 'Dashboards', 'avanzado', 3, 70, 'Simulador + Excel real', 'Tablero del programa de enfermedades crónicas', '◔', 4],
   ].map(([id, titulo, nivel, sesion, min, entorno, reto, glifo, micro]) => ({ id, titulo, nivel, sesion, min, entorno, reto, glifo, micro, slug: 'm' + String(id).padStart(2, '0') }));
 
   /* Agenda de cada sesión de 180 minutos: números = módulos; [texto, minutos] = bloques fijos */
@@ -60,5 +60,5 @@
       '<text x="50" y="76" text-anchor="middle" font-family="Segoe UI,Arial" font-size="12" fill="rgba(255,255,255,.9)" font-weight="700">M' + id + '</text>' + estrella + '</svg>';
   }
 
-  LT.CURSO = { version: 2, NIVELES, MODULOS, SESIONES, modulo, nivel, agenda, insignia, gerente: 'Marta Ríos', cafeteria: 'Cafetería La Taza', formato: '3 sesiones de 3 horas' };
+  LT.CURSO = { version: 3, NIVELES, MODULOS, SESIONES, modulo, nivel, agenda, insignia, marca: 'Excel', coordinadora: 'Dra. Laura Méndez', institucion: 'Clínica Universitaria Vida Sana', formato: '3 sesiones de 3 horas' };
 })();

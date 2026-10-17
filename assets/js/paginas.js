@@ -23,22 +23,22 @@
     [nombre, grupo].forEach((x) => x.addEventListener('change', () => LT.progreso.participante({ nombre: nombre.value.trim(), grupo: grupo.value.trim() })));
     main.appendChild(h('section', { class: 'portada' }, h('div', { class: 'contenedor portada-grid' },
       h('div', null,
-        h('div', { class: 'chip', style: { background: 'rgba(255,255,255,.12)', color: '#f4e1cc', borderColor: 'rgba(255,255,255,.2)', marginBottom: '12px' } }, '3 sesiones de 3 horas · 13 módulos · 3 niveles'),
-        h('h1', null, 'Excel de básico a avanzado, resolviendo retos'),
-        h('p', { class: 'lead' }, 'Eres el nuevo analista de la Cafetería La Taza: tres sucursales, 20 productos y un año de ventas. Cada módulo te pide una tarea real del negocio; la practicas en el simulador, que revisa tus fórmulas al instante, y la demuestras en Excel.'),
+        h('div', { class: 'chip', style: { background: 'rgba(255,255,255,.12)', color: '#d7f0ec', borderColor: 'rgba(255,255,255,.2)', marginBottom: '12px' } }, '3 sesiones de 3 horas · 13 módulos · 3 niveles'),
+        h('h1', null, 'Excel, resolviendo retos reales'),
+        h('p', { class: 'lead' }, 'Te incorporas al área de Calidad y Estadística de la Clínica Universitaria Vida Sana: tres sedes, 20 servicios, un año de atenciones, pacientes, farmacia y un programa de enfermedades crónicas. Cada módulo te pide una tarea real de la clínica; la practicas en el simulador, que revisa tus fórmulas al instante, y la demuestras en Excel.'),
         h('div', { class: 'grupo-btn', style: { marginTop: '18px' } },
           h('a', { class: 'btn primario', href: P.urlModulo(siguiente.id) }, insignias ? 'Continuar: módulo ' + siguiente.id : 'Empezar con el módulo 1', ' →'),
-          h('a', { class: 'btn fantasma', style: { color: '#fbefe2' }, href: 'ubicacion.html?nivel=basico' }, 'Prueba de ubicación'))),
+          h('a', { class: 'btn fantasma', style: { color: '#e8f7f5' }, href: 'ubicacion.html?nivel=basico' }, 'Prueba de ubicación'))),
       h('div', { class: 'ficha-participante' },
         h('div', { style: { fontWeight: 600, color: '#fff' } }, 'Tu avance'),
         h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: '.9rem', margin: '8px 0 6px' } }, h('span', null, insignias + ' de ' + total + ' insignias'), h('span', null, avance + ' %')),
         h('div', { class: 'barra-avance' }, h('span', { style: { width: avance + '%' } })),
         h('label', null, 'Nombre'), nombre, h('label', null, 'Grupo'), grupo,
         h('div', { class: 'grupo-btn', style: { marginTop: '12px' } },
-          h('button', { class: 'btn chico', onclick: () => { LT.progreso.participante({ nombre: nombre.value.trim(), grupo: grupo.value.trim() }); if (!nombre.value.trim()) { LT.ui.aviso('Falta tu nombre', 'Escribe tu nombre para que el docente identifique tu reporte.'); return; } LT.u.descargar('reporte-la-taza-' + nombre.value.trim().toLowerCase().replace(/\s+/g, '-') + '.json', LT.progreso.reporte(), 'application/json'); } }, LT.icono('descargar', 15), 'Reporte para el docente'),
-          h('label', { class: 'btn chico fantasma', style: { color: '#fbefe2', cursor: 'pointer' } }, 'Cargar avance', h('input', { type: 'file', accept: '.json', class: 'sr', onchange: async (e) => { const f = e.target.files[0]; if (!f) return; try { const r = LT.progreso.importar(await f.text()); LT.ui.toast(r.integro ? 'Avance cargado.' : 'Avance cargado (el archivo fue modificado a mano).', r.integro ? 'ok' : 'aviso'); setTimeout(() => location.reload(), 600); } catch (er) { LT.ui.aviso('No se pudo cargar', er.message); } } }))),
-        h('p', { style: { fontSize: '.78rem', color: '#e6cdb2', margin: '10px 0 0' } }, 'Tu avance se guarda en este navegador. Usa el reporte para entregarlo o para pasarlo a otra computadora.'))),
-      h('div', { class: 'taza-fondo', html: LT.iconoSVG('taza', 300) })));
+          h('button', { class: 'btn chico', onclick: () => { LT.progreso.participante({ nombre: nombre.value.trim(), grupo: grupo.value.trim() }); if (!nombre.value.trim()) { LT.ui.aviso('Falta tu nombre', 'Escribe tu nombre para que el docente identifique tu reporte.'); return; } LT.u.descargar('reporte-excel-salud-' + nombre.value.trim().toLowerCase().replace(/\s+/g, '-') + '.json', LT.progreso.reporte(), 'application/json'); } }, LT.icono('descargar', 15), 'Reporte para el docente'),
+          h('label', { class: 'btn chico fantasma', style: { color: '#e8f7f5', cursor: 'pointer' } }, 'Cargar avance', h('input', { type: 'file', accept: '.json', class: 'sr', onchange: async (e) => { const f = e.target.files[0]; if (!f) return; try { const r = LT.progreso.importar(await f.text()); LT.ui.toast(r.integro ? 'Avance cargado.' : 'Avance cargado (el archivo fue modificado a mano).', r.integro ? 'ok' : 'aviso'); setTimeout(() => location.reload(), 600); } catch (er) { LT.ui.aviso('No se pudo cargar', er.message); } } }))),
+        h('p', { style: { fontSize: '.78rem', color: '#b9ddd8', margin: '10px 0 0' } }, 'Tu avance se guarda en este navegador. Usa el reporte para entregarlo o para pasarlo a otra computadora.'))),
+      h('div', { class: 'taza-fondo', html: LT.iconoSVG('salud', 300) })));
 
     const cont = h('div', { class: 'contenedor', id: 'modulos' });
     // cómo funciona
@@ -90,8 +90,8 @@
     // requisitos
     cont.appendChild(h('section', { class: 'seccion' }, h('h2', null, 'Antes de empezar'),
       h('div', { class: 'lab-grid' },
-        h('div', { class: 'tarjeta' }, h('h3', null, 'Lo que necesitas'), h('ul', null, h('li', null, 'Computadora con teclado y ratón, y un navegador actualizado.'), h('li', null, 'Excel de Microsoft 365 para Windows o Mac (recomendado). Excel para la web sirve en casi todos los módulos.'), h('li', null, 'Para el módulo 13 (Gestionar y automatizar): Excel y Word de escritorio. Excel para la web y iPad no ejecutan macros VBA ni combinan correspondencia con Excel.'), h('li', null, 'Para repasar la sintaxis de una función, abre la ', h('a', { href: 'funciones.html' }, 'Guía gráfica de funciones'), '.'))),
-        h('div', { class: 'tarjeta' }, h('h3', null, 'El caso: Cafetería La Taza'), h('p', null, 'Todos los módulos usan los mismos datos: el catálogo de 20 productos, las ventas de 2025 de las sucursales Centro, Norte y Sur, empleados, clientes, pedidos e inventario.'), h('div', { class: 'grupo-btn' }, h('a', { class: 'btn chico cafe', href: 'datos/la-taza-base.xlsx', download: 'la-taza-base.xlsx' }, LT.icono('descargar', 15), 'Libro de datos del caso'), h('a', { class: 'btn chico', href: 'funciones.html' }, 'Guía gráfica de funciones'), h('a', { class: 'btn chico', href: 'glosario.html' }, 'Glosario español-inglés'))))));
+        h('div', { class: 'tarjeta' }, h('h3', null, 'Lo que necesitas'), h('ul', null, h('li', null, 'Computadora con teclado y ratón, y un navegador actualizado.'), h('li', null, 'Excel de Microsoft 365 para Windows o Mac (recomendado). Excel para la web sirve en casi todos los módulos.'), h('li', null, 'Para el módulo 12 (Gestionar y automatizar): Excel y Word de escritorio. Excel para la web y iPad no ejecutan macros VBA ni combinan correspondencia con Excel.'), h('li', null, 'Para repasar la sintaxis de una función, abre la ', h('a', { href: 'funciones.html' }, 'Guía gráfica de funciones'), '.'))),
+        h('div', { class: 'tarjeta' }, h('h3', null, 'El caso: Clínica Universitaria Vida Sana'), h('p', null, 'Todos los módulos usan los mismos datos ficticios: el catálogo de 20 servicios, las atenciones de 2025 de las sedes Centro, Norte y Sur, el personal, el padrón de pacientes, la farmacia, las órdenes de estudios y el programa de enfermedades crónicas. Los valores clínicos son solo para practicar Excel.'), h('div', { class: 'grupo-btn' }, h('a', { class: 'btn chico cafe', href: 'datos/clinica-vida-sana-base.xlsx', download: 'clinica-vida-sana-base.xlsx' }, LT.icono('descargar', 15), 'Libro de datos del caso'), h('a', { class: 'btn chico', href: 'funciones.html' }, 'Guía gráfica de funciones'), h('a', { class: 'btn chico', href: 'glosario.html' }, 'Glosario español-inglés'))))));
     main.appendChild(cont);
     P.montar(main);
     if (location.hash) setTimeout(() => { const t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); }, 50);
@@ -100,43 +100,43 @@
   /* ================================================= PRUEBA DE UBICACIÓN */
   const op = (texto, opciones, correcta, explicacion) => ({ tipo: 'opcion', texto, opciones, correcta, explicacion });
   const fx = (texto, hoja, celda, solucion, usa) => ({ tipo: 'formula', texto, hoja, celda, solucion, usa });
-  const D = window.LA_TAZA;
+  const D = window.CASO;
   const PRUEBAS = {
     basico: [
-      op('¿Qué parte de la ventana muestra el contenido real de la celda activa (por ejemplo, su fórmula)?', ['Barra de fórmulas', 'Cuadro de nombres', 'Barra de estado', 'Cinta de opciones'], 0),
-      op('Excel se cerró de repente. ¿Qué función guarda copias periódicas para recuperar tu trabajo?', ['Autorrecuperación', 'Autocorrección', 'Autoajustar', 'Autofiltro'], 0),
-      op('¿Cómo se llama la celda que está en la columna C y la fila 5?', ['5C', 'C5', 'C:5', 'F5C'], 1),
-      op('¿Qué resultado da <code>=10-2*3</code>?', ['24', '4', '16', '-4'], 1),
+      op('Escribes <b>CON-004</b> en A1 y arrastras el controlador de relleno dos celdas hacia abajo. ¿Qué aparece en A3?', ['CON-004', 'CON-005', 'CON-006', 'CON-0041'], 2),
+      op('¿Qué resultado da <code>=70/1.75^2</code>?', ['22.9', '1600', '40', '3.06'], 0),
       op('¿Qué función cuenta las celdas que contienen números?', ['SUMA', 'CONTAR', 'CONTARA', 'MAX'], 1),
-      fx('En B7 escribe una fórmula que sume las ventas de B2 a B6.', { hojas: [{ nombre: 'Hoja1', datos: [['Día', 'Ventas'], ['Lun', 3200], ['Mar', 2950], ['Mié', 3410], ['Jue', 3600], ['Vie', 4120], ['Total']], objetivo: 'B7', filas: 8, cols: 4 }] }, 'B7', { B7: '=SUMA(B2:B6)' }, ['SUMA']),
-      op('Escribes <b>CAF-009</b> en A1 y arrastras el controlador de relleno dos celdas hacia abajo. ¿Qué aparece en A3?', ['CAF-009', 'CAF-010', 'CAF-011', 'CAF-0011'], 2),
-      op('Una celda guarda 0.35 y le das formato de porcentaje. ¿Qué se ve?', ['0.35%', '35%', '3.5%', '$0.35'], 1),
-      op('Para mostrar cómo cambian las ventas mes a mes, ¿qué gráfico conviene?', ['Circular', 'Líneas', 'Dispersión', 'Anillos'], 1),
-      op('¿Cómo traes el valor de B5 de la hoja Norte?', ['=Norte.B5', '=Norte!B5', '=B5!Norte', '=[Norte]B5'], 1),
+      fx('En B7 escribe una fórmula que sume el volumen de B2 a B6.', { hojas: [{ nombre: 'Hoja1', datos: [['Solución', 'Volumen (mL)'], ['Salina 0.9 %', 500], ['Glucosada 5 %', 250], ['Hartmann', 500], ['Salina 0.9 %', 250], ['Glucosada 5 %', 100], ['Total']], objetivo: 'B7', filas: 8, cols: 4 }] }, 'B7', { B7: '=SUMA(B2:B6)' }, ['SUMA']),
+      op('Una celda guarda 0.068 y tiene formato de porcentaje sin decimales. ¿Qué se ve?', ['0.068%', '7%', '6.8%', '68%'], 1),
+      op('¿Cómo traes el valor de I11 de la hoja Norte?', ['=Norte.I11', '=Norte!I11', '=I11!Norte', '=[Norte]I11'], 1),
+      op('Para mostrar cómo cambiaron los casos de influenza semana a semana, ¿qué gráfico conviene?', ['Circular', 'Líneas', 'Barras apiladas 3D', 'Anillos'], 1),
+      op('En <code>=B2*$F$1</code>, ¿qué pasa con <code>$F$1</code> al copiar la fórmula hacia abajo?', ['Cambia a F2', 'Se queda fija en F1', 'Cambia a $F$2', 'Marca error'], 1),
+      fx('En C2 escribe una fórmula que muestre «Alterada» si la glucosa de B2 es 100 o más, y «Normal» si no. Cópiala hasta C5.', { hojas: [{ nombre: 'Hoja1', datos: [['Paciente', 'Glucosa', 'Clasificación'], ['EXP-1', 92], ['EXP-2', 100], ['EXP-3', 134], ['EXP-4', 87]], objetivo: 'C2:C5', filas: 7, cols: 4 }] }, 'C2:C5', { 'C2:C5': '=SI(B2>=100,"Alterada","Normal")' }, ['SI']),
+      op('¿Cuál fórmula cuenta cuántas glucosas de C2:C21 son mayores o iguales al umbral de F1?', ['=CONTAR(C2:C21,">="&F1)', '=CONTAR.SI(C2:C21,">="&F1)', '=CONTAR.SI(C2:C21,>=F1)', '=SI(C2:C21>=F1)'], 1),
     ],
     intermedio: [
-      op('En <code>=C2*$F$1</code>, ¿qué pasa con <code>$F$1</code> al copiar la fórmula hacia abajo?', ['Cambia a F2', 'Se queda fija en F1', 'Cambia a $F$2', 'Marca error'], 1),
-      fx('En C2 escribe una fórmula que muestre «Aprobado» si B2 es 70 o más, y «Revisar» si no. Cópiala hasta C5.', { hojas: [{ nombre: 'Hoja1', datos: [['Alumno', 'Puntos', 'Resultado'], ['Ana', 82], ['Beto', 69], ['Caro', 70], ['Dani', 45]], objetivo: 'C2:C5', filas: 7, cols: 4 }] }, 'C2:C5', { 'C2:C5': '=SI(B2>=70,"Aprobado","Revisar")' }, ['SI']),
-      op('¿Cuál fórmula cuenta cuántas ventas de B2:B21 son de «Norte»?', ['=CONTAR(B2:B21,"Norte")', '=CONTAR.SI(B2:B21,"Norte")', '=SUMAR.SI(B2:B21,"Norte")', '=SI(B2:B21="Norte")'], 1),
       op('¿Dónde está «Quitar duplicados»?', ['Inicio', 'Datos', 'Insertar', 'Fórmulas'], 1),
       op('La columna A tiene «Lucía Pérez». ¿Qué herramienta separa nombre y apellido en dos columnas?', ['Texto en columnas', 'Combinar y centrar', 'Validación de datos', 'Ordenar'], 0),
+      op('Seleccionas solo la columna Apellido de un padrón y la ordenas sin ampliar la selección. ¿Qué pasa?', ['Los apellidos quedan en la fila de otros pacientes', 'Excel ordena todo correctamente', 'No pasa nada', 'Se borran los duplicados'], 0),
       op('En una tabla, ¿qué significa <code>[@Cantidad]</code>?', ['La cantidad de la misma fila', 'La suma de la columna Cantidad', 'La primera cantidad', 'Un nombre definido'], 0),
       op('¿Por qué la fila de totales de una tabla usa SUBTOTALES?', ['Ignora las filas filtradas', 'Es más rápida', 'Redondea', 'Cuenta texto'], 0),
       op('Aplicas a C2:C16 la regla «menor que =$D2». ¿Con qué se compara C9?', ['D2', 'D9', 'C2', 'D16'], 1),
-      op('Quieres que en la columna Estado solo se pueda elegir «Pendiente» o «Entregado». ¿Qué usas?', ['Validación de datos › Lista', 'Formato condicional', 'Proteger hoja', 'Texto en columnas'], 0),
-      op('Escribes «Lucía» junto a «lucía pérez» y Excel propone completar toda la columna con ese patrón. ¿Cómo se llama?', ['Relleno rápido', 'Autosuma', 'Series', 'Autocompletar fórmula'], 0),
+      op('En una tabla dinámica, ¿qué área usas para sumar las atenciones?', ['Filas', 'Columnas', 'Valores', 'Filtros'], 2),
+      op('Pones la Fecha en Filas y quieres ver trimestres. ¿Qué haces?', ['Agrupar por trimestres', 'Ordenar por fecha', 'Cambiar el formato de fecha', 'Usar un filtro'], 0),
+      op('Quieres saber cuántos <b>registros</b> hay por sede, no cuántas atenciones suman. ¿Cómo resumes el campo?', ['Cuenta', 'Suma', 'Promedio', 'Máx.'], 0),
+      op('Agregaste registros a la lista de origen y la tabla dinámica no cambió. ¿Qué falta?', ['Actualizar la tabla dinámica', 'Guardar el archivo', 'Rehacer la tabla', 'Usar SUMA'], 0),
     ],
     avanzado: [
-      op('En una tabla dinámica, ¿qué área usas para sumar el Total de ventas?', ['Filas', 'Columnas', 'Valores', 'Filtros'], 2),
-      op('Pones la Fecha en Filas y quieres ver trimestres. ¿Qué haces?', ['Agrupar por trimestres', 'Ordenar por fecha', 'Cambiar el formato de fecha', 'Usar un filtro'], 0),
-      op('¿Qué herramienta agrega botones para filtrar una tabla dinámica (y su gráfico) con un clic?', ['Segmentación de datos', 'Validación de datos', 'Formato condicional', 'Inmovilizar paneles'], 0),
-      op('¿Qué es un gráfico dinámico?', ['Un gráfico conectado a una tabla dinámica que cambia con sus campos y filtros', 'Un gráfico con animación', 'Un minigráfico dentro de una celda', 'Un gráfico que se actualiza solo con internet'], 0),
-      op('Quieres ver la venta más alta de cada sucursal en la tabla dinámica. ¿Qué haces?', ['Configuración de campo de valor › Resumir por Máx.', 'Ordenar de mayor a menor', 'Agregar un filtro', 'Agrupar'], 0),
-      op('En una base de datos bien diseñada…', ['Cada fila es un registro y cada columna es un campo', 'Cada hoja es un registro', 'Los títulos van en celdas combinadas sobre los datos', 'Se deja una fila vacía entre meses'], 0),
-      fx('En F2 trae el precio del código de E2 desde la tabla A1:C6 (usa BUSCARX o INDICE+COINCIDIR).', { hojas: [{ nombre: 'Hoja1', datos: [['Código', 'Producto', 'Precio', '', 'Buscar', 'Precio'], ...D.productos.slice(0, 5).map((p) => [p.codigo, p.nombre, p.precio])], celdas: { E2: 'CAF-004' }, objetivo: 'F2', filas: 8, cols: 7 }] }, 'F2', { F2: '=BUSCARX(E2,A2:A6,C2:C6)' }, ['BUSCARX', 'INDICE', 'BUSCARV']),
+      op('En una base de datos bien diseñada…', ['Cada fila es un registro y cada columna es un campo', 'Cada hoja es un paciente', 'Los títulos van en celdas combinadas sobre los datos', 'Se deja una fila vacía entre meses'], 0),
+      op('En una celda alguien capturó «TA 130/85». ¿Qué conviene hacer en el diseño de la base?', ['Separar presión sistólica y diastólica en dos campos numéricos', 'Dejarlo así porque se entiende', 'Combinar las dos celdas', 'Escribirlo en un comentario'], 0),
+      fx('En F2 trae la cuota del estudio de E2 desde la tabla A1:B6 (usa BUSCARX o INDICE+COINCIDIR).', { hojas: [{ nombre: 'Hoja1', datos: [['Estudio', 'Cuota', '', '', 'Buscar', 'Cuota'], ...D.estudios.slice(0, 5).map((e) => [e.estudio, e.cuota])], celdas: { E2: 'Perfil de lípidos' }, anchos: { A: 170, E: 150 }, objetivo: 'F2', filas: 8, cols: 7 }] }, 'F2', { F2: '=BUSCARX(E2,A2:A6,B2:B6)' }, ['BUSCARX', 'INDICE', 'BUSCARV']),
+      op('Quieres que en la columna Edad solo se acepten enteros de 0 a 110. ¿Qué usas?', ['Validación de datos › Número entero', 'Formato condicional', 'Proteger hoja', 'Texto en columnas'], 0),
       op('¿En qué formato se guarda un libro con macros?', ['.xlsx', '.xlsm', '.csv', '.pdf'], 1),
       op('Abres un libro con macros y aparece la barra «Habilitar contenido». ¿Qué haces?', ['La habilito solo si confío en el origen del archivo', 'Siempre la habilito', 'Guardo como .xlsx para quitarla', 'Cierro Excel sin guardar'], 0),
       op('Al combinar correspondencia, ¿de dónde toma Word los datos de cada carta?', ['De una lista (por ejemplo, una hoja de Excel) donde cada fila es un destinatario', 'Del portapapeles', 'De las propiedades del documento', 'De una imagen de la tabla'], 0),
+      op('«% de pacientes con diabetes con HbA1c menor a 7 %» es, según Donabedian, un indicador de…', ['Resultado', 'Estructura', 'Proceso', 'Costos'], 0),
+      op('Una segmentación filtra una tabla dinámica pero no las demás del tablero. ¿Qué falta?', ['Conectarla en Conexiones de informe', 'Actualizar el libro', 'Insertar otra segmentación igual', 'Convertir los gráficos en imágenes'], 0),
+      op('¿Qué fórmula cuenta las consultas de la sede de C2 <b>y</b> el programa de C3?', ['=CONTAR.SI.CONJUNTO(Sede,C2,Programa,C3)', '=CONTAR.SI(Sede,C2,Programa,C3)', '=CONTAR(Sede=C2,Programa=C3)', '=SUMAR.SI(Sede,C2)'], 0),
     ],
   };
 
@@ -210,44 +210,67 @@
     ['Presentación', ['Difícil de leer', 'Formato inconsistente', 'Claro y consistente', 'Listo para entregar al gerente']],
     ['Explicación', ['No explica su libro', 'Explica con ayuda', 'Explica cómo lo hizo', 'Explica por qué eligió esa solución']],
   ];
+  const kpiTablero = (L, A) => {
+    const filas = [];
+    for (let r = 2; r <= 600; r++) { const f = L.valor('Consultas', 'A' + r); if (f == null || f === '') break; filas.push(r); }
+    const n = filas.length;
+    const sies = filas.filter((r) => String(L.valor('Consultas', 'G' + r)) === 'Sí').length;
+    const espera = filas.reduce((s, r) => s + (A.num(L.valor('Consultas', 'H' + r)) || 0), 0) / n;
+    for (const d of ['C4', 'C5', 'C6']) if (!L.tieneFormula('Tablero', d)) return 'Tablero!' + d + ' debe calcularse con una fórmula.';
+    if (!A.cerca(A.num(L.valor('Tablero', 'C4')), n)) return 'Tablero!C4 debería mostrar ' + n + ' consultas.';
+    const c5 = A.num(L.valor('Tablero', 'C5'));
+    if (!(A.cerca(c5, sies / n) || A.cerca(c5, sies / n * 100))) return 'Tablero!C5 debería ser el % de pacientes en control.';
+    return A.cerca(A.num(L.valor('Tablero', 'C6')), espera) ? true : 'Tablero!C6 debería ser la espera promedio.';
+  };
   const INTEGRADORES = {
     basico: {
-      titulo: 'Reporte semanal de ventas', archivo: 'int-basico.xlsx', acepta: '.xlsx',
-      descargas: [{ ruta: 'assets/img/logo-la-taza.png', texto: 'Logo de La Taza (PNG)' }],
-      situacion: 'Marta necesita el reporte semanal de la sucursal Sur listo para la junta: con los cálculos, presentable, con una gráfica, el logo y una hoja de resumen.',
-      tareas: ['En la hoja <b>Semana</b>: J4:J11 = unidades de la semana de cada producto (suma de Lun a Dom); K4:K11 = ventas (precio × unidades); J12 y K12 = totales; N4 = promedio de ventas por producto; N5 = venta mayor.', 'Formato: título destacado, encabezados A3:K3 en negrita con relleno, precio y ventas en moneda, bordes en A3:K12.', 'Un gráfico de columnas o barras de las ventas por producto, con título.', 'Inserta el logo de La Taza en la hoja Semana.', 'Agrega una hoja llamada <b>Resumen</b> con el total de la semana en B2 (fórmula que tome <code>Semana!K12</code>).', 'Escribe el título del documento «Reporte semanal Sur» (Archivo › Información › Propiedades).'],
+      titulo: 'Reporte semanal de atenciones', archivo: 'int-basico.xlsx', acepta: '.xlsx',
+      descargas: [{ ruta: 'assets/img/logo-vida-sana.png', texto: 'Logo de la clínica (PNG)' }],
+      situacion: 'Necesito el reporte semanal de la sede Sur listo para el Comité de Calidad: con los cálculos, la clasificación de demanda, presentable, con una gráfica, el logo y una hoja de resumen.',
+      tareas: ['En la hoja <b>Semana</b>: J4:J11 = atenciones de la semana de cada servicio (suma de Lun a Dom); K4:K11 = ingresos (cuota × atenciones); J12 y K12 = totales; N4 = promedio de ingresos por servicio; N5 = ingreso mayor.', 'L4:L11: «Alta demanda» si las atenciones de la semana son mayores o iguales al umbral de N1; si no, «Normal» (fija N1 con $).', 'Formato: título destacado, encabezados A3:L3 en negrita con relleno, cuota e ingresos en moneda, bordes en A3:K12.', 'Un gráfico de columnas o barras de las atenciones por servicio, con título.', 'Inserta el logo de la clínica en la hoja Semana.', 'Agrega una hoja llamada <b>Resumen</b> con los ingresos de la semana en B2 (fórmula que tome <code>Semana!K12</code>).', 'Escribe el título del documento «Reporte semanal Sur» (Archivo › Información › Propiedades).'],
       pruebas: () => [
-        { titulo: 'Unidades y ventas con fórmulas correctas', fn: (L, A) => { A.hoja('Semana'); for (let r = 4; r <= 11; r++) { let u = 0; for (const c of 'CDEFGHI') u += A.num(L.valor('Semana', c + r)) || 0; const p = A.num(L.valor('Semana', 'B' + r)); if (!L.tieneFormula('Semana', 'J' + r) || !A.cerca(A.num(L.valor('Semana', 'J' + r)), u)) return 'J' + r + ' debe sumar las unidades de la semana (' + u + ').'; if (!L.tieneFormula('Semana', 'K' + r) || !A.cerca(A.num(L.valor('Semana', 'K' + r)), u * p)) return 'K' + r + ' debe ser precio × unidades.'; } return true; } },
-        { titulo: 'Totales y resumen', fn: (L, A) => { const ks = []; for (let r = 4; r <= 11; r++) ks.push(A.num(L.valor('Semana', 'K' + r))); const tot = ks.reduce((a, b) => a + b, 0); if (!A.cerca(A.num(L.valor('Semana', 'K12')), tot)) return 'K12 debe sumar las ventas.'; if (!A.cerca(A.num(L.valor('Semana', 'N4')), tot / 8)) return 'N4 debe ser el promedio de ventas por producto.'; return A.cerca(A.num(L.valor('Semana', 'N5')), Math.max(...ks)) ? true : 'N5 debe ser la venta mayor.'; } },
-        { titulo: 'Formato del reporte', fn: (L, A) => { for (const x of L.celdasRango('A3:K3')) { const e = L.estilo('Semana', x.dir); if (!e.negrita || !e.relleno) return x.dir + ' debe ir en negrita y con relleno.'; } for (const d of ['B4', 'K4', 'K12']) if (!A.formatoMoneda(L.estilo('Semana', d).numFmt)) return d + ' debe tener formato de moneda.'; for (const x of L.celdasRango('A3:K12')) if (!L.estilo('Semana', x.dir).tieneBordes) return x.dir + ' no tiene bordes.'; return true; } },
-        { titulo: 'Gráfico de ventas por producto', fn: (L) => { const g = L.graficos.find((x) => x.tipos.some((t) => t === 'columnas' || t === 'barras')); return g ? (g.tieneTitulo ? true : 'El gráfico necesita título.') : 'Falta el gráfico de columnas o barras.'; } },
-        { titulo: 'Logo insertado', fn: (L) => (L.hoja('Semana').dibujo.imagenes.length ? true : 'Inserta el logo de La Taza en la hoja Semana (Insertar › Imágenes).') },
-        { titulo: 'Hoja Resumen conectada', fn: (L, A) => { if (!L.hoja('Resumen')) return 'Agrega una hoja llamada «Resumen».'; const c = L.celda('Resumen', 'B2'); if (!c || c.f == null || !/semana/i.test(c.f)) return 'Resumen!B2 debe ser una fórmula que tome Semana!K12.'; return A.cerca(A.num(L.valor('Resumen', 'B2')), A.num(L.valor('Semana', 'K12'))) ? true : 'Resumen!B2 debe mostrar el total de la semana.'; } },
+        { titulo: 'Atenciones e ingresos con fórmulas correctas', fn: (L, A) => { A.hoja('Semana'); for (let r = 4; r <= 11; r++) { let u = 0; for (const c of 'CDEFGHI') u += A.num(L.valor('Semana', c + r)) || 0; const p = A.num(L.valor('Semana', 'B' + r)); if (!L.tieneFormula('Semana', 'J' + r) || !A.cerca(A.num(L.valor('Semana', 'J' + r)), u)) return 'J' + r + ' debe sumar las atenciones de la semana (' + u + ').'; if (!L.tieneFormula('Semana', 'K' + r) || !A.cerca(A.num(L.valor('Semana', 'K' + r)), u * p)) return 'K' + r + ' debe ser cuota × atenciones.'; } return true; } },
+        { titulo: 'Totales y resumen', fn: (L, A) => { const ks = []; for (let r = 4; r <= 11; r++) ks.push(A.num(L.valor('Semana', 'K' + r))); const tot = ks.reduce((a, b) => a + b, 0); if (!A.cerca(A.num(L.valor('Semana', 'K12')), tot)) return 'K12 debe sumar los ingresos.'; if (!A.cerca(A.num(L.valor('Semana', 'N4')), tot / 8)) return 'N4 debe ser el promedio de ingresos por servicio.'; return A.cerca(A.num(L.valor('Semana', 'N5')), Math.max(...ks)) ? true : 'N5 debe ser el ingreso mayor.'; } },
+        { titulo: 'Clasificación de demanda con SI y umbral fijo', fn: (L, A) => {
+          const revisar = (val, u) => { for (let r = 4; r <= 11; r++) { const j = A.num(val('Semana', 'J' + r)); const e = j >= u ? 'alta demanda' : 'normal'; if (String(val('Semana', 'L' + r) || '').trim().toLowerCase() !== e) return 'L' + r; } return null; };
+          if (A.sinFormula('Semana', 'L4:L11')) return 'L4:L11 deben ser fórmulas con SI.';
+          const mal = revisar((h, d) => L.valor(h, d), A.num(L.valor('Semana', 'N1')));
+          if (mal) return mal + ' no clasifica bien: «Alta demanda» si J ≥ N1.';
+          const v = A.conCambios({ 'Semana!N1': 40 });
+          const mal2 = revisar(v, 40);
+          v.restaurar();
+          return mal2 ? 'Si el umbral cambia, ' + mal2 + ' no se actualiza: fija N1 con $N$1.' : true;
+        } },
+        { titulo: 'Formato del reporte', fn: (L, A) => { for (const x of L.celdasRango('A3:L3')) { const e = L.estilo('Semana', x.dir); if (!e.negrita || !e.relleno) return x.dir + ' debe ir en negrita y con relleno.'; } for (const d of ['B4', 'K4', 'K12']) if (!A.formatoMoneda(L.estilo('Semana', d).numFmt)) return d + ' debe tener formato de moneda.'; for (const x of L.celdasRango('A3:K12')) if (!L.estilo('Semana', x.dir).tieneBordes) return x.dir + ' no tiene bordes.'; return true; } },
+        { titulo: 'Gráfico de atenciones por servicio', fn: (L) => { const g = L.graficos.find((x) => x.tipos.some((t) => t === 'columnas' || t === 'barras')); return g ? (g.tieneTitulo ? true : 'El gráfico necesita título.') : 'Falta el gráfico de columnas o barras.'; } },
+        { titulo: 'Logo insertado', fn: (L) => (L.hoja('Semana').dibujo.imagenes.length ? true : 'Inserta el logo de la clínica en la hoja Semana (Insertar › Imágenes).') },
+        { titulo: 'Hoja Resumen conectada', fn: (L, A) => { if (!L.hoja('Resumen')) return 'Agrega una hoja llamada «Resumen».'; const c = L.celda('Resumen', 'B2'); if (!c || c.f == null || !/semana/i.test(c.f)) return 'Resumen!B2 debe ser una fórmula que tome Semana!K12.'; return A.cerca(A.num(L.valor('Resumen', 'B2')), A.num(L.valor('Semana', 'K12'))) ? true : 'Resumen!B2 debe mostrar los ingresos de la semana.'; } },
         { titulo: 'Título del documento', fn: (L) => (/reporte semanal/i.test(L.propiedades.titulo) ? true : 'Escribe el título «Reporte semanal Sur» en Archivo › Información › Propiedades.') },
       ],
     },
     intermedio: {
-      titulo: 'Base de pedidos confiable', archivo: 'int-intermedio.xlsx', acepta: '.xlsx',
-      situacion: 'La base de pedidos tiene registros repetidos y nadie confía en los totales. Déjala limpia, con totales automáticos, alertas, captura controlada y las comisiones del mes.',
-      tareas: ['Hoja <b>Pedidos</b>: quita los registros duplicados.', 'Convierte los pedidos en una tabla llamada <b>Pedidos</b> con la columna calculada <b>Importe</b> (cantidad × precio) y la fila de totales.', 'Formato condicional: resalta los pedidos con Estado «Pendiente».', 'Lista desplegable en la columna <b>Estado</b> con «Pendiente» y «Entregado».', 'Hoja <b>Comisiones</b>: D2:D21 con la comisión (meta en F1, tasa en F2) y F4 con cuántos alcanzaron la meta.'],
+      titulo: 'Base de requisiciones confiable', archivo: 'int-intermedio.xlsx', acepta: '.xlsx',
+      situacion: 'La base de requisiciones de insumos tiene registros repetidos y nadie confía en los totales. Déjala limpia, como tabla con totales automáticos, con alertas, captura controlada y un resumen dinámico por área.',
+      tareas: ['Hoja <b>Requisiciones</b>: quita los registros duplicados.', 'Convierte los datos en una tabla llamada <b>Requisiciones</b> con la columna calculada <b>Importe</b> (cantidad × precio) y la fila de totales.', 'Formato condicional: resalta las requisiciones con Estado «Pendiente».', 'Lista desplegable en la columna <b>Estado</b> con «Surtida» y «Pendiente».', 'Hoja nueva con una <b>tabla dinámica</b>: suma de Importe por Área.'],
       pruebas: () => [
-        { titulo: 'Sin pedidos duplicados', fn: (L, A) => { A.hoja('Pedidos'); const f = []; for (let r = 2; r <= 60; r++) { const v = L.valor('Pedidos', 'A' + r); if (v == null || v === '' || /total/i.test(String(v))) continue; if (f.includes(v)) return 'El folio ' + v + ' está repetido.'; f.push(v); } return f.length === 40 ? true : 'Deben quedar 40 pedidos (hay ' + f.length + ').'; } },
-        { titulo: 'Tabla «Pedidos» con Importe y totales', fn: (L) => { const t = L.tablas.find((x) => /^pedidos$/i.test(x.nombre)); if (!t) return 'Convierte los datos en una tabla llamada Pedidos.'; const c = t.columnas.find((x) => /importe/i.test(x.nombre)); if (!c || !/cantidad/i.test(c.formulaCalculada || '') || !/precio/i.test(c.formulaCalculada || '')) return 'Agrega la columna calculada Importe = [@Cantidad]*[@Precio].'; return t.filaTotales ? true : 'Activa la fila de totales.'; } },
-        { titulo: 'Pendientes resaltados', fn: (L) => (L.hoja('Pedidos').condicionales.some((x) => (x.formulas || []).concat([x.texto || '']).some((f) => /pendiente/i.test(f))) ? true : 'Agrega un formato condicional para los pedidos «Pendiente».') },
-        { titulo: 'Lista desplegable en Estado', fn: (L, A) => { const v = L.hoja('Pedidos').validaciones.find((x) => x.tipo === 'list' && A.rangoCubre(x.sqref, 'I2:I30')); if (!v) return 'Agrega una lista desplegable (Validación de datos › Lista) en la columna Estado.'; return /pendiente/i.test(v.formula1 || '') || /\$?[A-Z]{1,3}\$?\d/.test(v.formula1 || '') ? true : 'La lista debe ofrecer «Pendiente» y «Entregado».'; } },
-        { titulo: 'Comisiones correctas', fn: (L, A) => { A.hoja('Comisiones'); const meta = A.num(L.valor('Comisiones', 'F1')), tasa = A.num(L.valor('Comisiones', 'F2')); const mal = A.valoresMal('Comisiones', 'D2:D21', (d, r) => { const v = A.num(L.valor('Comisiones', 'C' + (r + 1))); return v >= meta ? v * tasa : 0; }); if (mal) return mal.dir + ' debería ser ' + A.fmtEs(mal.e) + '.'; if (A.sinFormula('Comisiones', 'D2:D21')) return 'Las comisiones deben ser fórmulas.'; const n = L.celdasRango('C2:C21').filter((x) => A.num(L.valor('Comisiones', x.dir)) >= meta).length; return A.cerca(A.num(L.valor('Comisiones', 'F4')), n) && L.usaFuncion('Comisiones', 'F4', ['COUNTIF', 'COUNTIFS']) ? true : 'F4 debe contar con CONTAR.SI cuántos alcanzaron la meta.'; } },
+        { titulo: 'Sin requisiciones duplicadas', fn: (L, A) => { A.hoja('Requisiciones'); const f = []; for (let r = 2; r <= 60; r++) { const v = L.valor('Requisiciones', 'A' + r); if (v == null || v === '' || /total/i.test(String(v))) continue; if (f.includes(v)) return 'El folio ' + v + ' está repetido.'; f.push(v); } return f.length === 40 ? true : 'Deben quedar 40 requisiciones (hay ' + f.length + ').'; } },
+        { titulo: 'Tabla «Requisiciones» con Importe y totales', fn: (L) => { const t = L.tablas.find((x) => /^requisiciones$/i.test(x.nombre)); if (!t) return 'Convierte los datos en una tabla llamada Requisiciones.'; const c = t.columnas.find((x) => /importe/i.test(x.nombre)); if (!c || !/cantidad/i.test(c.formulaCalculada || '') || !/precio/i.test(c.formulaCalculada || '')) return 'Agrega la columna calculada Importe = [@Cantidad]*[@Precio].'; return t.filaTotales ? true : 'Activa la fila de totales.'; } },
+        { titulo: 'Pendientes resaltados', fn: (L) => (L.hoja('Requisiciones').condicionales.some((x) => (x.formulas || []).concat([x.texto || '']).some((f) => /pendiente/i.test(f))) ? true : 'Agrega un formato condicional para las requisiciones «Pendiente».') },
+        { titulo: 'Lista desplegable en Estado', fn: (L, A) => { const v = L.hoja('Requisiciones').validaciones.find((x) => x.tipo === 'list' && A.rangoCubre(x.sqref, 'I2:I30')); if (!v) return 'Agrega una lista desplegable (Validación de datos › Lista) en la columna Estado.'; return /pendiente/i.test(v.formula1 || '') || /\$?[A-Z]{1,3}\$?\d/.test(v.formula1 || '') ? true : 'La lista debe ofrecer «Surtida» y «Pendiente».'; } },
+        { titulo: 'Tabla dinámica de Importe por Área', fn: (L) => (L.dinamicas.some((p) => p.valores.some((v) => /importe/i.test(v.campo)) && p.filas.concat(p.columnas).some((c) => /[aá]rea/i.test(c.nombre))) ? true : 'Crea una tabla dinámica con Área en filas (o columnas) y la suma de Importe en valores.') },
       ],
     },
     avanzado: {
       titulo: 'Tablero y gestión automatizada', archivo: 'int-avanzado.xlsx', acepta: '.xlsm',
-      situacion: 'Para el cierre del año, Marta quiere un libro que trabaje solo: un tablero de ventas con filtros y un registro de pedidos que se capture sin errores, busque precios, responda consultas y tenga un botón para limpiar la consulta.',
-      tareas: ['Hoja nueva <b>Tablero</b>: tabla dinámica con la suma de Total por mes, gráfico dinámico y segmentación por Sucursal.', 'Hoja <b>Pedidos</b>: listas desplegables de clientes (C2:C60) y productos (D2:D60) y cantidad entera de 1 a 200 (E2:E60).', 'Pedidos: Precio (F) con BUSCARX desde el Catálogo e Importe (G) = Cantidad × Precio.', 'Hoja <b>Consulta</b>: C4 = número de pedidos y C5 = total comprado del cliente de C2.', 'Una macro que limpie Consulta!C2, asignada a un botón. Guarda como <b>.xlsm</b> y súbelo.'],
+      situacion: 'Para el cierre del año, la dirección quiere un libro que trabaje solo: un dashboard del programa de crónicos con filtros y un registro de órdenes que se capture sin errores, busque cuotas, responda consultas y tenga un botón para limpiar la consulta.',
+      tareas: ['Hoja <b>Tablero</b>: tarjetas C4 (consultas), C5 (% de pacientes en control) y C6 (espera promedio) con fórmulas; al menos dos tablas dinámicas y dos gráficos dinámicos de la hoja Consultas; segmentación por Programa conectada a dos o más tablas dinámicas.', 'Hoja <b>Órdenes</b>: listas desplegables de pacientes (C2:C60) y estudios (E2:E60) y edad entera de 0 a 110 (D2:D60).', 'Órdenes: Cuota (F) con BUSCARX desde el Catálogo.', 'Hoja <b>Consulta</b>: C4 = número de órdenes y C5 = ingresos del estudio de C2.', 'Una macro que limpie Consulta!C2, asignada a un botón. Guarda como <b>.xlsm</b> y súbelo.'],
       pruebas: () => [
-        { titulo: 'Tablero con tabla y gráfico dinámicos', fn: (L) => (!L.dinamicas.length ? 'Falta la tabla dinámica.' : L.graficos.some((g) => g.dinamico) ? true : 'Falta el gráfico dinámico.') },
-        { titulo: 'Segmentación por Sucursal', fn: (L) => (L.segmentaciones.some((s) => /sucursal/i.test(s.campo || s.nombre)) ? true : 'Falta la segmentación por Sucursal.') },
-        { titulo: 'Captura validada en Pedidos', fn: (L, A) => { const hj = A.hoja('Pedidos'); const v = (col) => hj.validaciones.find((x) => A.rangoCubre(x.sqref, col + '2:' + col + '31')); const c = v('C'), d = v('D'), e = v('E'); if (!c || c.tipo !== 'list') return 'Falta la lista desplegable de clientes en C2:C60.'; if (!d || d.tipo !== 'list') return 'Falta la lista desplegable de productos en D2:D60.'; return e && e.tipo === 'whole' && +e.formula1 === 1 && +e.formula2 === 200 ? true : 'En E2:E60 permite solo enteros de 1 a 200.'; } },
-        { titulo: 'Precio con BUSCARX e importe', fn: (L, A) => { for (let r = 2; r <= 31; r++) { if (!L.usaFuncion('Pedidos', 'F' + r, ['XLOOKUP', 'INDEX', 'VLOOKUP'])) return 'F' + r + ' debe buscar el precio con BUSCARX.'; const cant = A.num(L.valor('Pedidos', 'E' + r)), pre = A.num(L.valor('Pedidos', 'F' + r)); if (!L.tieneFormula('Pedidos', 'G' + r) || !A.cerca(A.num(L.valor('Pedidos', 'G' + r)), cant * pre)) return 'G' + r + ' debe calcular Cantidad × Precio.'; } return true; } },
-        { titulo: 'Consulta por cliente', fn: (L, A) => { A.hoja('Consulta'); if (!L.usaFuncion('Consulta', 'C4', ['COUNTIF', 'COUNTIFS']) || !L.usaFuncion('Consulta', 'C5', ['SUMIF', 'SUMIFS'])) return 'Usa CONTAR.SI en C4 y SUMAR.SI en C5.'; const v = A.conCambios({ 'Consulta!C2': 'Agencia Pixel' }); let n = 0, t = 0; for (let r = 2; r <= 60; r++) if (v('Pedidos', 'C' + r) === 'Agencia Pixel') { n++; t += A.num(v('Pedidos', 'G' + r)) || 0; } const ok = A.cerca(A.num(v('Consulta', 'C4')), n) && A.cerca(A.num(v('Consulta', 'C5')), t); v.restaurar(); return ok ? true : 'Con otro cliente en C2 la consulta no se actualiza bien.'; } },
+        { titulo: 'Tarjetas del tablero', fn: kpiTablero },
+        { titulo: 'Tablas y gráficos dinámicos', fn: (L) => (L.dinamicas.length < 2 ? 'Crea al menos dos tablas dinámicas.' : L.graficos.filter((g) => g.dinamico).length >= 2 ? true : 'Crea al menos dos gráficos dinámicos.') },
+        { titulo: 'Segmentación de Programa conectada', fn: (L) => { const s = L.segmentaciones.find((x) => /programa/i.test(x.campo || x.nombre)); if (!s) return 'Falta la segmentación por Programa.'; return s.dinamicas.length >= 2 ? true : 'Conecta la segmentación a dos o más tablas dinámicas.'; } },
+        { titulo: 'Captura validada en Órdenes', fn: (L, A) => { const hj = A.hoja('Órdenes'); const v = (col) => hj.validaciones.find((x) => A.rangoCubre(x.sqref, col + '2:' + col + '31')); const c = v('C'), e = v('E'), d = v('D'); if (!c || c.tipo !== 'list') return 'Falta la lista desplegable de pacientes en C2:C60.'; if (!e || e.tipo !== 'list') return 'Falta la lista desplegable de estudios en E2:E60.'; return d && d.tipo === 'whole' && +d.formula1 === 0 && +d.formula2 === 110 ? true : 'En D2:D60 permite solo enteros de 0 a 110.'; } },
+        { titulo: 'Cuota con BUSCARX', fn: (L, A) => { for (let r = 2; r <= 31; r++) { if (!L.usaFuncion('Órdenes', 'F' + r, ['XLOOKUP', 'INDEX', 'VLOOKUP'])) return 'F' + r + ' debe buscar la cuota con BUSCARX.'; const e = D.estudios.find((x) => x.estudio === L.valor('Órdenes', 'E' + r)); if (!e || !A.cerca(A.num(L.valor('Órdenes', 'F' + r)), e.cuota)) return 'F' + r + ' no muestra la cuota correcta.'; } return true; } },
+        { titulo: 'Consulta por estudio', fn: (L, A) => { A.hoja('Consulta'); if (!L.usaFuncion('Consulta', 'C4', ['COUNTIF', 'COUNTIFS']) || !L.usaFuncion('Consulta', 'C5', ['SUMIF', 'SUMIFS'])) return 'Usa CONTAR.SI en C4 y SUMAR.SI en C5.'; const v = A.conCambios({ 'Consulta!C2': 'Química sanguínea' }); let n = 0, t = 0; for (let r = 2; r <= 60; r++) if (v('Órdenes', 'E' + r) === 'Química sanguínea') { n++; t += A.num(v('Órdenes', 'F' + r)) || 0; } const ok = A.cerca(A.num(v('Consulta', 'C4')), n) && A.cerca(A.num(v('Consulta', 'C5')), t); v.restaurar(); return ok ? true : 'Con otro estudio en C2 la consulta no se actualiza bien.'; } },
         { titulo: 'Libro con macro y botón', fn: (L) => (!L.habilitadoMacros || !L.tieneVBA ? 'Guarda como .xlsm con la macro.' : L.hojas.some((x) => x.controles.some((c) => c.macro) || x.dibujo.conMacro.length) ? true : 'Asigna la macro a un botón.') },
       ],
     },
@@ -264,7 +287,7 @@
       h('div', { class: 'etiqueta-etapa' }, 'Reto integrador · Nivel ' + nv.nombre),
       h('h1', null, I.titulo),
       h('div', { class: 'grupo-btn' }, C.NIVELES.map((n) => h('a', { class: 'btn chico' + (n.id === nivelId ? ' primario' : ''), href: 'integrador.html?nivel=' + n.id }, n.nombre))),
-      h('div', { class: 'situacion' }, h('div', { class: 'avatar' }, 'M'), h('div', null, h('div', { class: 'de' }, 'Marta Ríos, gerente general de La Taza escribe:'), h('div', { class: 'msj' }, I.situacion))),
+      h('div', { class: 'situacion' }, h('div', { class: 'avatar' }, 'LM'), h('div', null, h('div', { class: 'de' }, 'Dra. Laura Méndez, coordinadora de Calidad y Estadística, escribe:'), h('div', { class: 'msj' }, I.situacion))),
       h('p', { class: 'intro' }, 'Reúne lo aprendido en los módulos ' + nv.modulos[0] + ' a ' + nv.modulos[nv.modulos.length - 1] + '. Se resuelve de forma autónoma en unos 45 minutos, después de la sesión ' + nv.sesion + '.')));
     const res = h('div');
     const inp = h('input', { type: 'file', accept: I.acepta, multiple: I.pdf ? true : null, class: 'sr' });
@@ -316,7 +339,7 @@
       if (!info.aprobado) { constCont.append(h('h2', null, 'Constancia'), h('p', { class: 'intro' }, 'La constancia de nivel se habilita al aprobar el reto integrador (80 % de las pruebas o más).')); return; }
       const nombre = LT.progreso.participante().nombre || '(escribe tu nombre en la página de inicio)';
       constCont.append(h('div', { class: 'grupo-btn no-imprimir' }, h('h2', { style: { margin: 0 } }, 'Constancia'), h('button', { class: 'btn primario chico', onclick: () => window.print() }, 'Imprimir o guardar en PDF')),
-        h('div', { class: 'constancia' }, h('div', { html: LT.GALERIA.logoSVG, style: { width: '90px', margin: '0 auto' } }), h('p', null, 'Excel con La Taza otorga la presente'), h('h1', null, 'Constancia de Analista ' + nv.nombre), h('p', null, 'a'), h('div', { class: 'nombre' }, nombre), h('p', null, 'por aprobar el reto integrador «' + I.titulo + '» del nivel ' + nv.nombre.toLowerCase() + ' (' + nv.horas.toLowerCase() + ' del curso Excel de básico a avanzado).'), h('p', { style: { color: 'var(--tinta-3)', fontSize: '.9rem' } }, new Date(info.fecha).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }) + ' · Puntaje del verificador: ' + info.puntaje + ' %')));
+        h('div', { class: 'constancia' }, h('div', { html: LT.GALERIA.logoSVG, style: { width: '90px', margin: '0 auto' } }), h('p', null, 'Excel para Ciencias de la Salud otorga la presente'), h('h1', null, 'Constancia · Nivel ' + nv.nombre), h('p', null, 'a'), h('div', { class: 'nombre' }, nombre), h('p', null, 'por aprobar el reto integrador «' + I.titulo + '» del nivel ' + nv.nombre.toLowerCase() + ' (' + nv.horas.toLowerCase() + ' del curso ' + C.marca + ').'), h('p', { style: { color: 'var(--tinta-3)', fontSize: '.9rem' } }, new Date(info.fecha).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }) + ' · Puntaje del verificador: ' + info.puntaje + ' %')));
     };
     dibujarConstancia();
     P.montar(main);
@@ -330,7 +353,7 @@
     const dibujar = () => {
       const q = buscar.value.trim().toLowerCase();
       tabla.innerHTML = '';
-      tabla.appendChild(h('thead', null, h('tr', null, ['Función (español)', 'En inglés / en el archivo', 'Sintaxis', 'Qué hace', 'Ejemplo de La Taza', 'Módulo'].map((x) => h('th', null, x)))));
+      tabla.appendChild(h('thead', null, h('tr', null, ['Función (español)', 'En inglés / en el archivo', 'Sintaxis', 'Qué hace', 'Ejemplo en la clínica', 'Módulo'].map((x) => h('th', null, x)))));
       const tb = h('tbody');
       Object.values(LT.FUNCIONES).filter((f) => !q || [f.es, f.en, f.desc, f.categoria].some((x) => x.toLowerCase().includes(q))).sort((a, b) => a.es.localeCompare(b.es, 'es')).forEach((f) => {
         tb.appendChild(h('tr', null, h('td', null, h('b', null, f.es), f.simulador ? null : h('div', { style: { fontSize: '.78rem', color: 'var(--ambar)' } }, 'Solo en Excel')), h('td', null, h('code', null, f.en), f.archivo !== f.en ? h('div', { style: { fontSize: '.78rem', color: 'var(--tinta-3)' } }, f.archivo) : null), h('td', null, h('code', { style: { whiteSpace: 'normal' } }, f.sintaxis)), h('td', null, f.desc), h('td', null, f.ejemplo), h('td', null, h('a', { href: P.urlModulo(f.modulo) }, 'M' + f.modulo))));

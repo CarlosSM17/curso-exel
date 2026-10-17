@@ -1,4 +1,4 @@
-"""Genera las páginas HTML del sitio (versión 2: 13 módulos en 3 sesiones de 3 horas).
+"""Genera las páginas HTML del sitio (Excel para Ciencias de la Salud: 13 módulos en 3 sesiones de 3 horas).
 Todas las páginas comparten la misma lista de scripts.
 
 Uso:  python herramientas/generar_paginas.py
@@ -8,9 +8,9 @@ import pathlib
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
 
 MODULOS = [
-    "Inicio: la pantalla de Excel", "Editar un libro de trabajo", "Fórmulas básicas", "Formato a hojas de trabajo",
-    "Insertar objetos", "Ver y administrar hojas de cálculo", "Gráficos", "Fórmulas intermedias", "Organizar datos",
-    "Tablas", "Formato intermedio", "Tablas dinámicas", "Gestionar y automatizar información",
+    "Editar un libro de trabajo", "Fórmulas básicas", "Formato a hojas de trabajo", "Insertar objetos",
+    "Ver y administrar hojas de cálculo", "Gráficos", "Fórmulas intermedias", "Organizar datos", "Tablas",
+    "Formato intermedio", "Tablas dinámicas", "Gestionar y automatizar información", "Dashboards",
 ]
 
 SCRIPTS = [
@@ -56,23 +56,23 @@ def main():
     for i, titulo in enumerate(MODULOS, 1):
         slug = f"m{i:02d}"
         escribir(RAIZ / "modulos" / f"{slug}.html", raiz="..", extra_body=f' data-modulo="{i}"',
-                 titulo=f"Módulo {i} · {titulo} · Excel con La Taza",
-                 descripcion=f"Módulo {i} del curso Excel con La Taza: {titulo}. Retos interactivos y laboratorio en Excel real.",
+                 titulo=f"Módulo {i} · {titulo} · Excel para Ciencias de la Salud",
+                 descripcion=f"Módulo {i} del curso Excel para Ciencias de la Salud: {titulo}. Retos interactivos y laboratorio en Excel real.",
                  scripts=scripts("..", [f"js/modulos/{slug}.js"]), arranque=f"LT.paginaModulo({i});")
     todos = ["js/paginas.js"] + [f"js/modulos/m{i:02d}.js" for i in range(1, n + 1)]
     paginas = {
-        "index.html": ("Excel con La Taza · Curso de Excel en 3 sesiones", "Curso de Excel de básico a avanzado en 3 sesiones de 3 horas con retos interactivos y el caso de la Cafetería La Taza.", "LT.paginas.inicio();", []),
-        "ubicacion.html": ("Prueba de ubicación · Excel con La Taza", "Prueba de ubicación por nivel del curso Excel con La Taza.", "LT.paginas.ubicacion();", []),
-        "integrador.html": ("Reto integrador · Excel con La Taza", "Retos integradores por nivel del curso Excel con La Taza.", "LT.paginas.integrador();", []),
-        "glosario.html": ("Glosario de funciones · Excel con La Taza", "Glosario de funciones de Excel en español e inglés y atajos de teclado.", "LT.paginas.glosario();", []),
-        "funciones.html": ("Guía gráfica de funciones · Excel con La Taza", "Guía gráfica de las funciones de Excel que se usan en el curso, con ejemplos calculados en vivo.", "LT.guiaFunciones.pagina();", ["js/guia-funciones.js"]),
+        "index.html": ("Excel para Ciencias de la Salud · Curso en 3 sesiones", "Curso de Excel para estudiantes de licenciatura del área de la salud: 3 sesiones de 3 horas con retos interactivos y el caso de la Clínica Universitaria Vida Sana.", "LT.paginas.inicio();", []),
+        "ubicacion.html": ("Prueba de ubicación · Excel para Ciencias de la Salud", "Prueba de ubicación por nivel del curso Excel para Ciencias de la Salud.", "LT.paginas.ubicacion();", []),
+        "integrador.html": ("Reto integrador · Excel para Ciencias de la Salud", "Retos integradores por nivel del curso Excel para Ciencias de la Salud.", "LT.paginas.integrador();", []),
+        "glosario.html": ("Glosario de funciones · Excel para Ciencias de la Salud", "Glosario de funciones de Excel en español e inglés y atajos de teclado.", "LT.paginas.glosario();", []),
+        "funciones.html": ("Guía gráfica de funciones · Excel para Ciencias de la Salud", "Guía gráfica de las funciones de Excel que se usan en el curso, con ejemplos calculados en vivo.", "LT.guiaFunciones.pagina();", ["js/guia-funciones.js"]),
     }
     for archivo, (titulo, desc, arranque, extra) in paginas.items():
         escribir(RAIZ / archivo, raiz=".", extra_body="", titulo=titulo, descripcion=desc,
                  scripts=scripts(".", todos + extra), arranque=arranque)
     escribir(RAIZ / "docente" / "index.html", raiz="..", extra_body=' class="pagina-docente"',
              robots='<meta name="robots" content="noindex, nofollow">\n',
-             titulo="Área docente · Excel con La Taza", descripcion="Área docente protegida del curso Excel con La Taza.",
+             titulo="Área docente · Excel para Ciencias de la Salud", descripcion="Área docente protegida del curso Excel para Ciencias de la Salud.",
              scripts=scripts("..", todos + ["js/docente.js"], ["contenido.js"]), arranque="LT.docente.iniciar();")
     print("páginas generadas:", n + len(paginas) + 1)
 

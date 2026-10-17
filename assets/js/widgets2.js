@@ -34,7 +34,7 @@
     const p = (parte, cls, ...hijos) => h('div', { class: cls, dataset: { parte } }, ...hijos);
     const sp = (parte, cls, ...hijos) => h('span', { class: cls, dataset: { parte } }, ...hijos);
     const ico = (n) => h('span', { class: 'px-ico', html: LT.iconoSVG(n, 15) });
-    const filas = [['Producto', 'Precio', 'Unidades', 'Ventas'], ['Americano', 40, 230, 9200], ['Capuchino', 52, 245, 12740], ['Latte', 55, 260, 14300], ['Moka', 60, 150, 9000], ['Croissant', 38, 190, 7220]];
+    const filas = [['Servicio', 'Cuota', 'Atenciones', 'Ingresos'], ['Consulta general', 250, 120, 30000], ['Nutrición', 300, 64, 19200], ['Psicología', 350, 58, 20300], ['Glucosa', 90, 210, 18900], ['Vacunación', 0, 180, 0]];
     const tabla = h('table', { class: 'px-tabla' });
     const thead = h('tr', null, h('th', { class: 'px-esq' }));
     'ABCDEF'.split('').forEach((l) => thead.appendChild(h('th', { dataset: { parte: 'encabezadoColumna' }, class: l === 'D' ? 'px-sel' : '' }, l)));
@@ -67,7 +67,7 @@
       h('div', { class: 'px-fx' }, p('cuadroNombres', 'px-cuadro', 'D4'), p('insertarFuncion', 'px-fxbtn', 'fx'), p('barraFormulas', 'px-formula', '=B4*C4')),
       h('div', { class: 'px-cuadricula' }, tabla),
       h('div', { class: 'px-hojas' }, h('span', { class: 'px-flechas' }, '◂ ▸'), sp('pestanasHojas', 'px-hoja on', 'Semana'), h('span', { class: 'px-hoja' }, 'Resumen'), h('span', { class: 'px-hoja' }, '+')),
-      p('barraEstado', 'px-estado', h('span', null, 'Listo'), h('span', { class: 'px-calc' }, 'Suma: 14,300'), sp('vistas', 'px-vistas', ico('hoja'), ico('tablaDatos'), ico('ojo')), sp('zoom', 'px-zoom', '−', h('span', { class: 'px-deslizador' }), '+ 100 %')));
+      p('barraEstado', 'px-estado', h('span', null, 'Listo'), h('span', { class: 'px-calc' }, 'Suma: 20,300'), sp('vistas', 'px-vistas', ico('hoja'), ico('tablaDatos'), ico('ojo')), sp('zoom', 'px-zoom', '−', h('span', { class: 'px-deslizador' }), '+ 100 %')));
   }
 
   /* opts: {modo:'explorar'|'quiz', preguntas:[parte…], alTerminar(aciertos, total), conPistas} */
@@ -214,12 +214,12 @@
   /* ------------------------------------------- diseño de bases de datos */
   const PROBLEMAS_BD = {
     titulo: 'Hay un título combinado encima de los datos. La primera fila de una base debe ser la de los encabezados; los títulos van fuera.',
-    multiples: 'La columna «Pedido» mezcla cantidad y producto («2 Latte, 1 Moka»). Cada dato va en su propio campo: Cantidad y Producto, un producto por fila.',
+    multiples: 'La columna «Signos vitales» mezcla varios datos en una celda («TA 130/85, FC 78»). Cada dato va en su propio campo: Sistólica, Diastólica y Frecuencia cardiaca.',
     fechas: 'Las fechas están escritas de formas distintas («2-oct», «ayer»). Usa un solo tipo de dato: fechas reales (dd/mm/aaaa).',
-    sucursal: 'La sucursal se escribe de varias formas («centro», «CENTRO »). Usa una lista desplegable para capturar siempre igual.',
+    sucursal: 'La sede se escribe de varias formas («centro», «CENTRO »). Usa una lista desplegable para capturar siempre igual.',
     filaVacia: 'Hay una fila vacía en medio. Excel la toma como el final de la tabla al ordenar, filtrar o crear tablas dinámicas.',
     subtotal: 'Hay un subtotal dentro de los datos. Los totales se calculan aparte (con tablas dinámicas o fórmulas), no dentro de la base.',
-    numeroTexto: 'El importe «264 pesos» es texto: no se puede sumar. Los números van sin unidades; el formato de moneda se aplica después.',
+    numeroTexto: 'El peso «72 kg» es texto: no se puede promediar. Los números van sin unidades; la unidad se indica en el encabezado («Peso (kg)»).',
   };
   W.disenoBD = function (cont, opts) {
     opts = opts || {};
@@ -227,15 +227,15 @@
     const minimo = opts.minimo || 6;
     const encontrados = [];
     const filas = [
-      [{ v: 'PEDIDOS DE OCTUBRE', p: 'titulo', span: 6, cls: 'bd-titulo' }],
-      ['Folio', 'Fecha', 'Cliente', 'Sucursal', 'Pedido', 'Importe'].map((v) => ({ v, enc: true })),
-      [{ v: 2501 }, { v: '01/10/2025' }, { v: 'Notaría 14' }, { v: 'Centro' }, { v: '2 Latte, 1 Moka', p: 'multiples' }, { v: 170 }],
-      [{ v: 2502 }, { v: '2-oct', p: 'fechas' }, { v: 'Agencia Pixel' }, { v: 'centro', p: 'sucursal' }, { v: '3 Capuchino', p: 'multiples' }, { v: 156 }],
+      [{ v: 'CONSULTAS DE OCTUBRE', p: 'titulo', span: 6, cls: 'bd-titulo' }],
+      ['Expediente', 'Fecha', 'Paciente', 'Sede', 'Signos vitales', 'Peso'].map((v) => ({ v, enc: true })),
+      [{ v: 'EXP-1001' }, { v: '01/10/2025' }, { v: 'Lucía Hernández' }, { v: 'Centro' }, { v: 'TA 130/85, FC 78', p: 'multiples' }, { v: 68.5 }],
+      [{ v: 'EXP-1002' }, { v: '2-oct', p: 'fechas' }, { v: 'Mateo García' }, { v: 'centro', p: 'sucursal' }, { v: 'TA 118/76, FC 70', p: 'multiples' }, { v: 81.2 }],
       [{ v: '', p: 'filaVacia' }, { v: '', p: 'filaVacia' }, { v: '', p: 'filaVacia' }, { v: '', p: 'filaVacia' }, { v: '', p: 'filaVacia' }, { v: '', p: 'filaVacia' }],
-      [{ v: 2503 }, { v: '03/10/2025' }, { v: 'Coworking Nodo' }, { v: 'CENTRO ', p: 'sucursal' }, { v: '1 Bagel', p: 'multiples' }, { v: 45 }],
-      [{ v: '', p: 'subtotal' }, { v: '', p: 'subtotal' }, { v: 'Subtotal Centro', p: 'subtotal' }, { v: '', p: 'subtotal' }, { v: '', p: 'subtotal' }, { v: 371, p: 'subtotal' }],
-      [{ v: 2504 }, { v: 'ayer', p: 'fechas' }, { v: 'Colegio Montebello' }, { v: 'Norte' }, { v: '12 Concha', p: 'multiples' }, { v: '264 pesos', p: 'numeroTexto' }],
-      [{ v: 2505 }, { v: '05/10/2025' }, { v: 'Notaría 14' }, { v: 'Norte' }, { v: '4 Latte', p: 'multiples' }, { v: 220 }],
+      [{ v: 'EXP-1003' }, { v: '03/10/2025' }, { v: 'Sofía Martínez' }, { v: 'CENTRO ', p: 'sucursal' }, { v: 'TA 142/91, FC 88', p: 'multiples' }, { v: 59.4 }],
+      [{ v: '', p: 'subtotal' }, { v: '', p: 'subtotal' }, { v: 'Pacientes Centro: 3', p: 'subtotal' }, { v: '', p: 'subtotal' }, { v: '', p: 'subtotal' }, { v: 209.1, p: 'subtotal' }],
+      [{ v: 'EXP-1004' }, { v: 'ayer', p: 'fechas' }, { v: 'Santiago López' }, { v: 'Norte' }, { v: 'TA 125/80, FC 74', p: 'multiples' }, { v: '72 kg', p: 'numeroTexto' }],
+      [{ v: 'EXP-1005' }, { v: '05/10/2025' }, { v: 'Valentina Torres' }, { v: 'Norte' }, { v: 'TA 110/70, FC 66', p: 'multiples' }, { v: 55.0 }],
     ];
     const t = h('table', { class: 'bd-tabla' });
     t.appendChild(h('tr', null, h('th'), 'ABCDEF'.split('').map((l) => h('th', null, l))));
@@ -269,6 +269,8 @@
     opts = opts || {};
     cont.innerHTML = '';
     const registros = opts.registros;
+    const ARCHIVO = opts.archivo || 'Base de datos.xlsx';
+    const HOJA = opts.hoja || 'Pedidos';
     const CAMPOS = Object.keys(registros[0]);
     const HUECOS = opts.huecos; // [{id, etiqueta, correcto}]
     const est = { tipo: null, destinatarios: false, campos: {}, vista: false, registro: 0, finalizado: null };
@@ -318,16 +320,16 @@
       lista.innerHTML = '';
       if (est.destinatarios) {
         const t = h('table', { class: 'tabla-sitio', style: { fontSize: '.78rem' } }, h('thead', null, h('tr', null, CAMPOS.map((c) => h('th', null, c)))), h('tbody', null, registros.map((r, i) => h('tr', { style: est.vista && i === est.registro ? { background: '#e2f1e8' } : null }, CAMPOS.map((c) => h('td', null, String(r[c])))))));
-        lista.append(h('div', { style: { fontWeight: 600, fontSize: '.84rem' } }, 'Destinatarios: Pedidos La Taza.xlsx › hoja Pedidos'), h('div', { class: 'tabla-scroll' }, t));
+        lista.append(h('div', { style: { fontWeight: 600, fontSize: '.84rem' } }, 'Destinatarios: ' + ARCHIVO + ' › hoja ' + HOJA), h('div', { class: 'tabla-scroll' }, t));
       }
     };
     const elegirLista = async () => {
-      const hoja = h('select', null, ['Pedidos$', 'Catálogo$', 'Clientes$'].map((x) => h('option', { value: x }, x)));
-      const r = await LT.ui.modal({ titulo: 'Seleccionar tabla', cuerpo: h('div', null, h('p', null, 'Archivo: ', h('b', null, 'Pedidos La Taza.xlsx')), h('label', null, 'Hoja'), hoja, h('label', { class: 'en-linea' }, h('input', { type: 'checkbox', checked: true, disabled: true }), 'La primera fila de datos contiene encabezados de columna')), botones: [{ texto: 'Cancelar', valor: null }, { texto: 'Aceptar', primario: true, valor: () => hoja.value }] });
+      const hoja = h('select', null, (opts.hojas || [HOJA + '$', 'Catálogo$', 'Pacientes$']).map((x) => h('option', { value: x }, x)));
+      const r = await LT.ui.modal({ titulo: 'Seleccionar tabla', cuerpo: h('div', null, h('p', null, 'Archivo: ', h('b', null, ARCHIVO)), h('label', null, 'Hoja'), hoja, h('label', { class: 'en-linea' }, h('input', { type: 'checkbox', checked: true, disabled: true }), 'La primera fila de datos contiene encabezados de columna')), botones: [{ texto: 'Cancelar', valor: null }, { texto: 'Aceptar', primario: true, valor: () => hoja.value }] });
       if (!r) return;
-      if (r !== 'Pedidos$') { retro.innerHTML = ''; retro.appendChild(h('div', { class: 'aviso-caja alerta' }, 'Esa hoja no tiene los datos de los pedidos: elige «Pedidos$».')); return; }
+      if (r !== HOJA + '$') { retro.innerHTML = ''; retro.appendChild(h('div', { class: 'aviso-caja alerta' }, 'Esa hoja no tiene los registros de la base: elige «' + HOJA + '$».')); return; }
       est.destinatarios = true;
-      retro.textContent = 'Lista de destinatarios conectada: ' + registros.length + ' pedidos.';
+      retro.textContent = 'Lista de destinatarios conectada: ' + registros.length + ' ' + (opts.unidad || 'registros') + '.';
       dibujar(); avisar();
     };
     const insertar = (campo) => {
@@ -344,7 +346,7 @@
       retro.innerHTML = '';
       if (faltan.length) { retro.appendChild(h('div', { class: 'aviso-caja alerta' }, 'Antes de combinar revisa: ' + faltan.map((x) => '[' + x.etiqueta + ']').join(', ') + '.')); return; }
       est.finalizado = como;
-      retro.appendChild(h('div', { class: 'aviso-caja ok' }, como === 'documento' ? '✓ Se generó un documento nuevo con ' + registros.length + ' cartas, una por pedido. Puedes revisarlo, guardarlo o imprimirlo.' : como === 'imprimir' ? '✓ Se enviaron ' + registros.length + ' cartas a la impresora.' : '✓ Se enviarían ' + registros.length + ' correos (necesitas una columna con el correo de cada cliente).'));
+      retro.appendChild(h('div', { class: 'aviso-caja ok' }, como === 'documento' ? '✓ Se generó un documento nuevo con ' + registros.length + ' cartas, una por registro. Puedes revisarlo, guardarlo o imprimirlo.' : como === 'imprimir' ? '✓ Se enviaron ' + registros.length + ' cartas a la impresora.' : '✓ Se enviarían ' + registros.length + ' correos (necesitas una columna con el correo de cada cliente).'));
       dibujar(); avisar();
       if (opts.alListo) opts.alListo(est);
     };
@@ -352,5 +354,157 @@
     cont.append(h('div', { class: 'cc' }, cinta, h('div', { class: 'cc-cuerpo' }, carta, lista)), retro);
     dibujar();
     return { estado: () => JSON.parse(JSON.stringify(est)) };
+  };
+
+  /* --------------------------------------------------- constructor de tableros (dashboards)
+     opts: {datos:[{Fecha:'aaaa-mm-dd', …}], indicadores:[{id, nombre, calc(filas), formato, mejor:'alto'|'bajo'}],
+            graficos:[{id, nombre, categoria:'Mes'|campo, medida:idIndicador}], segmentaciones:[campo|'Trimestre'|'Mes'],
+            inicial, alCambiar(estado)} */
+  W.tablero = function (cont, opts) {
+    opts = opts || {};
+    cont.innerHTML = '';
+    const F = LT.formato;
+    const MES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    const TIPOS = [['columnas', 'Columnas'], ['barras', 'Barras'], ['lineas', 'Líneas'], ['circular', 'Circular']];
+    const valorCampo = (f, c) => (c === 'Mes' ? +String(f.Fecha).slice(5, 7) : c === 'Trimestre' ? 'T' + (Math.floor((+String(f.Fecha).slice(5, 7) - 1) / 3) + 1) : f[c]);
+    const etiqueta = (c, v) => (c === 'Mes' ? MES[v - 1] : String(v));
+    const est = Object.assign({ titulo: '', tarjetas: {}, visuales: {}, segm: [], conexiones: {}, filtros: {} }, JSON.parse(JSON.stringify(opts.inicial || {})));
+    const ind = (id) => opts.indicadores.find((x) => x.id === id);
+    const graf = (id) => opts.graficos.find((x) => x.id === id);
+    const elementos = () => Object.keys(est.tarjetas).map((id) => 'k:' + id).concat(Object.keys(est.visuales).map((id) => 'g:' + id));
+    const nombreEl = (e) => { const [t, id] = e.split(':'); return t === 'k' ? 'Tarjeta «' + ind(id).nombre + '»' : 'Gráfico «' + graf(id).nombre + '»'; };
+    const estado = () => JSON.parse(JSON.stringify(est));
+    const avisar = () => { if (opts.alCambiar) opts.alCambiar(estado()); };
+    const quitarConexiones = (e) => { for (const c of Object.keys(est.conexiones)) est.conexiones[c] = est.conexiones[c].filter((x) => x !== e); };
+    const filasPara = (e) => opts.datos.filter((f) => est.segm.every((c) => {
+      const fv = est.filtros[c];
+      if (!fv || !fv.length || !(est.conexiones[c] || []).includes(e)) return true;
+      return fv.includes(String(valorCampo(f, c)));
+    }));
+    const filtrosDe = (e) => est.segm.filter((c) => est.filtros[c] && est.filtros[c].length && (est.conexiones[c] || []).includes(e)).map((c) => c + ' = ' + est.filtros[c].join(', '));
+    const meta = (txt, i) => {
+      const s = String(txt == null ? '' : txt).trim();
+      if (!s) return null;
+      let n = parseFloat(s.replace(/[%,\s]/g, '').replace(/min$/i, ''));
+      if (!isFinite(n)) return null;
+      if (/%/.test(s) || (/%/.test(i.formato || '') && n > 1)) n /= 100;
+      return n;
+    };
+    const panel = h('div', { class: 'tb-panel' });
+    const vista = h('div', { class: 'tb-vista' });
+    cont.append(h('div', { class: 'tb' }, panel, vista));
+    const todo = () => { dibujarPanel(); dibujarVista(); avisar(); };
+
+    function dibujarPanel() {
+      panel.innerHTML = '';
+      const titulo = h('input', { type: 'text', value: est.titulo, placeholder: 'Título del tablero', 'aria-label': 'Título del tablero' });
+      titulo.addEventListener('input', () => { est.titulo = titulo.value; dibujarVista(); avisar(); });
+      panel.append(h('div', { class: 'tb-sec' }, '1. Título'), titulo, h('div', { class: 'tb-sec' }, '2. Tarjetas de indicadores (KPI)'));
+      for (const i of opts.indicadores) {
+        const on = !!est.tarjetas[i.id];
+        const chk = h('input', { type: 'checkbox', checked: on ? true : null });
+        chk.addEventListener('change', () => { if (chk.checked) est.tarjetas[i.id] = { meta: '' }; else { delete est.tarjetas[i.id]; quitarConexiones('k:' + i.id); } todo(); });
+        const m = on ? h('input', { type: 'text', value: est.tarjetas[i.id].meta, placeholder: 'Meta', class: 'tb-meta', 'aria-label': 'Meta de ' + i.nombre }) : null;
+        if (m) m.addEventListener('change', () => { est.tarjetas[i.id].meta = m.value.trim(); dibujarVista(); avisar(); });
+        panel.appendChild(h('div', { class: 'tb-fila' }, h('label', null, chk, ' ' + i.nombre, i.mejor ? h('small', null, i.mejor === 'bajo' ? ' (mejor si es bajo)' : ' (mejor si es alto)') : null), m));
+      }
+      panel.appendChild(h('div', { class: 'tb-sec' }, '3. Gráficos'));
+      for (const g of opts.graficos) {
+        const on = !!est.visuales[g.id];
+        const chk = h('input', { type: 'checkbox', checked: on ? true : null });
+        chk.addEventListener('change', () => { if (chk.checked) est.visuales[g.id] = { tipo: 'columnas' }; else { delete est.visuales[g.id]; quitarConexiones('g:' + g.id); } todo(); });
+        const tipo = on ? h('select', { class: 'herr-sel', 'aria-label': 'Tipo de gráfico de ' + g.nombre }, TIPOS.map(([v, n]) => h('option', { value: v, selected: est.visuales[g.id].tipo === v ? true : null }, n))) : null;
+        if (tipo) tipo.addEventListener('change', () => { est.visuales[g.id].tipo = tipo.value; dibujarVista(); avisar(); });
+        panel.appendChild(h('div', { class: 'tb-fila' }, h('label', null, chk, ' ' + g.nombre), tipo));
+      }
+      panel.appendChild(h('div', { class: 'tb-sec' }, '4. Segmentaciones de datos'));
+      for (const c of opts.segmentaciones) {
+        const chk = h('input', { type: 'checkbox', checked: est.segm.includes(c) ? true : null });
+        chk.addEventListener('change', () => { if (chk.checked) { est.segm.push(c); est.conexiones[c] = est.conexiones[c] || []; } else { est.segm = est.segm.filter((x) => x !== c); delete est.filtros[c]; delete est.conexiones[c]; } todo(); });
+        panel.appendChild(h('div', { class: 'tb-fila' }, h('label', null, chk, ' ' + c)));
+      }
+      if (est.segm.length) {
+        panel.appendChild(h('div', { class: 'tb-sec' }, '5. Conexiones de informe'));
+        panel.appendChild(h('p', { class: 'tb-nota' }, 'Elige qué elementos filtra cada segmentación (en Excel: clic derecho en la segmentación › Conexiones de informe).'));
+        const els = elementos();
+        for (const c of est.segm) {
+          const caja = h('div', { class: 'tb-con' }, h('b', null, c + ' filtra:'));
+          if (!els.length) caja.appendChild(h('span', { class: 'tb-nota' }, ' (agrega tarjetas o gráficos)'));
+          for (const e of els) {
+            const k = h('input', { type: 'checkbox', checked: (est.conexiones[c] || []).includes(e) ? true : null });
+            k.addEventListener('change', () => { const l = est.conexiones[c] || []; est.conexiones[c] = k.checked ? l.concat(e) : l.filter((x) => x !== e); dibujarVista(); avisar(); });
+            caja.appendChild(h('label', null, k, ' ' + nombreEl(e)));
+          }
+          panel.appendChild(caja);
+        }
+      }
+    }
+
+    function dibujarVista() {
+      vista.innerHTML = '';
+      vista.appendChild(h('div', { class: 'tb-titulo' + (est.titulo.trim() ? '' : ' vacio') }, est.titulo.trim() || 'Escribe un título para el tablero'));
+      if (est.segm.length) {
+        const fila = h('div', { class: 'tb-segms' });
+        for (const c of est.segm) {
+          const vals = Array.from(new Set(opts.datos.map((f) => valorCampo(f, c)))).sort((a, b) => (typeof a === 'number' ? a - b : String(a).localeCompare(String(b), 'es')));
+          const caja = h('div', { class: 'segmentacion', role: 'group', 'aria-label': 'Segmentación ' + c },
+            h('div', { class: 't' }, c, h('button', { class: 'btn chico fantasma', style: { padding: '0 4px' }, title: 'Borrar filtro', onclick: () => { delete est.filtros[c]; dibujarVista(); avisar(); } }, '⨯')));
+          for (const v of vals) {
+            const sv = String(v);
+            const on = !est.filtros[c] || est.filtros[c].includes(sv);
+            caja.appendChild(h('button', { class: 'item' + (on ? ' on' : ''), 'aria-pressed': on ? 'true' : 'false', onclick: (ev) => {
+              const act = est.filtros[c] || [];
+              if (ev.ctrlKey || ev.metaKey) est.filtros[c] = act.includes(sv) ? act.filter((x) => x !== sv) : act.concat(sv);
+              else est.filtros[c] = act.length === 1 && act[0] === sv ? [] : [sv];
+              if (!est.filtros[c].length) delete est.filtros[c];
+              dibujarVista(); avisar();
+            } }, etiqueta(c, v)));
+          }
+          if (!(est.conexiones[c] || []).length) caja.appendChild(h('div', { class: 'tb-aviso' }, 'Sin conexiones: no filtra nada.'));
+          fila.appendChild(caja);
+        }
+        vista.appendChild(fila);
+      }
+      const ks = Object.keys(est.tarjetas);
+      if (ks.length) {
+        const fila = h('div', { class: 'tb-kpis' });
+        for (const id of ks) {
+          const i = ind(id);
+          const filas = filasPara('k:' + id);
+          const v = filas.length ? i.calc(filas) : null;
+          const m = meta(est.tarjetas[id].meta, i);
+          let cls = 'neutro';
+          if (m != null && v != null) cls = (i.mejor === 'bajo' ? v <= m : v >= m) ? 'bien' : 'mal';
+          const f = filtrosDe('k:' + id);
+          fila.appendChild(h('div', { class: 'tb-kpi ' + cls, 'data-indicador': id },
+            h('div', { class: 'tb-kpi-n' }, i.nombre),
+            h('div', { class: 'tb-kpi-v' }, v == null ? '—' : F.formatear(v, i.formato).texto),
+            h('div', { class: 'tb-kpi-m' }, m != null ? 'Meta: ' + F.formatear(m, i.formato).texto + (cls === 'bien' ? ' · ✓ en meta' : ' · ✗ fuera de meta') : 'Sin meta'),
+            f.length ? h('div', { class: 'tb-kpi-f' }, 'Filtro: ' + f.join(' · ')) : null));
+        }
+        vista.appendChild(fila);
+      }
+      const gs = Object.keys(est.visuales);
+      if (gs.length) {
+        const rejilla = h('div', { class: 'tb-graficos' });
+        for (const id of gs) {
+          const g = graf(id);
+          const i = ind(g.medida);
+          const filas = filasPara('g:' + id);
+          const cats = Array.from(new Set(opts.datos.map((f) => valorCampo(f, g.categoria)))).sort((a, b) => (typeof a === 'number' ? a - b : String(a).localeCompare(String(b), 'es')));
+          const valores = cats.map((cv) => { const sub = filas.filter((f) => valorCampo(f, g.categoria) === cv); return sub.length ? i.calc(sub) : 0; });
+          const lienzo = h('div');
+          const f = filtrosDe('g:' + id);
+          rejilla.appendChild(h('div', { class: 'tb-graf' }, lienzo, f.length ? h('div', { class: 'tb-kpi-f' }, 'Filtro: ' + f.join(' · ')) : null));
+          LT.graficos.dibujar(lienzo, { tipo: est.visuales[id].tipo, categorias: cats.map((c) => etiqueta(g.categoria, c)), series: [{ nombre: i.nombre, valores }], titulo: g.nombre, formato: i.formato, ancho: 460, alto: 250 });
+        }
+        vista.appendChild(rejilla);
+      }
+      if (!ks.length && !gs.length) vista.appendChild(h('p', { class: 'tb-nota' }, 'Agrega tarjetas y gráficos desde el panel de diseño.'));
+    }
+
+    dibujarPanel();
+    dibujarVista();
+    return { estado, valorDe: (id) => { const i = ind(id); const filas = filasPara('k:' + id); return filas.length ? i.calc(filas) : null; } };
   };
 })();

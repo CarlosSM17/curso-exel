@@ -1156,7 +1156,7 @@
     hj.guardarDeshacer();
     if (r === 'quitar') hj._estiloModelo(hj.hj, hj.sel.ar, hj.sel.ac, { link: null });
     else {
-      if (!/^(https?:\/\/|mailto:)/i.test(dir.value.trim())) { LT.ui.aviso('Dirección no válida', 'Escribe una dirección completa, por ejemplo https://lataza.mx/menu'); return; }
+      if (!/^(https?:\/\/|mailto:)/i.test(dir.value.trim())) { LT.ui.aviso('Dirección no válida', 'Escribe una dirección completa, por ejemplo https://clinicavidasana.mx/citas'); return; }
       hj._ponerRaw(hj.libro.activa, hj.sel.ar, hj.sel.ac, texto.value || dir.value);
       hj._estiloModelo(hj.hj, hj.sel.ar, hj.sel.ac, { link: dir.value.trim() });
     }

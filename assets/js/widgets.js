@@ -185,7 +185,7 @@
       const totalTabla = filas.reduce((s, f) => s + f[2] * f[3], 0);
       const lado = (titulo, esTabla) => {
         const t = h('table', { class: 'tabla-sitio', style: { fontFamily: 'var(--fuente-hoja)', fontSize: '.86rem' } });
-        t.appendChild(h('thead', null, h('tr', { style: esTabla ? { background: '#2463a6', color: '#fff' } : null }, ['Folio', 'Producto', 'Cant.', 'Precio', 'Importe'].map((x) => h('th', { style: esTabla ? { background: '#2463a6', color: '#fff' } : null }, x + (esTabla ? ' ▾' : ''))))));
+        t.appendChild(h('thead', null, h('tr', { style: esTabla ? { background: '#2463a6', color: '#fff' } : null }, (opts.encabezados || ['Folio', 'Producto', 'Cant.', 'Precio', 'Importe']).map((x) => h('th', { style: esTabla ? { background: '#2463a6', color: '#fff' } : null }, x + (esTabla ? ' ▾' : ''))))));
         const tb = h('tbody');
         filas.forEach((f, i) => {
           const nueva = i >= base.length;
@@ -194,19 +194,19 @@
         });
         tb.appendChild(h('tr', { style: { fontWeight: 700, borderTop: '2px solid #333' } }, h('td', { colspan: 4 }, esTabla ? 'Total (fila de totales)' : 'Total'), h('td', { style: { textAlign: 'right' } }, F.formatear(esTabla ? totalTabla : totalRango, '$#,##0').texto)));
         t.appendChild(tb);
-        return h('div', null, h('h3', { style: { fontSize: '1rem' } }, titulo), t, h('code', { style: { display: 'inline-block', marginTop: '6px' } }, esTabla ? '=SUBTOTALES(109,[Importe])  ·  Importe: =[@Cant.]*[@Precio]' : '=SUMA(E2:E' + (base.length + 1) + ')  ·  Importe: =C2*D2 (copiada a mano)'));
+        return h('div', null, h('h3', { style: { fontSize: '1rem' } }, titulo), t, h('code', { style: { display: 'inline-block', marginTop: '6px' } }, esTabla ? '=SUBTOTALES(109,[Importe])  ·  Importe: =[@' + (opts.encabezados ? opts.encabezados[2] : 'Cant.') + ']*[@' + (opts.encabezados ? opts.encabezados[3] : 'Precio') + ']' : '=SUMA(E2:E' + (base.length + 1) + ')  ·  Importe: =C2*D2 (copiada a mano)'));
       };
       izq.innerHTML = ''; der.innerHTML = '';
       izq.appendChild(lado('Rango normal', false));
-      der.appendChild(lado('Tabla «Pedidos»', true));
+      der.appendChild(lado('Tabla «' + (opts.nombreTabla || 'Pedidos') + '»', true));
     };
     const agregar = h('button', { class: 'btn primario chico', onclick: () => {
-      if (!extras.length) { LT.ui.toast('Ya no hay más pedidos de ejemplo.'); return; }
+      if (!extras.length) { LT.ui.toast('Ya no hay más registros de ejemplo.'); return; }
       filas.push(extras.shift());
       dibujar();
       nota.innerHTML = '';
       nota.appendChild(h('div', { class: 'aviso-caja alerta' }, 'Observa: en el rango normal la fórmula de Importe no se copió sola y el total sigue sumando ' + 'E2:E' + (base.length + 1) + ' (no incluye la fila nueva). En la tabla, la columna calculada se llenó sola y la fila de totales se ajustó.'));
-    } }, '+ Agregar un pedido debajo');
+    } }, opts.textoAgregar || '+ Agregar un registro debajo');
     const reiniciar = h('button', { class: 'btn chico', onclick: () => { filas = base.map((f) => f.slice()); extras.splice(0, extras.length, ...opts.extras); nota.innerHTML = ''; dibujar(); } }, 'Reiniciar');
     const nota = h('div');
     cont.append(h('div', { class: 'grupo-btn', style: { marginBottom: '10px' } }, agregar, reiniciar), h('div', { class: 'lab-grid' }, izq, der), nota);
@@ -288,7 +288,7 @@
       sel('ajuste', 'Escalado', [['ninguno', 'Sin escalado'], ['hoja', 'Ajustar hoja en una página'], ['columnas', 'Ajustar todas las columnas en una página'], ['filas', 'Ajustar todas las filas en una página']]),
       sel('area', 'Área de impresión', opts.areas || [['todo', 'Toda la hoja']]),
       chk('titulos', 'Imprimir títulos: repetir la fila de encabezados en cada página'),
-      sel('pie', 'Pie de página', [['ninguno', '(ninguno)'], ['pagina', 'Página 1'], ['paginaDe', 'Página 1 de ?'], ['reporte', 'Reporte anual · Cafetería La Taza']]),
+      sel('pie', 'Pie de página', [['ninguno', '(ninguno)'], ['pagina', 'Página 1'], ['paginaDe', 'Página 1 de ?'], ['reporte', 'Reporte anual · Clínica Vida Sana']]),
       chk('cuadricula', 'Imprimir líneas de cuadrícula'));
     const vista = h('div');
     cont.appendChild(h('div', { class: 'impresion' }, controles, vista));
@@ -333,7 +333,7 @@
         for (let r = gf[0]; r < gf[1]; r++) t.appendChild(h('tr', null, gc.map((i) => h('td', { style: { border: est.cuadricula ? '1px solid #bbb' : '0', fontSize: '12px', height: c.altoFila + 'px', textAlign: typeof c.filas[r][i] === 'number' ? 'right' : 'left' } }, typeof c.filas[r][i] === 'number' ? F.formatear(c.filas[r][i], '#,##0').texto : c.filas[r][i]))));
         contenido.appendChild(t);
         p.appendChild(contenido);
-        const pie = est.pie === 'pagina' ? 'Página ' + n : est.pie === 'paginaDe' ? 'Página ' + n + ' de ' + total : est.pie === 'reporte' ? 'Reporte anual · Cafetería La Taza' : '';
+        const pie = est.pie === 'pagina' ? 'Página ' + n : est.pie === 'paginaDe' ? 'Página ' + n + ' de ' + total : est.pie === 'reporte' ? 'Reporte anual · Clínica Vida Sana' : '';
         if (pie) p.appendChild(h('div', { class: 'pie' }, pie));
         pags.appendChild(h('div', null, p, h('div', { class: 'imp-num' }, 'Página ' + n)));
       }
@@ -383,7 +383,7 @@
   /* --------------------------------------------------------- temas */
   W.temas = function (cont, opts) {
     cont.innerHTML = '';
-    const temas = { Office: ['#156082', '#e97132', '#196b24', '#0f9ed5', 'Aptos'], 'Café': ['#5b3a29', '#c9a27e', '#8a5a3c', '#e9dccb', 'Georgia'], Bosque: ['#1e7145', '#a9d08e', '#375623', '#e2efda', 'Segoe UI'], Marino: ['#1f3864', '#8eaadb', '#2f5597', '#dae3f3', 'Calibri'], 'Atardecer': ['#7b3f9e', '#f4b183', '#c55a11', '#fbe5d6', 'Trebuchet MS'] };
+    const temas = { Office: ['#156082', '#e97132', '#196b24', '#0f9ed5', 'Aptos'], 'Clínica': ['#0f766e', '#99d5cf', '#115e59', '#e3f2f1', 'Georgia'], Bosque: ['#1e7145', '#a9d08e', '#375623', '#e2efda', 'Segoe UI'], Marino: ['#1f3864', '#8eaadb', '#2f5597', '#dae3f3', 'Calibri'], 'Atardecer': ['#7b3f9e', '#f4b183', '#c55a11', '#fbe5d6', 'Trebuchet MS'] };
     let actual = opts.inicial || 'Office';
     const muestra = h('div');
     const botones = h('div', { class: 'grupo-btn', style: { marginBottom: '10px' } });
@@ -393,11 +393,11 @@
       const c = temas[actual];
       muestra.innerHTML = '';
       const t = h('table', { class: 'tabla-sitio', style: { fontFamily: c[4] + ', sans-serif', maxWidth: '520px' } });
-      t.appendChild(h('thead', null, h('tr', null, ['Sucursal', 'Ventas', 'Meta', 'Avance'].map((x) => h('th', { style: { background: c[0], color: '#fff' } }, x)))));
+      t.appendChild(h('thead', null, h('tr', null, (opts.encabezados || ['Sede', 'Atenciones', 'Meta', 'Avance']).map((x) => h('th', { style: { background: c[0], color: '#fff' } }, x)))));
       const tb = h('tbody');
-      [['Centro', 97197, 95000], ['Norte', 87535, 90000], ['Sur', 78363, 80000]].forEach((f, i) => tb.appendChild(h('tr', { style: { background: i % 2 ? c[3] : '#fff' } }, h('td', null, f[0]), h('td', null, F.formatear(f[1], '$#,##0').texto), h('td', null, F.formatear(f[2], '$#,##0').texto), h('td', { style: { color: f[1] >= f[2] ? c[2] : c[1], fontWeight: 700 } }, F.formatear(f[1] / f[2], '0%').texto))));
+      (opts.filas || [['Centro', 3505, 3400], ['Norte', 3728, 3800], ['Sur', 3358, 3300]]).forEach((f, i) => tb.appendChild(h('tr', { style: { background: i % 2 ? c[3] : '#fff' } }, h('td', null, f[0]), h('td', null, F.formatear(f[1], opts.formato || '#,##0').texto), h('td', null, F.formatear(f[2], opts.formato || '#,##0').texto), h('td', { style: { color: f[1] >= f[2] ? c[2] : c[1], fontWeight: 700 } }, F.formatear(f[1] / f[2], '0%').texto))));
       t.appendChild(tb);
-      muestra.append(h('div', { style: { fontFamily: c[4] + ', serif', color: c[0], fontSize: '1.3rem', fontWeight: 700, marginBottom: '6px' } }, 'Ventas del 4.º trimestre'), t, h('p', { class: 'instr', style: { marginTop: '8px' } }, 'El tema cambia a la vez los colores y las fuentes de todo el libro: estilos de celda, tablas y gráficos. Fuente del tema: ' + c[4] + '.'));
+      muestra.append(h('div', { style: { fontFamily: c[4] + ', serif', color: c[0], fontSize: '1.3rem', fontWeight: 700, marginBottom: '6px' } }, opts.titulo || 'Atenciones de 2025 por sede'), t, h('p', { class: 'instr', style: { marginTop: '8px' } }, 'El tema cambia a la vez los colores y las fuentes de todo el libro: estilos de celda, tablas y gráficos. Fuente del tema: ' + c[4] + '.'));
     };
     cont.append(botones, muestra);
     dibujar();

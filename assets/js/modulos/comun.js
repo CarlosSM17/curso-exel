@@ -1,64 +1,70 @@
-/* Utilidades compartidas por las definiciones de módulos: datos del caso ya preparados. */
+/* Utilidades compartidas por las definiciones de módulos: datos del caso Clínica Vida Sana ya preparados. */
 (function () {
   'use strict';
   const LT = window.LT;
-  const D = window.LA_TAZA;
+  const D = window.CASO;
   const fecha = (iso) => { const [y, m, d] = iso.split('-'); return d + '/' + m + '/' + y; };
   const serial = (iso) => LT.fechas.deISO(iso);
-  const producto = (cod) => D.productos.find((p) => p.codigo === cod);
+  const servicio = (cod) => D.servicios.find((s) => s.codigo === cod);
+  const SEDES = ['Centro', 'Norte', 'Sur'];
 
-  function totalesPor(clave, filtro) {
+  /* Suma de un campo de las atenciones agrupada por otra clave: {clave: suma} */
+  function totalesPor(clave, filtro, campo) {
+    campo = campo || 'atenciones';
     const o = {};
-    for (const v of D.ventas) { if (filtro && !filtro(v)) continue; o[v[clave]] = (o[v[clave]] || 0) + v.total; }
+    for (const v of D.atenciones) { if (filtro && !filtro(v)) continue; o[v[clave]] = (o[v[clave]] || 0) + v[campo]; }
     return o;
   }
   function trimestre(iso) { return Math.floor((+iso.slice(5, 7) - 1) / 3) + 1; }
   function mes(iso) { return +iso.slice(5, 7); }
-  /* Sucursal líder por trimestre: [ 'Centro', ... ] */
+  /* Sede líder (más atenciones) por trimestre: [ 'Centro', ... ] */
   function lideresTrimestre(filtro) {
     const out = [];
     for (let q = 1; q <= 4; q++) {
-      const t = totalesPor('sucursal', (v) => trimestre(v.fecha) === q && (!filtro || filtro(v)));
+      const t = totalesPor('sede', (v) => trimestre(v.fecha) === q && (!filtro || filtro(v)));
       out.push(Object.entries(t).sort((a, b) => b[1] - a[1])[0][0]);
     }
     return out;
   }
-  /* Totales mensuales por categoría: {categoria: [12]} */
-  function mensualPorCategoria() {
+  /* Atenciones mensuales por área: {area: [12]} */
+  function mensualPorArea() {
     const o = {};
-    for (const c of D.categorias) o[c] = new Array(12).fill(0);
-    for (const v of D.ventas) o[v.categoria][mes(v.fecha) - 1] += v.total;
+    for (const a of D.areas) o[a] = new Array(12).fill(0);
+    for (const v of D.atenciones) o[v.area][mes(v.fecha) - 1] += v.atenciones;
     return o;
   }
-  function mensualPorSucursal(filtro) {
+  function mensualPorSede(filtro) {
     const o = { Centro: new Array(12).fill(0), Norte: new Array(12).fill(0), Sur: new Array(12).fill(0) };
-    for (const v of D.ventas) if (!filtro || filtro(v)) o[v.sucursal][mes(v.fecha) - 1] += v.total;
+    for (const v of D.atenciones) if (!filtro || filtro(v)) o[v.sede][mes(v.fecha) - 1] += v.atenciones;
     return o;
   }
-  /* Filas de ventas para tablas dinámicas */
+  /* Filas de atenciones para tablas dinámicas */
   function filasDinamica() {
-    return D.ventas.map((v) => ({ Folio: v.folio, Fecha: v.fecha, Sucursal: v.sucursal, 'Código': v.codigo, Producto: v.producto, 'Categoría': v.categoria, Cantidad: v.cantidad, Precio: v.precio, Total: v.total, Vendedor: v.vendedor, Pago: v.pago }));
+    return D.atenciones.map((v) => ({ Folio: v.folio, Fecha: v.fecha, Sede: v.sede, 'Código': v.codigo, Servicio: v.servicio, 'Área': v.area, Atenciones: v.atenciones, Cuota: v.cuota, Ingresos: v.ingresos, Profesional: v.profesional, Pago: v.pago }));
   }
   const CAMPOS_DINAMICA = [
-    { nombre: 'Folio', tipo: 'texto' }, { nombre: 'Fecha', tipo: 'fecha' }, { nombre: 'Sucursal', tipo: 'texto' }, { nombre: 'Código', tipo: 'texto' },
-    { nombre: 'Producto', tipo: 'texto' }, { nombre: 'Categoría', tipo: 'texto' }, { nombre: 'Cantidad', tipo: 'numero', formato: '#,##0' },
-    { nombre: 'Precio', tipo: 'numero', formato: '$#,##0.00' }, { nombre: 'Total', tipo: 'numero', formato: '$#,##0' }, { nombre: 'Vendedor', tipo: 'texto' }, { nombre: 'Pago', tipo: 'texto' },
+    { nombre: 'Folio', tipo: 'texto' }, { nombre: 'Fecha', tipo: 'fecha' }, { nombre: 'Sede', tipo: 'texto' }, { nombre: 'Código', tipo: 'texto' },
+    { nombre: 'Servicio', tipo: 'texto' }, { nombre: 'Área', tipo: 'texto' }, { nombre: 'Atenciones', tipo: 'numero', formato: '#,##0' },
+    { nombre: 'Cuota', tipo: 'numero', formato: '$#,##0' }, { nombre: 'Ingresos', tipo: 'numero', formato: '$#,##0' }, { nombre: 'Profesional', tipo: 'texto' }, { nombre: 'Pago', tipo: 'texto' },
   ];
-
-  /* Reporte semanal: [[producto, precio, unidades, …]] */
-  function semana(suc) {
-    const filas = suc ? D.semanaSucursal[suc] : D.semana;
-    return filas.map((p) => ({ producto: p.producto, precio: p.precio, cantidades: p.cantidades, unidades: p.cantidades.reduce((a, b) => a + b, 0) }));
+  /* Consultas del programa de crónicos para el tablero */
+  function filasCronicos() {
+    return D.cronicos.map((c) => ({ Folio: c.folio, Fecha: c.fecha, Sede: c.sede, Programa: c.programa, Sexo: c.sexo, Edad: c.edad, Controlado: c.controlado, Espera: c.espera }));
   }
 
-  /* Estilos frecuentes para encabezados en los datos iniciales */
-  const ENC = { b: true, bg: '#f3ebdf' };
+  /* Reporte semanal: [{servicio, cuota, cantidades[7], unidades}] */
+  function semana(sede) {
+    const filas = sede ? D.semanaSede[sede] : D.semana;
+    return filas.map((p) => ({ servicio: p.servicio, cuota: p.cuota, cantidades: p.cantidades, unidades: p.cantidades.reduce((a, b) => a + b, 0) }));
+  }
+
+  /* Estilo frecuente para encabezados en los datos iniciales */
+  const ENC = { b: true, bg: '#dff0ef' };
 
   /* Funciones auxiliares de comprobación para retos en el simulador */
   const chk = {
-    // ¿la celda tiene un relleno rojizo / amarillento / verdoso aplicado por formato condicional?
     rojizo: (fx) => !!(fx && fx.bg && /^#(ff[c-f]|f[89a-f][0-9a-f]{2}[6-9a-c])/i.test(fx.bg)) || !!(fx && fx.bg === '#ffc7ce'),
   };
 
-  LT.caso = { D, fecha, serial, producto, totalesPor, trimestre, mes, lideresTrimestre, mensualPorCategoria, mensualPorSucursal, filasDinamica, CAMPOS_DINAMICA, semana, ENC, chk };
+  LT.caso = { D, SEDES, fecha, serial, servicio, totalesPor, trimestre, mes, lideresTrimestre, mensualPorArea, mensualPorSede, filasDinamica, CAMPOS_DINAMICA, filasCronicos, semana, ENC, chk };
 })();

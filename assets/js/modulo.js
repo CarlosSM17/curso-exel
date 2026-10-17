@@ -45,7 +45,7 @@
     const def = LT.modulos[id];
     const meta = LT.CURSO.modulo(id);
     const nivel = LT.CURSO.nivel(meta.nivel);
-    document.title = 'Módulo ' + id + ' · ' + meta.titulo + ' · Excel con La Taza';
+    document.title = 'Módulo ' + id + ' · ' + meta.titulo + ' · Excel';
     const prog = LT.progreso.modulo(id);
     const main = h('main');
 
@@ -60,7 +60,7 @@
           h('h1', null, 'Módulo ' + id + '. ' + meta.titulo),
           h('p', { class: 'objetivo' }, h('b', null, 'Objetivo: '), def.objetivo)),
         insignia),
-      def.situacion ? h('div', { class: 'situacion' }, h('div', { class: 'avatar', 'aria-hidden': 'true' }, 'M'), h('div', null, h('div', { class: 'de' }, (def.situacionDe || 'Marta Ríos, gerente general de La Taza') + ' escribe:'), h('div', { class: 'msj', html: def.situacion }))) : null,
+      def.situacion ? h('div', { class: 'situacion' }, h('div', { class: 'avatar', 'aria-hidden': 'true' }, 'LM'), h('div', null, h('div', { class: 'de' }, (def.situacionDe || 'Dra. Laura Méndez, coordinadora de Calidad y Estadística de la clínica') + ' escribe:'), h('div', { class: 'msj', html: def.situacion }))) : null,
       LT.progreso.cargar().ubicacion[meta.nivel] && LT.progreso.cargar().ubicacion[meta.nivel].salto
         ? h('div', { class: 'aviso-caja ok' }, 'Superaste la prueba de ubicación de este nivel: puedes ir directo a la ', h('a', { href: '#etapa4' }, 'Etapa 4 (laboratorio en Excel)'), '.') : null));
     const etapas = [['explicacion', 'Explicación', '·'], ['etapa1', 'Etapa 1: Ver', '1'], ['etapa2', 'Etapa 2: Completar', '2'], ['etapa3', 'Etapa 3: Resolver', '3'], ['etapa4', 'Etapa 4: Transferir', '4'], ['donde', '¿Dónde está?', '?']];
@@ -316,7 +316,7 @@
     const trabajo = h('div', { class: 'panel-trabajo' });
     cont.append(instr, trabajo);
     let hoja = null, widget = null, intentos = 0;
-    const claveBorrador = (n) => 'laTaza2.borrador.m' + id + '.' + n;
+    const claveBorrador = (n) => 'excelSalud.borrador.m' + id + '.' + n;
     const especDe = (n) => {
       const base = reto.base || {};
       const niv = (reto.niveles || {})[n] || {};

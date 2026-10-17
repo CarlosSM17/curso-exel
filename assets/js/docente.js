@@ -1,4 +1,4 @@
-/* Área docente (versión 2). El contenido (guía teórica, plan de sesiones y libros de
+/* Área docente (versión 3, Ciencias de la Salud). El contenido (guía teórica, plan de sesiones y libros de
    solución) está cifrado con AES-GCM; la llave se deriva de la contraseña con PBKDF2-SHA256
    en el navegador (WebCrypto). Nada se envía a ningún servidor.
    Archivos: docente/contenido.js y docente/archivos/*.js, generados por
@@ -10,7 +10,7 @@
   const C = LT.CURSO;
   const P = LT.pagina;
   const NIVEL_TXT = { explorador: 'Explorador', analista: 'Analista', experto: 'Experto' };
-  const SESION = 'laTaza2.docente.';
+  const SESION = 'excelSalud.docente.';
   const TIPOS = { xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', xlsm: 'application/vnd.ms-excel.sheet.macroEnabled.12', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' };
 
   /* ------------------------------------------------------- criptografía */
@@ -67,7 +67,7 @@
     const msj = h('div', { class: 'retro', 'aria-live': 'polite' });
     const btn = h('button', { class: 'btn primario', type: 'submit' }, LT.icono('usuario', 16), 'Entrar');
     const form = h('form', { class: 'acceso-docente tarjeta' },
-      h('div', { class: 'acceso-icono', html: LT.iconoSVG('taza', 54) }),
+      h('div', { class: 'acceso-icono', html: LT.iconoSVG('salud', 54) }),
       h('h1', null, 'Área docente'),
       h('p', null, 'Plan de sesiones minuto a minuto, guía teórica de referencia, soluciones, libros resueltos y consolidación de reportes del grupo.'),
       h('label', null, 'Contraseña'), clave, btn, msj,
@@ -118,7 +118,7 @@
     for (const [id, txt] of PESTANAS) tabs.appendChild(h('button', { class: 'tab', role: 'tab', 'data-id': id, onclick: () => mostrar(id) }, txt));
     main.append(
       h('section', { class: 'seccion docente-cab no-imprimir' },
-        h('div', null, h('div', { class: 'etiqueta-etapa' }, 'Área docente'), h('h1', null, 'Excel con La Taza · ' + C.formato), h('p', { class: 'intro' }, 'Contenido generado el ' + new Date(contenido.generado).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }) + '.')),
+        h('div', null, h('div', { class: 'etiqueta-etapa' }, 'Área docente'), h('h1', null, C.marca + ' · ' + C.formato), h('p', { class: 'intro' }, 'Contenido generado el ' + new Date(contenido.generado).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }) + '.')),
         h('button', { class: 'btn chico fantasma', onclick: () => { ses.borrar(); llave = null; contenido = null; location.hash = ''; acceso(main); } }, 'Cerrar sesión')),
       tabs, cuerpo);
     mostrar(actual);
@@ -175,7 +175,7 @@
 
   /* -------------------------------------------------- soluciones de retos */
   function soluciones(cont) {
-    cont.appendChild(h('p', { class: 'intro' }, 'Solución de referencia del reto principal de cada módulo, como la usa el verificador. Los retos con widgets (módulos 1, 5, 7, 12 y partes del 13) se resuelven con los pasos del nivel Explorador.'));
+    cont.appendChild(h('p', { class: 'intro' }, 'Solución de referencia del reto principal de cada módulo, como la usa el verificador. Los retos con widgets (módulos 6, 9, 11 y la pestaña Tablero del 13) se resuelven con los pasos del nivel Explorador.'));
     for (const m of C.MODULOS) {
       const def = LT.modulos[m.id];
       if (!def || !def.reto) continue;
@@ -214,7 +214,7 @@
     t.appendChild(tb);
     cont.append(h('p', { class: 'intro' }, 'Las soluciones se descifran en este navegador al descargarlas. Las de tablas dinámicas, segmentaciones y macros incluyen una hoja «Solución» con los pasos, porque esos objetos se crean dentro de Excel.'),
       h('div', { class: 'tabla-scroll' }, t),
-      h('p', { style: { marginTop: '14px' } }, h('a', { class: 'btn chico', href: P.url('datos/la-taza-base.xlsx'), download: 'la-taza-base.xlsx' }, LT.icono('descargar', 15), 'Libro de datos del caso')));
+      h('p', { style: { marginTop: '14px' } }, h('a', { class: 'btn chico', href: P.url('datos/clinica-vida-sana-base.xlsx'), download: 'clinica-vida-sana-base.xlsx' }, LT.icono('descargar', 15), 'Libro de datos del caso')));
   }
 
   /* ---------------------------------------------------- reportes del grupo */
@@ -252,7 +252,7 @@
           const filas = [['Participante', 'Grupo', ...C.MODULOS.map((m) => 'M' + m.id + ' reto'), ...C.MODULOS.map((m) => 'M' + m.id + ' lab'), 'Retos', 'Labs', 'Int. básico', 'Int. intermedio', 'Int. avanzado', 'Calificación']];
           for (const r of reps) { const d = r.datos; const c = calcular(d); filas.push([d.participante.nombre, d.participante.grupo, ...C.MODULOS.map((m) => { const x = d.modulos[m.id] || {}; return x.reto && x.reto.ok ? x.reto.nivel : ''; }), ...C.MODULOS.map((m) => { const x = d.modulos[m.id] || {}; return x.lab && x.lab.ok ? 'sí' : ''; }), c.retos, c.labs, ...c.integ, c.cal]); }
           const csv = '﻿' + filas.map((f) => f.map((x) => '"' + String(x == null ? '' : x).replace(/"/g, '""') + '"').join(',')).join('\r\n');
-          LT.u.descargar('calificaciones-la-taza.csv', csv, 'text/csv');
+          LT.u.descargar('calificaciones-excel-salud.csv', csv, 'text/csv');
         } }, LT.icono('descargar', 15), 'Descargar CSV'));
     };
     sinInteg.addEventListener('change', dibujar);
@@ -279,7 +279,7 @@
         h('p', null, 'Después sube a GitHub Pages las carpetas docente/ y laboratorios/ actualizadas.')),
       h('section', { class: 'seccion' }, h('h2', null, 'Cómo agregar retos nuevos'),
         h('p', null, 'Cada módulo vive en ', h('code', null, 'assets/js/modulos/mXX.js'), ' y se declara con ', h('code', null, 'LT.definirModulo({…})'), '. Un reto en el simulador tiene tres partes:'),
-        pre("base: {\n  hoja: { hojas: [{ nombre: 'Ventas', datos: [[...], ...], formatos: { 'C2:C21': '$#,##0' }, objetivo: 'D2:D21' }],\n          herramientas: ['formulas'] },\n  solucion: { 'D2:D21': '=SI(C2>=$F$1, C2*$F$2, 0)' },   // se copia hacia abajo como en Excel\n  pruebas: [\n    { tipo: 'formula', rango: 'D2:D21' },                  // hay fórmula, no un número\n    { tipo: 'valores', rango: 'D2:D21', mensaje: '{celda} muestra {obtenido}…' },\n    { tipo: 'usa', rango: 'F4', funciones: ['CONTAR.SI'] },\n    { tipo: 'robustez', cambios: { F1: 8000 }, rango: 'D2:D21' },  // recalcula con otros datos\n    { tipo: 'estilo', rango: 'A1', prop: 'b', valor: true },\n    { tipo: 'fn', fn: (x) => true || 'mensaje' },\n  ],\n  instrucciones: ['…'], pistas: ['concepto', 'sintaxis', 'paso exacto'],\n},\nniveles: { explorador: { plantilla: { celda: 'D2', texto: '=SI(C2>=___, …)' } }, experto: { pruebasExtra: [...] } }"),
+        pre("base: {\n  hoja: { hojas: [{ nombre: 'Glucosa', datos: [[...], ...], formatos: { 'C2:C21': '0' }, objetivo: 'D2:D21' }],\n          herramientas: ['formulas'] },\n  solucion: { 'D2:D21': '=SI(C2>=$F$1,\"Alterada\",\"Normal\")' },   // se copia hacia abajo como en Excel\n  pruebas: [\n    { tipo: 'formula', rango: 'D2:D21' },                  // hay fórmula, no un número\n    { tipo: 'valores', rango: 'D2:D21', mensaje: '{celda} muestra {obtenido}…' },\n    { tipo: 'usa', rango: 'F4', funciones: ['CONTAR.SI'] },\n    { tipo: 'robustez', cambios: { F1: 95 }, rango: 'D2:D21' },  // recalcula con otros datos\n    { tipo: 'estilo', rango: 'A1', prop: 'b', valor: true },\n    { tipo: 'fn', fn: (x) => true || 'mensaje' },\n  ],\n  instrucciones: ['…'], pistas: ['concepto', 'sintaxis', 'paso exacto'],\n},\nniveles: { explorador: { plantilla: { celda: 'D2', texto: '=SI(C2>=___, …)' } }, experto: { pruebasExtra: [...] } }"),
         h('p', null, 'Los laboratorios declaran ', h('code', null, 'lab.pruebas: [{ titulo, fn(L, A, nivel) }]'), ', donde ', h('code', null, 'L'), ' es el libro leído y ', h('code', null, 'A'), ' trae ayudas como ', h('code', null, 'A.sinFormula'), ', ', h('code', null, 'A.valoresMal'), ' y ', h('code', null, 'A.conCambios'), '. Con ', h('code', null, 'lab.docx: true'), ' el laboratorio acepta además un documento de Word (', h('code', null, 'L.docx.campos'), ' lista los campos combinados).')),
       h('section', { class: 'seccion' }, h('h2', null, 'Cómo revisa un archivo el verificador'),
         h('p', null, 'Un .xlsx es un paquete comprimido de archivos XML. La página lo descomprime en el navegador (JSZip) y lee celdas, formatos, gráficos, tablas, tablas dinámicas, segmentaciones, validaciones, propiedades del documento, vista y zoom de cada hoja. Las fórmulas se guardan en inglés (SUMA se guarda como SUM y BUSCARX como _xlfn.XLOOKUP). En un .xlsm, vbaProject.bin confirma que el libro guarda macros. En un .docx se leen los códigos de campo MERGEFIELD de la combinación de correspondencia.')));

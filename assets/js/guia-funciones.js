@@ -1,5 +1,5 @@
 /* Guía gráfica de las funciones que se usan en el curso.
-   Cada lámina arma una mini hoja con datos de La Taza, calcula la fórmula con el mismo
+   Cada lámina arma una mini hoja con datos de la clínica, calcula la fórmula con el mismo
    motor del simulador (HyperFormula en español) y la dibuja: argumentos de colores,
    rangos resaltados, celdas que cumplen el criterio, desbordamiento y pasos. */
 (function () {
@@ -12,129 +12,152 @@
   const COLORES = ['#2f6fdf', '#2e9d5b', '#a23ec2', '#d9822b', '#c53d5b'];
   const AUX = 40; // columna donde se calculan los auxiliares (fuera de la vista)
 
-  const VENTAS_DIA = [['Día', 'Ventas'], ['Lun', 3200], ['Mar', 2950], ['Mié', 3410], ['Jue', 3600], ['Vie', 4120]];
-  const TICKETS = [['Ticket', 'Importe'], [2101, 104], [2102, 52], [2103, 236], [2104, 78], [2105, 35]];
-  const TICKETS_MIX = [['Ticket', 'Importe'], [2101, 104], [2102, 'cancelado'], [2103, 236], [2104, ''], [2105, 35]];
-  const SUCURSALES = [['Folio', 'Sucursal', 'Total', '', 'Sucursal'], [1, 'Centro', 320, '', 'Norte'], [2, 'Norte', 150], [3, 'Norte', 410], [4, 'Sur', 95], [5, 'Norte', 260], [6, 'Centro', 180]];
-  const CATALOGO = [['Producto', 'Categoría', 'Precio', '', 'Buscar'], ['Espresso', 'Café caliente', 35], ['Americano', 'Café caliente', 40], ['Latte', 'Café caliente', 55], ['Moka', 'Café caliente', 60], ['Frappé moka', 'Café frío', 68], ['Concha', 'Panadería', 22]];
+  const VOLUMEN = [['Hora', 'Solución (mL)'], ['07:00', 500], ['09:00', 250], ['11:00', 500], ['13:00', 250], ['15:00', 100]];
+  const IMC5 = [['Paciente', 'IMC'], ['EXP-1001', 24.1], ['EXP-1002', 31.6], ['EXP-1003', 27.4], ['EXP-1004', 22.8], ['EXP-1005', 29.5]];
+  const GLU5 = [['Paciente', 'Glucosa (mg/dL)'], ['EXP-1001', 92], ['EXP-1002', 134], ['EXP-1003', 87], ['EXP-1004', 151], ['EXP-1005', 99]];
+  const GLU_MIX = [['Paciente', 'Glucosa (mg/dL)'], ['EXP-1001', 92], ['EXP-1002', 'hemolizada'], ['EXP-1003', 134], ['EXP-1004', ''], ['EXP-1005', 87]];
+  const SEDES_GLU = [['Paciente', 'Sede', 'Glucosa', '', 'Sede'], ['EXP-1', 'Centro', 92, '', 'Norte'], ['EXP-2', 'Norte', 134], ['EXP-3', 'Norte', 87], ['EXP-4', 'Sur', 151], ['EXP-5', 'Norte', 110], ['EXP-6', 'Centro', 99]];
+  const SEDES_AT = [['Folio', 'Sede', 'Atenciones', '', 'Sede'], ['A-0001', 'Centro', 32, '', 'Norte'], ['A-0002', 'Norte', 15], ['A-0003', 'Norte', 41], ['A-0004', 'Sur', 9], ['A-0005', 'Norte', 26], ['A-0006', 'Centro', 18]];
+  const CRONICOS6 = [['Sede', 'Programa', 'Controlado', 'Espera (min)', 'Sede', 'Programa'], ['Centro', 'Diabetes', 'Sí', 25, 'Norte', 'Diabetes'], ['Norte', 'Diabetes', 'No', 40], ['Norte', 'Hipertensión', 'Sí', 18], ['Norte', 'Diabetes', 'Sí', 32], ['Sur', 'Diabetes', 'No', 51], ['Norte', 'Diabetes', 'Sí', 22]];
+  const PRESION = [['Paciente', 'Sistólica', 'Diastólica', '¿Elevada?'], ['EXP-1', 150, 95], ['EXP-2', 145, 82], ['EXP-3', 128, 92], ['EXP-4', 118, 76]];
+  const CATALOGO = [['Estudio', 'Área', 'Cuota', '', 'Buscar'], ['Biometría hemática', 'Laboratorio', 140], ['Química sanguínea', 'Laboratorio', 220], ['Perfil de lípidos', 'Laboratorio', 260], ['Glucosa en ayuno', 'Laboratorio', 70], ['Radiografía de tórax', 'Imagen', 350], ['Electrocardiograma', 'Imagen', 250]];
   const posiciones = (rango) => { const o = {}; R.celdasDe(rango).forEach((x, i) => { o[x.dir] = String(i + 1); }); return o; };
 
   /* ------------------------------------------------------------ láminas */
   const FICHAS = [
     {
-      fn: 'SUMA', datos: VENTAS_DIA.concat([['Total']]), formatos: { 'B2:B7': '$#,##0' }, en: 'B7', formula: '=SUMA(B2:B6)', args: [{ txt: 'B2:B6' }],
-      pasos: ['Toma los números de <b>B2:B6</b> (el rango azul).', 'Los suma: 3,200 + 2,950 + 3,410 + 3,600 + 4,120 = <b>{res}</b>.'],
-      errores: ['Un número guardado como texto (alineado a la izquierda) no se suma.', 'Si el rango no llega a la última fila, el total queda incompleto: revisa el borde de color.'],
+      fn: 'SUMA', datos: VOLUMEN.concat([['Total']]), formatos: { 'B2:B7': '#,##0' }, en: 'B7', formula: '=SUMA(B2:B6)', args: [{ txt: 'B2:B6' }],
+      pasos: ['Toma los números de <b>B2:B6</b> (el rango azul).', 'Los suma: 500 + 250 + 500 + 250 + 100 = <b>{res}</b> mL.'],
+      errores: ['Un número guardado como texto (alineado a la izquierda, o «500 mL» con la unidad) no se suma.', 'Si el rango no llega a la última fila, el total queda incompleto: revisa el borde de color.'],
       tip: '<kbd>Alt</kbd>+<kbd>=</kbd> escribe la Autosuma por ti.',
     },
     {
-      fn: 'PROMEDIO', datos: VENTAS_DIA.concat([['Promedio']]), formatos: { 'B2:B7': '$#,##0' }, en: 'B7', formula: '=PROMEDIO(B2:B6)', args: [{ txt: 'B2:B6' }],
-      calc: { suma: ['=SUMA(B2:B6)', '$#,##0'], n: '=CONTAR(B2:B6)' },
+      fn: 'PROMEDIO', datos: IMC5.concat([['Promedio']]), formatos: { 'B2:B7': '0.0' }, en: 'B7', formula: '=PROMEDIO(B2:B6)', args: [{ txt: 'B2:B6' }],
+      calc: { suma: ['=SUMA(B2:B6)', '0.0'], n: '=CONTAR(B2:B6)' },
       pasos: ['Suma los valores: {suma}.', 'Cuenta cuántos números hay: {n}.', 'Divide: {suma} ÷ {n} = <b>{res}</b>.'],
-      errores: ['Las celdas vacías no cuentan, pero los ceros sí bajan el promedio.'],
+      errores: ['Las celdas vacías no cuentan, pero los ceros sí: un 0 capturado por error baja el promedio.', 'Con valores extremos, la MEDIANA describe mejor el centro de los datos.'],
     },
     {
-      fn: 'MAX', datos: TICKETS.concat([['Mayor']]), formatos: { 'B2:B7': '$#,##0' }, en: 'B7', formula: '=MAX(B2:B6)', args: [{ txt: 'B2:B6' }],
-      calc: { pos: '=COINCIDIR(MAX(B2:B6),B2:B6,0)', ticket: '=INDICE(A2:A6,COINCIDIR(MAX(B2:B6),B2:B6,0))' },
+      fn: 'MAX', datos: GLU5.concat([['Mayor']]), en: 'B7', formula: '=MAX(B2:B6)', args: [{ txt: 'B2:B6' }],
+      calc: { pos: '=COINCIDIR(MAX(B2:B6),B2:B6,0)', pac: '=INDICE(A2:A6,COINCIDIR(MAX(B2:B6),B2:B6,0))' },
       destacar: (c) => ['B' + (c.pos + 1)],
-      pasos: ['Recorre B2:B6 y se queda con el valor más grande.', 'Resultado: <b>{res}</b> (ticket {ticket}).'],
+      pasos: ['Recorre B2:B6 y se queda con el valor más grande.', 'Resultado: <b>{res}</b> mg/dL (paciente {pac}).'],
       errores: ['MAX ignora textos y celdas vacías.', 'Para saber <i>quién</i> tiene el máximo, combínalo con BUSCARX o INDICE+COINCIDIR.'],
     },
     {
-      fn: 'MIN', datos: TICKETS.concat([['Menor']]), formatos: { 'B2:B7': '$#,##0' }, en: 'B7', formula: '=MIN(B2:B6)', args: [{ txt: 'B2:B6' }],
-      calc: { pos: '=COINCIDIR(MIN(B2:B6),B2:B6,0)', ticket: '=INDICE(A2:A6,COINCIDIR(MIN(B2:B6),B2:B6,0))' },
+      fn: 'MIN', datos: GLU5.concat([['Menor']]), en: 'B7', formula: '=MIN(B2:B6)', args: [{ txt: 'B2:B6' }],
+      calc: { pos: '=COINCIDIR(MIN(B2:B6),B2:B6,0)', pac: '=INDICE(A2:A6,COINCIDIR(MIN(B2:B6),B2:B6,0))' },
       destacar: (c) => ['B' + (c.pos + 1)],
-      pasos: ['Recorre B2:B6 y se queda con el valor más pequeño.', 'Resultado: <b>{res}</b> (ticket {ticket}).'],
-      errores: ['Una celda vacía no cuenta como cero; un 0 escrito sí sería el mínimo.'],
+      pasos: ['Recorre B2:B6 y se queda con el valor más pequeño.', 'Resultado: <b>{res}</b> mg/dL (paciente {pac}).'],
+      errores: ['Una celda vacía no cuenta como cero; un 0 escrito sí sería el mínimo (y probablemente un error de captura).'],
     },
     {
-      fn: 'CONTAR', datos: TICKETS_MIX.concat([['Con importe']]), formatos: { 'B2:B6': '$#,##0' }, en: 'B7', formula: '=CONTAR(B2:B6)', args: [{ txt: 'B2:B6' }],
+      fn: 'CONTAR', datos: GLU_MIX.concat([['Con resultado']]), en: 'B7', formula: '=CONTAR(B2:B6)', args: [{ txt: 'B2:B6' }], anchoCol: { A: 110, B: 120 },
       marcar: { rango: 'B2:B6', f: '=ESNUMERO({c})' },
       pasos: ['Revisa cada celda de B2:B6.', 'Cuenta solo las que tienen <b>números</b> (✓): <b>{res}</b>.'],
-      errores: ['CONTAR no cuenta textos: para contar nombres o palabras usa CONTARA.'],
+      errores: ['CONTAR no cuenta textos («hemolizada»): para contar registros usa CONTARA.'],
     },
     {
-      fn: 'CONTARA', datos: TICKETS_MIX.concat([['Llenas']]), formatos: { 'B2:B6': '$#,##0' }, en: 'B7', formula: '=CONTARA(B2:B6)', args: [{ txt: 'B2:B6' }],
+      fn: 'CONTARA', datos: GLU_MIX.concat([['Llenas']]), en: 'B7', formula: '=CONTARA(B2:B6)', args: [{ txt: 'B2:B6' }], anchoCol: { A: 110, B: 120 },
       marcar: { rango: 'B2:B6', f: '=NO(ESBLANCO({c}))' },
       pasos: ['Revisa cada celda de B2:B6.', 'Cuenta todas las que <b>no están vacías</b>, con números o con texto (✓): <b>{res}</b>.'],
       errores: ['Una celda con un espacio, o con una fórmula que devuelve "", cuenta como llena.'],
     },
     {
-      fn: 'SI', datos: [['Vendedor', 'Ventas', 'Comisión'], ['Ana', 12500], ['Beto', 8900], ['Caro', 10000], ['Dani', 15200]], formatos: { 'B2:C5': '$#,##0' },
-      en: 'C2:C5', formula: '=SI(B2>=10000,B2*5%,0)', args: [{ txt: 'B2>=10000', ref: 'B2' }, { txt: 'B2*5%' }, { txt: '0' }],
-      flujo: { prueba: 'B2>=10000', si: 'B2*5%', no: '0' },
-      traza: { etiqueta: 'A', filas: [2, 3, 4, 5], cols: [{ t: '¿B ≥ 10,000?', f: '=B{r}>=10000' }, { t: 'Resultado', f: '=C{r}', fmt: '$#,##0' }] },
+      fn: 'RAIZ', datos: [['Peso (kg)', 'Talla (cm)', 'Superficie (m²)'], [70, 170]], formatos: { C2: '0.00' }, en: 'C2', formula: '=RAIZ(A2*B2/3600)', args: [{ txt: 'A2*B2/3600', ref: 'A2:B2' }], anchoCol: { C: 120 },
+      calc: { dentro: ['=A2*B2/3600', '0.000'] },
+      pasos: ['Primero calcula lo que está dentro: 70 × 170 / 3600 = {dentro}.', 'Después saca la raíz cuadrada: <b>{res}</b> m² (fórmula de Mosteller para la superficie corporal).'],
+      errores: ['La talla va en centímetros: si la tienes en metros, multiplícala por 100.', 'La raíz de un número negativo da #¡NUM!.'],
+      tip: 'Elevar a 0.5 es lo mismo: =(A2*B2/3600)^0.5.',
+    },
+    {
+      fn: 'SI', datos: [['Paciente', 'Glucosa', 'Clasificación'], ['EXP-1001', 92], ['EXP-1002', 100], ['EXP-1003', 134], ['EXP-1004', 87]], anchoCol: { C: 110 },
+      en: 'C2:C5', formula: '=SI(B2>=100,"Alterada","Normal")', args: [{ txt: 'B2>=100', ref: 'B2' }, { txt: '"Alterada"' }, { txt: '"Normal"' }],
+      flujo: { prueba: 'B2>=100', si: '"Alterada"', no: '"Normal"' },
+      traza: { etiqueta: 'A', filas: [2, 3, 4, 5], cols: [{ t: '¿B ≥ 100?', f: '=B{r}>=100' }, { t: 'Resultado', f: '=C{r}' }] },
       pasos: ['Evalúa la prueba lógica en cada fila.', 'Si es VERDADERO devuelve el segundo argumento; si es FALSO, el tercero.'],
-      errores: ['Los textos van entre comillas: =SI(B2>=70, "Aprobado", "Revisar").', 'Caro vende exactamente 10,000: con &gt; en lugar de &gt;= se quedaría sin comisión.'],
+      errores: ['Los textos van entre comillas: "Alterada".', 'EXP-1002 tiene exactamente 100: con &gt; en lugar de &gt;= se clasificaría como «Normal».', 'Para tres categorías se anidan: =SI(B2&gt;=126,"Diabetes",SI(B2&gt;=100,"Prediabetes","Normal")).'],
     },
     {
-      fn: 'Y', datos: [['Vendedor', 'Sucursal', 'Ventas', '¿Bono?'], ['Ana', 'Centro', 12500], ['Beto', 'Centro', 8900], ['Caro', 'Norte', 13000], ['Dani', 'Centro', 15200]], formatos: { 'C2:C5': '$#,##0' },
-      en: 'D2:D5', formula: '=Y(B2="Centro",C2>=10000)', args: [{ txt: 'B2="Centro"', ref: 'B2' }, { txt: 'C2>=10000', ref: 'C2' }],
-      traza: { etiqueta: 'A', filas: [2, 3, 4, 5], cols: [{ t: 'Centro', f: '=B{r}="Centro"' }, { t: '≥ 10,000', f: '=C{r}>=10000' }, { t: 'Y', f: '=D{r}' }] },
-      pasos: ['Evalúa cada condición.', 'Devuelve VERDADERO solo si <b>todas</b> se cumplen.'],
-      errores: ['Y casi siempre va dentro de SI: =SI(Y(B2="Centro", C2>=10000), "Bono", "").'],
+      fn: 'Y', datos: PRESION, en: 'D2:D5', formula: '=Y(B2>=140,C2>=90)', args: [{ txt: 'B2>=140', ref: 'B2' }, { txt: 'C2>=90', ref: 'C2' }], anchoCol: { D: 110 },
+      traza: { etiqueta: 'A', filas: [2, 3, 4, 5], cols: [{ t: 'Sistólica ≥ 140', f: '=B{r}>=140' }, { t: 'Diastólica ≥ 90', f: '=C{r}>=90' }, { t: 'Y', f: '=D{r}' }] },
+      pasos: ['Evalúa cada condición.', 'Devuelve VERDADERO solo si <b>todas</b> se cumplen (las dos presiones elevadas).'],
+      errores: ['Y casi siempre va dentro de SI: =SI(Y(B2&gt;=140, C2&gt;=90), "Ambas elevadas", "").'],
     },
     {
-      fn: 'O', datos: [['Pedido', 'Estado', 'Días de atraso', '¿Revisar?'], [2501, 'Pendiente', 0], [2502, 'Entregado', 0], [2503, 'Entregado', 3], [2504, 'Pendiente', 2]],
-      en: 'D2:D5', formula: '=O(B2="Pendiente",C2>0)', args: [{ txt: 'B2="Pendiente"', ref: 'B2' }, { txt: 'C2>0', ref: 'C2' }],
-      traza: { etiqueta: 'A', filas: [2, 3, 4, 5], cols: [{ t: 'Pendiente', f: '=B{r}="Pendiente"' }, { t: 'Atraso', f: '=C{r}>0' }, { t: 'O', f: '=D{r}' }] },
-      pasos: ['Evalúa cada condición.', 'Devuelve VERDADERO si <b>al menos una</b> se cumple; FALSO solo si ninguna.'],
+      fn: 'O', datos: PRESION, en: 'D2:D5', formula: '=O(B2>=140,C2>=90)', args: [{ txt: 'B2>=140', ref: 'B2' }, { txt: 'C2>=90', ref: 'C2' }], anchoCol: { D: 110 },
+      traza: { etiqueta: 'A', filas: [2, 3, 4, 5], cols: [{ t: 'Sistólica ≥ 140', f: '=B{r}>=140' }, { t: 'Diastólica ≥ 90', f: '=C{r}>=90' }, { t: 'O', f: '=D{r}' }] },
+      pasos: ['Evalúa cada condición.', 'Devuelve VERDADERO si <b>al menos una</b> se cumple: basta una presión elevada.'],
       errores: ['Para «uno u otro valor» en la misma celda repite la celda: O(B2="Norte", B2="Sur"), no O(B2="Norte","Sur").'],
     },
     {
-      fn: 'CONTAR.SI', datos: SUCURSALES, celdas: { F1: 'Pedidos' }, formatos: { 'C2:C7': '$#,##0' }, en: 'F2', formula: '=CONTAR.SI(B2:B7,E2)', args: [{ txt: 'B2:B7' }, { txt: 'E2' }],
+      fn: 'CONTAR.SI', datos: SEDES_GLU, celdas: { F1: 'Pacientes' }, en: 'F2', formula: '=CONTAR.SI(B2:B7,E2)', args: [{ txt: 'B2:B7' }, { txt: 'E2' }],
       marcar: { rango: 'B2:B7', f: '=CONTAR.SI({c},$E$2)' }, calc: { crit: '=E2' },
       pasos: ['Revisa cada celda del rango B2:B7.', 'Cuenta las que cumplen el criterio «{crit}» (✓): <b>{res}</b>.'],
-      errores: ['Para comparar, el criterio va entre comillas y se une con &: CONTAR.SI(C2:C21, "&gt;="&amp;F1).', 'Fija el rango con $ si vas a copiar la fórmula.'],
+      errores: ['Para comparar, el criterio va entre comillas y se une con &amp;: CONTAR.SI(C2:C21, "&gt;="&amp;F1).', 'Fija el rango con $ si vas a copiar la fórmula.'],
     },
     {
-      fn: 'SUMAR.SI', datos: SUCURSALES, celdas: { F1: 'Total' }, formatos: { 'C2:C7': '$#,##0', F2: '$#,##0' }, en: 'F2', formula: '=SUMAR.SI(B2:B7,E2,C2:C7)', args: [{ txt: 'B2:B7' }, { txt: 'E2' }, { txt: 'C2:C7' }],
+      fn: 'SUMAR.SI', datos: SEDES_AT, celdas: { F1: 'Atenciones' }, en: 'F2', formula: '=SUMAR.SI(B2:B7,E2,C2:C7)', args: [{ txt: 'B2:B7' }, { txt: 'E2' }, { txt: 'C2:C7' }],
       marcar: { rango: 'B2:B7', f: '=CONTAR.SI({c},$E$2)', tambien: ['C'] }, calc: { crit: '=E2' },
       pasos: ['Busca en B2:B7 las filas que cumplen «{crit}» (✓).', 'Suma los valores de esas mismas filas en C2:C7: <b>{res}</b>.'],
       errores: ['El rango del criterio y el rango de suma deben tener el mismo tamaño y empezar en la misma fila.'],
     },
     {
-      fn: 'PROMEDIO.SI', datos: SUCURSALES, celdas: { F1: 'Promedio' }, formatos: { 'C2:C7': '$#,##0', F2: '$#,##0.00' }, en: 'F2', formula: '=PROMEDIO.SI(B2:B7,E2,C2:C7)', args: [{ txt: 'B2:B7' }, { txt: 'E2' }, { txt: 'C2:C7' }],
-      marcar: { rango: 'B2:B7', f: '=CONTAR.SI({c},$E$2)', tambien: ['C'] }, calc: { crit: '=E2', n: '=CONTAR.SI(B2:B7,E2)', s: ['=SUMAR.SI(B2:B7,E2,C2:C7)', '$#,##0'] },
-      pasos: ['Toma las filas que cumplen «{crit}» (✓): son {n}.', 'Promedia sus valores de C2:C7: {s} ÷ {n} = <b>{res}</b>.'],
+      fn: 'PROMEDIO.SI', datos: SEDES_GLU, celdas: { F1: 'Promedio' }, formatos: { F2: '0.0' }, en: 'F2', formula: '=PROMEDIO.SI(B2:B7,E2,C2:C7)', args: [{ txt: 'B2:B7' }, { txt: 'E2' }, { txt: 'C2:C7' }],
+      marcar: { rango: 'B2:B7', f: '=CONTAR.SI({c},$E$2)', tambien: ['C'] }, calc: { crit: '=E2', n: '=CONTAR.SI(B2:B7,E2)', s: '=SUMAR.SI(B2:B7,E2,C2:C7)' },
+      pasos: ['Toma las filas que cumplen «{crit}» (✓): son {n}.', 'Promedia sus valores de C2:C7: {s} ÷ {n} = <b>{res}</b> mg/dL.'],
       errores: ['Si ninguna fila cumple el criterio, el resultado es #¡DIV/0!.'],
     },
     {
-      fn: 'HOY', datos: [['Pedido', 'Fecha del pedido', 'Días transcurridos', '', 'Hoy es'], [2501, '02/10/2025'], [2502, '15/10/2025']], celdas: { C2: '=HOY()-B2', C3: '=HOY()-B3' }, formatos: { 'C2:C3': '#,##0', E2: 'dd/mm/yyyy' },
-      en: 'E2', formula: '=HOY()', args: [],
-      pasos: ['No lleva argumentos, pero sí los paréntesis.', 'Devuelve la fecha de hoy: <b>{res}</b>. Mañana mostrará otra.', 'Restar fechas da días: =HOY()-B2 (columna C).'],
-      errores: ['El resultado cambia cada día; para una fecha fija escríbela o usa <kbd>Ctrl</kbd>+<kbd>;</kbd>.'],
+      fn: 'CONTAR.SI.CONJUNTO', datos: CRONICOS6, celdas: { G1: 'En control' }, en: 'G2', formula: '=CONTAR.SI.CONJUNTO(A2:A7,E2,B2:B7,F2,C2:C7,"Sí")',
+      args: [{ txt: 'A2:A7' }, { txt: 'E2' }, { txt: 'B2:B7' }, { txt: 'F2' }, { txt: 'C2:C7' }, { txt: '"Sí"' }], anchoCol: { B: 100, F: 90, G: 90 },
+      marcar: { rango: 'A2:A7', f: '=Y(A{r}=$E$2,B{r}=$F$2,C{r}="Sí")', tambien: ['B', 'C'] },
+      pasos: ['Cada criterio va en pareja: rango y criterio.', 'Cuenta las filas que cumplen <b>todos</b> a la vez (✓): sede Norte, programa Diabetes y «Sí» en control: <b>{res}</b>.'],
+      errores: ['Todos los rangos deben tener el mismo tamaño.', 'Un indicador como «% en control» divide dos conteos: CONTAR.SI.CONJUNTO(…, "Sí") / CONTAR.SI.CONJUNTO(…).'],
     },
     {
-      fn: 'AÑO', datos: [['Venta', 'Fecha', 'Año'], [1, '14/02/2025'], [2, '30/11/2024'], [3, '05/01/2026']], en: 'C2:C4', formula: '=AÑO(B2)', args: [{ txt: 'B2' }],
+      fn: 'SUMAR.SI.CONJUNTO', datos: CRONICOS6, celdas: { G1: 'Minutos' }, en: 'G2', formula: '=SUMAR.SI.CONJUNTO(D2:D7,A2:A7,E2,B2:B7,F2)',
+      args: [{ txt: 'D2:D7' }, { txt: 'A2:A7' }, { txt: 'E2' }, { txt: 'B2:B7' }, { txt: 'F2' }], anchoCol: { B: 100, F: 90, G: 90 },
+      marcar: { rango: 'A2:A7', f: '=Y(A{r}=$E$2,B{r}=$F$2)', tambien: ['B', 'D'] },
+      pasos: ['El <b>primer</b> argumento es lo que se suma (la espera); después van las parejas rango–criterio.', 'Suma la espera de las filas de Norte y Diabetes (✓): <b>{res}</b> minutos. Entre el número de consultas da la espera promedio.'],
+      errores: ['El orden es distinto al de SUMAR.SI: en .CONJUNTO el rango de suma va primero.'],
+    },
+    {
+      fn: 'HOY', datos: [['Muestra', 'Fecha de toma', 'Días transcurridos', '', 'Hoy es'], ['M-101', '02/10/2025'], ['M-102', '15/10/2025']], celdas: { C2: '=HOY()-B2', C3: '=HOY()-B3' }, formatos: { 'C2:C3': '#,##0', E2: 'dd/mm/yyyy' },
+      en: 'E2', formula: '=HOY()', args: [], anchoCol: { C: 130 },
+      pasos: ['No lleva argumentos, pero sí los paréntesis.', 'Devuelve la fecha de hoy: <b>{res}</b>. Mañana mostrará otra.', 'Restar fechas da días: =HOY()-B2 (columna C), por ejemplo para saber cuántos días lleva una muestra sin procesar.'],
+      errores: ['El resultado cambia cada día; para registrar una fecha fija escríbela o usa <kbd>Ctrl</kbd>+<kbd>;</kbd>.'],
+    },
+    {
+      fn: 'AÑO', datos: [['Consulta', 'Fecha', 'Año'], [1, '14/02/2025'], [2, '30/11/2024'], [3, '05/01/2026']], en: 'C2:C4', formula: '=AÑO(B2)', args: [{ txt: 'B2' }],
       calc: { serial: ['=B2', '0'] },
       pasos: ['Para Excel, una fecha es un número: 14/02/2025 es el día {serial}.', 'AÑO extrae el año de esa fecha: <b>{res}</b>.'],
       errores: ['Si la fecha está escrita como texto (alineada a la izquierda), AÑO da #¡VALOR!.'],
     },
     {
-      fn: 'MES', datos: [['Venta', 'Fecha', 'Mes'], [1, '14/02/2025'], [2, '30/11/2024'], [3, '05/01/2026']], en: 'C2:C4', formula: '=MES(B2)', args: [{ txt: 'B2' }],
+      fn: 'MES', datos: [['Consulta', 'Fecha', 'Mes'], [1, '14/02/2025'], [2, '30/11/2024'], [3, '05/01/2026']], en: 'C2:C4', formula: '=MES(B2)', args: [{ txt: 'B2' }],
       pasos: ['Extrae el número de mes (1 a 12) de la fecha.', '14/02/2025 → <b>{res}</b>.'],
       errores: ['MES devuelve un número; para el nombre del mes usa TEXTO(B2, "mmmm").'],
     },
     {
-      fn: 'CONCAT', datos: [['Nombre', 'Apellido', 'Sucursal', 'Etiqueta'], ['Lucía', 'Pérez', 'Centro'], ['Raúl', 'Gómez', 'Norte']], en: 'D2:D3', formula: '=CONCAT(A2," ",B2," - ",C2)',
-      args: [{ txt: 'A2' }, { txt: '" "' }, { txt: 'B2' }, { txt: '" - "' }, { txt: 'C2' }], anchoCol: { D: 190 },
+      fn: 'CONCAT', datos: [['Nombre', 'Apellido', 'Expediente', 'Etiqueta'], ['Lucía', 'Pérez', 'EXP-1001'], ['Raúl', 'Gómez', 'EXP-1002']], en: 'D2:D3', formula: '=CONCAT(C2," · ",A2," ",B2)',
+      args: [{ txt: 'C2' }, { txt: '" · "' }, { txt: 'A2' }, { txt: '" "' }, { txt: 'B2' }], anchoCol: { D: 190 },
       pasos: ['Une, en orden, cada argumento: textos de celdas y textos fijos entre comillas.', 'Resultado: <b>{res}</b>.'],
       errores: ['Sin el " " entre nombre y apellido quedaría «LucíaPérez».'],
-      tip: 'El operador &amp; hace lo mismo: =A2&amp;" "&amp;B2.',
+      tip: 'El operador &amp; hace lo mismo: =C2&amp;" · "&amp;A2.',
     },
     {
-      fn: 'REDONDEAR', datos: [['Cálculo', 'Valor', 'Redondeado'], ['Comisión', 1234.567], ['IVA', 198.5049], ['Promedio', 3456.4]], formatos: { 'B2:B4': '#,##0.0000', 'C2:C4': '#,##0.##' },
-      en: 'C2:C4', formula: '=REDONDEAR(B2,2)', args: [{ txt: 'B2' }, { txt: '2' }],
-      traza: { etiqueta: 'A', filas: [2, 3, 4], cols: [{ t: 'Con 0', f: '=REDONDEAR(B{r},0)', fmt: '#,##0' }, { t: 'Con -2', f: '=REDONDEAR(B{r},-2)', fmt: '#,##0' }] },
-      pasos: ['El segundo argumento dice cuántos decimales quedan.', 'Con 0 redondea al entero; con -2, a las centenas.'],
-      errores: ['El formato de celda solo cambia lo que se ve; REDONDEAR cambia el valor guardado (y los totales).'],
+      fn: 'REDONDEAR', datos: [['Cálculo', 'Valor', 'Redondeado'], ['Dosis (mg)', 187.456], ['IMC', 27.3486], ['Superficie (m²)', 1.8264]], formatos: { 'B2:B4': '#,##0.0000', 'C2:C4': '#,##0.##' },
+      en: 'C2:C4', formula: '=REDONDEAR(B2,1)', args: [{ txt: 'B2' }, { txt: '1' }], anchoCol: { A: 120 },
+      traza: { etiqueta: 'A', filas: [2, 3, 4], cols: [{ t: 'Con 0', f: '=REDONDEAR(B{r},0)', fmt: '#,##0' }, { t: 'Con 2', f: '=REDONDEAR(B{r},2)', fmt: '#,##0.00' }] },
+      pasos: ['El segundo argumento dice cuántos decimales quedan.', 'Con 1, la dosis 187.456 queda en 187.5; con 0, en 187.'],
+      errores: ['El formato de celda solo cambia lo que se ve; REDONDEAR cambia el valor guardado.', 'Redondea solo al final del cálculo: redondear pasos intermedios acumula error.'],
     },
     {
-      fn: 'ESPACIOS', datos: [['Capturado', 'Limpio'], ['  Lucía   Pérez '], [' Café  frío'], ['Notaría 14  ']], en: 'B2:B4', formula: '=ESPACIOS(A2)', args: [{ txt: 'A2' }], verEspacios: 'A2:B4', anchoCol: { A: 150, B: 130 },
+      fn: 'ESPACIOS', datos: [['Capturado', 'Limpio'], ['  Lucía   Pérez '], [' Química  sanguínea'], ['Sede Norte  ']], en: 'B2:B4', formula: '=ESPACIOS(A2)', args: [{ txt: 'A2' }], verEspacios: 'A2:B4', anchoCol: { A: 160, B: 150 },
       traza: { etiqueta: 'B', filas: [2, 3, 4], cols: [{ t: 'Largo antes', f: '=LARGO(A{r})' }, { t: 'Largo después', f: '=LARGO(B{r})' }] },
       pasos: ['Quita los espacios del inicio y del final (· = espacio).', 'Deja un solo espacio entre palabras.'],
-      errores: ['No quita el espacio duro (carácter 160) que llega al copiar de páginas web: usa SUSTITUIR(A2, CARACTER(160), " ").'],
+      errores: ['Un espacio de más hace que «Norte » y «Norte» cuenten como sedes distintas en CONTAR.SI o en una tabla dinámica.'],
     },
     {
       fn: 'NOMPROPIO', datos: [['Capturado', 'Corregido'], ['lucía pérez'], ['RAÚL GÓMEZ'], ['ana de la cruz']], en: 'B2:B4', formula: '=NOMPROPIO(A2)', args: [{ txt: 'A2' }], anchoCol: { A: 130, B: 130 },
@@ -142,14 +165,14 @@
       errores: ['«de la» también queda con mayúscula («Ana De La Cruz»): revisa los nombres compuestos.'],
     },
     {
-      fn: 'MAYUSC', datos: [['Capturado', 'Código'], ['caf-001'], ['Pan-002'], ['fri-003']], en: 'B2:B4', formula: '=MAYUSC(A2)', args: [{ txt: 'A2' }],
-      pasos: ['Convierte todas las letras a mayúsculas: útil para códigos.'],
+      fn: 'MAYUSC', datos: [['Capturado', 'Código'], ['con-001'], ['Lab-002'], ['img-003']], en: 'B2:B4', formula: '=MAYUSC(A2)', args: [{ txt: 'A2' }],
+      pasos: ['Convierte todas las letras a mayúsculas: útil para códigos de servicio.'],
       errores: ['El resultado es una copia: para reemplazar los datos, copia y pega como valores.'],
     },
     {
-      fn: 'MINUSC', datos: [['Capturado', 'Correo'], ['Lucia.Perez@Correo.MX'], ['RAUL@LATAZA.MX']], en: 'B2:B3', formula: '=MINUSC(A2)', args: [{ txt: 'A2' }], anchoCol: { A: 170, B: 160 },
+      fn: 'MINUSC', datos: [['Capturado', 'Correo'], ['Lucia.Perez@Correo.MX'], ['RAUL@CLINICA.MX']], en: 'B2:B3', formula: '=MINUSC(A2)', args: [{ txt: 'A2' }], anchoCol: { A: 170, B: 160 },
       pasos: ['Convierte todas las letras a minúsculas: útil para correos.'],
-      errores: ['Después de limpiar, Quitar duplicados encuentra repetidos que antes «parecían» distintos.'],
+      errores: ['Después de limpiar, Quitar duplicados encuentra pacientes repetidos que antes «parecían» distintos.'],
     },
     {
       fn: 'LARGO', datos: [['Teléfono', 'Dígitos'], ['4491234567'], ['449123456'], ['44912345678']], en: 'B2:B4', formula: '=LARGO(A2)', args: [{ txt: 'A2' }], anchoCol: { A: 110 },
@@ -158,68 +181,68 @@
       errores: ['LARGO cuenta también los espacios invisibles: combínalo con ESPACIOS.'],
     },
     {
-      fn: 'SUSTITUIR', datos: [['Código', 'Sin guion'], ['CAF-001'], ['PAN-002'], ['TE-001']], en: 'B2:B4', formula: '=SUSTITUIR(A2,"-","")', args: [{ txt: 'A2' }, { txt: '"-"' }, { txt: '""' }],
+      fn: 'SUSTITUIR', datos: [['Código', 'Sin guion'], ['CON-001'], ['LAB-002'], ['VAC-001']], en: 'B2:B4', formula: '=SUSTITUIR(A2,"-","")', args: [{ txt: 'A2' }, { txt: '"-"' }, { txt: '""' }],
       pasos: ['Busca «-» dentro del texto de A2.', 'Lo reemplaza por el tercer argumento ("" = nada): <b>{res}</b>.'],
-      errores: ['Distingue mayúsculas y minúsculas: "caf" no reemplaza "CAF".'],
+      errores: ['Distingue mayúsculas y minúsculas: "con" no reemplaza "CON".'],
     },
     {
-      fn: 'SUBTOTALES', datos: [['Producto', 'Categoría', 'Ventas'], ['Latte', 'Café caliente', 1040], ['Frappé moka', 'Café frío', 870], ['Moka', 'Café caliente', 1180], ['Cold brew', 'Café frío', 620], ['Capuchino', 'Café caliente', 960], ['Total visible']],
-      formatos: { 'C2:C7': '$#,##0' }, en: 'C7', formula: '=SUBTOTALES(109,C2:C6)', args: [{ txt: '109' }, { txt: 'C2:C6' }], ocultas: [3, 5], anchoCol: { A: 110, B: 110 },
-      forzar: (v) => ({ C7: [2, 4, 6].reduce((s, r) => s + v('C' + r), 0) }), calc: { suma: ['=SUMA(C2:C6)', '$#,##0'] },
-      pasos: ['El filtro dejó solo «Café caliente»: las filas 3 y 5 están ocultas.', '109 = suma <b>sin las filas ocultas</b>: <b>{res}</b>.', 'Con SUMA el total incluiría todo: {suma}.'],
+      fn: 'SUBTOTALES', datos: [['Servicio', 'Área', 'Atenciones'], ['Medicina general', 'Consulta', 124], ['Biometría hemática', 'Laboratorio', 87], ['Nutrición', 'Consulta', 45], ['Química sanguínea', 'Laboratorio', 66], ['Pediatría', 'Consulta', 58], ['Total visible']],
+      en: 'C7', formula: '=SUBTOTALES(109,C2:C6)', args: [{ txt: '109' }, { txt: 'C2:C6' }], ocultas: [3, 5], anchoCol: { A: 140, B: 100 },
+      forzar: (v) => ({ C7: [2, 4, 6].reduce((s, r) => s + v('C' + r), 0) }), calc: { suma: '=SUMA(C2:C6)' },
+      pasos: ['El filtro dejó solo «Consulta»: las filas 3 y 5 están ocultas.', '109 = suma <b>sin las filas ocultas</b>: <b>{res}</b>.', 'Con SUMA el total incluiría todo: {suma}.'],
       errores: ['Con 9 se ignoran las filas filtradas, pero no las que ocultas a mano; con 109, ninguna de las dos.'],
       tip: 'La fila de totales de una tabla usa SUBTOTALES automáticamente.',
     },
     {
-      fn: 'BUSCARX', datos: CATALOGO, celdas: { E2: 'Latte', F1: 'Precio' }, formatos: { 'C2:C7': '$#,##0', F2: '$#,##0' }, en: 'F2', formula: '=BUSCARX(E2,A2:A7,C2:C7,"No existe")',
-      args: [{ txt: 'E2' }, { txt: 'A2:A7' }, { txt: 'C2:C7' }, { txt: '"No existe"' }], insignias: posiciones('A2:A7'), anchoCol: { A: 100, B: 100 },
+      fn: 'BUSCARX', datos: CATALOGO, celdas: { E2: 'Perfil de lípidos', F1: 'Cuota' }, formatos: { 'C2:C7': '$#,##0', F2: '$#,##0' }, en: 'F2', formula: '=BUSCARX(E2,A2:A7,C2:C7,"No existe")',
+      args: [{ txt: 'E2' }, { txt: 'A2:A7' }, { txt: 'C2:C7' }, { txt: '"No existe"' }], insignias: posiciones('A2:A7'), anchoCol: { A: 150, B: 90, E: 120 },
       calc: { fila: '=COINCIDIR(E2,A2:A7,0)', buscado: '=E2' }, destacar: (c) => ['A' + (c.fila + 1), 'C' + (c.fila + 1)],
       pasos: ['Busca «{buscado}» en A2:A7.', 'Lo encuentra en la posición {fila}.', 'Devuelve el dato de esa misma posición en C2:C7: <b>{res}</b>.', 'Si no existiera, mostraría «No existe».'],
-      errores: ['Un espacio de más («Latte ») hace que no lo encuentre: limpia con ESPACIOS.', 'La matriz buscada y la devuelta deben tener el mismo número de filas.'],
+      errores: ['Un espacio de más («Perfil de lípidos ») hace que no lo encuentre: limpia con ESPACIOS o usa listas desplegables.', 'La matriz buscada y la devuelta deben tener el mismo número de filas.'],
     },
     {
-      fn: 'BUSCARV', datos: CATALOGO, celdas: { E2: 'Latte', F1: 'Precio' }, formatos: { 'C2:C7': '$#,##0', F2: '$#,##0' }, en: 'F2', formula: '=BUSCARV(E2,A2:C7,3,FALSO)',
-      args: [{ txt: 'E2' }, { txt: 'A2:C7' }, { txt: '3' }, { txt: 'FALSO' }], insignias: { A1: '1', B1: '2', C1: '3' }, anchoCol: { A: 100, B: 100 },
+      fn: 'BUSCARV', datos: CATALOGO, celdas: { E2: 'Perfil de lípidos', F1: 'Cuota' }, formatos: { 'C2:C7': '$#,##0', F2: '$#,##0' }, en: 'F2', formula: '=BUSCARV(E2,A2:C7,3,FALSO)',
+      args: [{ txt: 'E2' }, { txt: 'A2:C7' }, { txt: '3' }, { txt: 'FALSO' }], insignias: { A1: '1', B1: '2', C1: '3' }, anchoCol: { A: 150, B: 90, E: 120 },
       calc: { fila: '=COINCIDIR(E2,A2:A7,0)', buscado: '=E2' }, destacar: (c) => ['A' + (c.fila + 1), 'C' + (c.fila + 1)],
-      pasos: ['Busca «{buscado}» en la <b>primera columna</b> de A2:C7.', 'Cuenta 3 columnas (A = 1, B = 2, C = 3).', 'Devuelve el precio: <b>{res}</b>. FALSO pide coincidencia exacta.'],
-      errores: ['Si insertas una columna en medio, el 3 deja de apuntar al precio (BUSCARX no tiene ese problema).', 'Sin FALSO, BUSCARV hace búsqueda aproximada y puede traer un dato equivocado.'],
+      pasos: ['Busca «{buscado}» en la <b>primera columna</b> de A2:C7.', 'Cuenta 3 columnas (A = 1, B = 2, C = 3).', 'Devuelve la cuota: <b>{res}</b>. FALSO pide coincidencia exacta.'],
+      errores: ['Si insertas una columna en medio, el 3 deja de apuntar a la cuota (BUSCARX no tiene ese problema).', 'Sin FALSO, BUSCARV hace búsqueda aproximada y puede traer un dato equivocado sin avisar.'],
     },
     {
-      fn: 'INDICE', datos: CATALOGO.map((f, i) => (i === 0 ? ['Producto', 'Categoría', 'Precio', '', 'Posición'] : f)), celdas: { E2: '4', F1: 'Precio' }, formatos: { 'C2:C7': '$#,##0', F2: '$#,##0' },
-      en: 'F2', formula: '=INDICE(C2:C7,E2)', args: [{ txt: 'C2:C7' }, { txt: 'E2' }], insignias: posiciones('C2:C7'), anchoCol: { A: 100, B: 100 },
+      fn: 'INDICE', datos: CATALOGO.map((f, i) => (i === 0 ? ['Estudio', 'Área', 'Cuota', '', 'Posición'] : f)), celdas: { E2: '4', F1: 'Cuota' }, formatos: { 'C2:C7': '$#,##0', F2: '$#,##0' },
+      en: 'F2', formula: '=INDICE(C2:C7,E2)', args: [{ txt: 'C2:C7' }, { txt: 'E2' }], insignias: posiciones('C2:C7'), anchoCol: { A: 150, B: 90 },
       calc: { pos: '=E2' }, destacar: (c) => ['C' + (c.pos + 1)],
       pasos: ['Cuenta posiciones dentro de C2:C7, empezando en 1.', 'La posición {pos} es <b>{res}</b>.'],
       errores: ['INDICE no busca: necesita la posición. Por eso se combina con COINCIDIR.'],
       tip: '=INDICE(C2:C7, COINCIDIR(E2, A2:A7, 0)) hace lo mismo que BUSCARX.',
     },
     {
-      fn: 'COINCIDIR', datos: CATALOGO, celdas: { E2: 'Moka', F1: 'Posición' }, formatos: { 'C2:C7': '$#,##0' }, en: 'F2', formula: '=COINCIDIR(E2,A2:A7,0)',
-      args: [{ txt: 'E2' }, { txt: 'A2:A7' }, { txt: '0' }], insignias: posiciones('A2:A7'), anchoCol: { A: 100, B: 100 },
+      fn: 'COINCIDIR', datos: CATALOGO, celdas: { E2: 'Glucosa en ayuno', F1: 'Posición' }, formatos: { 'C2:C7': '$#,##0' }, en: 'F2', formula: '=COINCIDIR(E2,A2:A7,0)',
+      args: [{ txt: 'E2' }, { txt: 'A2:A7' }, { txt: '0' }], insignias: posiciones('A2:A7'), anchoCol: { A: 150, B: 90, E: 120 },
       calc: { buscado: '=E2' }, destacar: (c) => ['A' + (c.res + 1)],
       pasos: ['Busca «{buscado}» en A2:A7.', 'Devuelve su <b>posición</b>, no su valor: <b>{res}</b>.', 'El 0 pide coincidencia exacta.'],
       errores: ['Sin el 0, COINCIDIR hace búsqueda aproximada en una lista que debería estar ordenada.'],
     },
     {
-      fn: 'FILTRAR', datos: [['Producto', 'Categoría', 'Precio', '', 'Café frío'], ['Latte', 'Café caliente', 55], ['Frappé moka', 'Café frío', 68], ['Moka', 'Café caliente', 60], ['Cold brew', 'Café frío', 58], ['Latte helado', 'Café frío', 58]],
-      formatos: { 'C2:C6': '$#,##0' }, en: 'E2', formula: '=FILTRAR(A2:A6,B2:B6="Café frío")', args: [{ txt: 'A2:A6' }, { txt: 'B2:B6="Café frío"', ref: 'B2:B6' }], derrame: true, anchoCol: { A: 100, B: 100, E: 110 },
-      marcar: { rango: 'B2:B6', f: '={c}="Café frío"', tambien: ['A'] },
+      fn: 'FILTRAR', datos: [['Paciente', 'Programa', 'Glucosa', '', 'Diabetes'], ['Lucía H.', 'Diabetes', 134], ['Mateo G.', 'Hipertensión', 98], ['Sofía M.', 'Diabetes', 151], ['Diego R.', 'Hipertensión', 92], ['Camila F.', 'Diabetes', 126]],
+      en: 'E2', formula: '=FILTRAR(A2:A6,B2:B6="Diabetes")', args: [{ txt: 'A2:A6' }, { txt: 'B2:B6="Diabetes"', ref: 'B2:B6' }], derrame: true, anchoCol: { A: 100, B: 110, E: 100 },
+      marcar: { rango: 'B2:B6', f: '={c}="Diabetes"', tambien: ['A'] },
       pasos: ['Revisa la condición fila por fila (✓ = VERDADERO).', 'Devuelve las filas de A2:A6 que cumplen y las <b>desborda</b> hacia abajo desde E2 (borde punteado).', 'Si cambian los datos, la lista se actualiza sola.'],
       errores: ['Si algo ocupa las celdas de abajo aparece #¡DESBORDAMIENTO!: deja espacio libre.', 'Si nada cumple: FILTRAR(…, …, "Sin resultados").'],
     },
     {
-      fn: 'SI.ERROR', datos: [['Producto', 'Ventas', 'Unidades', 'Precio prom.'], ['Latte', 1040, 20], ['Moka', 0, 0], ['Concha', 440, 20]], formatos: { 'B2:B4': '$#,##0', 'D2:D4': '$#,##0.00' },
-      en: 'D2:D4', formula: '=SI.ERROR(B2/C2,0)', args: [{ txt: 'B2/C2', ref: 'B2:C2' }, { txt: '0' }],
-      traza: { etiqueta: 'A', filas: [2, 3, 4], cols: [{ t: 'Sin SI.ERROR', f: '=B{r}/C{r}', fmt: '$#,##0.00' }, { t: 'Con SI.ERROR', f: '=D{r}', fmt: '$#,##0.00' }] },
-      pasos: ['Calcula el primer argumento (B2/C2).', 'Si da un error, como #¡DIV/0!, muestra el segundo argumento.'],
-      errores: ['No escondas errores que avisan de un problema real (por ejemplo, un código mal escrito en BUSCARX).'],
+      fn: 'SI.ERROR', datos: [['Sede', 'En control', 'Consultas', '% de control'], ['Centro', 16, 22], ['Rural', 0, 0], ['Sur', 11, 25]], formatos: { 'D2:D4': '0.0%' },
+      en: 'D2:D4', formula: '=SI.ERROR(B2/C2,0)', args: [{ txt: 'B2/C2', ref: 'B2:C2' }, { txt: '0' }], anchoCol: { D: 110 },
+      traza: { etiqueta: 'A', filas: [2, 3, 4], cols: [{ t: 'Sin SI.ERROR', f: '=B{r}/C{r}', fmt: '0.0%' }, { t: 'Con SI.ERROR', f: '=D{r}', fmt: '0.0%' }] },
+      pasos: ['Calcula el primer argumento (B2/C2).', 'Si da un error, como #¡DIV/0! en una sede sin consultas, muestra el segundo argumento.'],
+      errores: ['Mostrar 0 % puede confundirse con «nadie en control»: a veces es mejor mostrar "" o «Sin datos».', 'No escondas errores que avisan de un problema real (por ejemplo, un estudio mal escrito en BUSCARX).'],
     },
     {
-      fn: 'TEXTO', datos: [['Fecha', 'Importe', 'Importe como texto'], ['20/10/2025', 1250.5], ['02/11/2025', 980]], formatos: { 'B2:B3': 'General' }, anchoCol: { C: 140 },
+      fn: 'TEXTO', datos: [['Fecha de cita', 'Cuota', 'Cuota como texto'], ['20/10/2025', 260], ['02/11/2025', 1250.5]], formatos: { 'B2:B3': 'General' }, anchoCol: { A: 110, C: 140 },
       en: 'C2:C3', formula: '=TEXTO(B2,"$#,##0.00")', args: [{ txt: 'B2' }, { txt: '"$#,##0.00"' }],
       traza: { etiqueta: 'A', filas: [2, 3], cols: [{ t: 'TEXTO(A,"mmmm")', f: '=TEXTO(A{r},"mmmm")' }, { t: 'TEXTO(A,"dddd")', f: '=TEXTO(A{r},"dddd")' }] },
       pasos: ['Aplica el formato del segundo argumento al valor.', 'El resultado es <b>texto</b>: {res}.'],
       errores: ['El resultado ya no se puede sumar.', 'En Excel en español los códigos de fecha usan «aaaa» para el año (en inglés, «yyyy»).'],
-      tip: 'Útil para armar frases y para combinar correspondencia: ="Total: "&amp;TEXTO(B2, "$#,##0.00").',
+      tip: 'Útil para combinar correspondencia: Word recibe la cuota ya con formato ($260.00).',
     },
   ];
 
@@ -249,7 +272,7 @@
     const calc = {};
     for (const [k, v] of Object.entries(f.calc || {})) { const [form, cod] = Array.isArray(v) ? v : [v, null]; calc[k] = { d: aux(form), fmt: cod }; }
     const marcas = {};
-    if (f.marcar) for (const x of R.celdasDe(f.marcar.rango)) marcas[x.dir] = aux(f.marcar.f.replace(/\{c\}/g, x.dir));
+    if (f.marcar) for (const x of R.celdasDe(f.marcar.rango)) marcas[x.dir] = aux(f.marcar.f.replace(/\{c\}/g, x.dir).replace(/\{r\}/g, x.r + 1));
     const traza = f.traza ? f.traza.filas.map((r) => f.traza.cols.map((col) => aux(col.f.replace(/\{r\}/g, r)))) : null;
     const hf = M.crearMotor({ Hoja1: celdas }, {});
     const leer = (d) => { const v = M.valorEn(hf, 'Hoja1', d); return v; };
@@ -417,17 +440,17 @@
 
   function anatomia() {
     const partes = [
-      ['=', 'Inicio', 'Toda fórmula empieza con el signo igual.', '#5b3a29'],
+      ['=', 'Inicio', 'Toda fórmula empieza con el signo igual.', '#0f5e57'],
       ['SI', 'Función', 'El nombre dice qué hace.', '#1e7145'],
       ['(', 'Abre', 'Los argumentos van entre paréntesis.', '#777'],
-      ['B2>=10000', 'Argumento 1', 'Una condición: referencia, operador y número.', COLORES[0]],
+      ['C2>=100', 'Argumento 1', 'Una condición: referencia, operador y número.', COLORES[0]],
       [',', 'Separador', 'Coma (o punto y coma, según tu configuración).', '#777'],
-      ['B2*5%', 'Argumento 2', 'Un cálculo con una referencia.', COLORES[1]],
+      ['"Alterada"', 'Argumento 2', 'Un texto, siempre entre comillas.', COLORES[1]],
       [',', 'Separador', '', '#777'],
-      ['0', 'Argumento 3', 'Una constante.', COLORES[2]],
+      ['"Normal"', 'Argumento 3', 'Otro texto.', COLORES[2]],
       [')', 'Cierra', 'Cada paréntesis que abre debe cerrar.', '#777'],
     ];
-    return h('div', { class: 'gf-anatomia', role: 'img', 'aria-label': 'Partes de la fórmula =SI(B2>=10000, B2*5%, 0)' },
+    return h('div', { class: 'gf-anatomia', role: 'img', 'aria-label': 'Partes de la fórmula =SI(C2>=100, "Alterada", "Normal")' },
       partes.map(([t, n, d, col]) => h('div', { class: 'gf-parte' }, h('code', { style: { color: col, borderColor: col } }, t), h('b', { style: { color: col } }, n), d ? h('span', null, d) : null)));
   }
 
@@ -452,7 +475,7 @@
     const indice = h('div', { class: 'gf-indice' }, cats.map((c) => h('div', null, h('b', null, c), h('div', { class: 'gf-indice-fn' }, FICHAS.filter((f) => (LT.FUNCIONES[f.fn] || {}).categoria === c).map((f) => h('a', { href: '#f-' + f.fn.replace(/\./g, '-') }, f.fn))))));
     main.append(
       h('section', { class: 'seccion' }, h('div', { class: 'etiqueta-etapa' }, 'Referencia visual'), h('h1', null, 'Guía gráfica de funciones'),
-        h('p', { class: 'intro' }, 'Las ' + FICHAS.length + ' funciones que se usan en el curso, cada una con un ejemplo de La Taza calculado en vivo. Los colores de la fórmula coinciden con los rangos de la hoja, igual que en Excel cuando editas una fórmula.'),
+        h('p', { class: 'intro' }, 'Las ' + FICHAS.length + ' funciones que se usan en el curso, cada una con un ejemplo clínico calculado en vivo. Los colores de la fórmula coinciden con los rangos de la hoja, igual que en Excel cuando editas una fórmula.'),
         h('div', { class: 'grupo-btn no-imprimir' }, h('button', { class: 'btn chico', onclick: () => window.print() }, 'Imprimir o guardar en PDF'), h('a', { class: 'btn chico fantasma', href: 'glosario.html' }, 'Glosario español-inglés'))),
       h('section', { class: 'seccion' }, h('h2', null, 'Anatomía de una fórmula'), anatomia(),
         h('div', { class: 'gf-leyenda' }, h('span', null, h('i', { class: 'gf-l resultado' }), 'Celda con la fórmula'), h('span', null, h('i', { class: 'gf-l cumple' }), 'Cumple el criterio (✓)'), h('span', null, h('i', { class: 'gf-l destacada' }), 'Valor encontrado'), h('span', null, h('i', { class: 'gf-l derrame' }), 'Resultado desbordado'))),

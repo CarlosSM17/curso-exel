@@ -1,146 +1,187 @@
-/* Módulo 7 · Gráficos */
+/* Módulo 7 · Fórmulas intermedias */
 (function () {
-  const { D, totalesPor, mensualPorCategoria, mensualPorSucursal } = LT.caso;
-  const MESES = D.mesesCortos;
-  const porProducto = totalesPor('producto');
-  const productos = D.productos.map((p) => p.nombre);
-  const porCat = mensualPorCategoria();
-  const porSuc = mensualPorSucursal();
-  const lider = Object.entries(porProducto).sort((a, b) => b[1] - a[1])[0][0];
-  const top5 = Object.entries(porProducto).sort((a, b) => b[1] - a[1]).slice(0, 5).map((x) => x[0]);
-  const mesFrio = MESES[porCat['Café frío'].indexOf(Math.max(...porCat['Café frío']))];
-  const CONJ = [
-    { id: 'sucursales', nombre: 'Ventas mensuales por sucursal', categorias: MESES, series: Object.entries(porSuc).map(([n, v]) => ({ nombre: n, valores: v })), formato: '$#,##0' },
-    { id: 'productos', nombre: 'Ventas anuales por producto (2025)', categorias: productos, series: [{ nombre: 'Ventas 2025', valores: productos.map((p) => porProducto[p] || 0) }], formato: '$#,##0' },
-    { id: 'meses', nombre: 'Ventas mensuales por categoría', categorias: MESES, series: D.categorias.map((c) => ({ nombre: c, valores: porCat[c] })), formato: '$#,##0' },
+  const { D, ENC, fecha } = LT.caso;
+  const glu = D.glucosa;
+  const pers = D.personal;
+  const datosGlucosa = [['Paciente', 'Sede', 'Glucosa (mg/dL)', 'Clasificación', 'Umbral de glucosa alterada', 100], ...glu.map((p, i) => [p.paciente, p.sede, p.glucosa, '', i === 2 ? 'Pacientes con glucosa alterada' : '', ''])];
+  const hojaGlucosa = (extra) => ({
+    nombre: 'Glucosa', datos: datosGlucosa,
+    formatos: {},
+    estilos: { 'A1:D1': ENC, 'E1:E4': { b: true }, G1: { b: true } }, anchos: { A: 150, B: 70, C: 110, D: 110, E: 220, F: 64, G: 150, H: 60 },
+    objetivo: 'D2:D21,F4', inmovilizar: { filas: 1 }, celdas: extra || {},
+  });
+  const clasif = (g, u) => (g >= u ? 'Alterada' : 'Normal');
+  const pruebasBase = (experto) => [
+    { tipo: 'formula', rango: 'D2:D21', mensaje: '{celda} tiene un texto escrito; usa una fórmula para que la clasificación cambie si cambia la glucosa o el umbral.', mensajeVacia: '{celda} está vacía: clasifica a cada paciente (copia la fórmula hasta D21).', titulo: 'Las clasificaciones D2:D21 son fórmulas' },
+    { tipo: 'valores', rango: 'D2:D21', mensaje: '{celda} muestra {obtenido}, pero se esperaba {esperado}: revisa la comparación (¿>= incluye a quien tiene exactamente el umbral?).', titulo: 'Las clasificaciones son correctas' },
+    { tipo: 'formula', rango: 'F4', mensaje: 'F4 tiene un número escrito: cuenta con una fórmula para que cambie si cambian los datos.', mensajeVacia: 'Falta F4: cuenta cuántos pacientes tienen glucosa alterada.', titulo: 'F4 usa una fórmula' },
+    { tipo: 'valores', rango: 'F4', mensaje: 'F4 muestra {obtenido}, pero {esperado} pacientes tienen glucosa en o por encima del umbral.', titulo: 'F4 cuenta bien a los pacientes con glucosa alterada' },
+    { tipo: 'usa', rango: 'F4', funciones: ['CONTAR.SI', 'CONTAR.SI.CONJUNTO'], alguna: true, mensaje: 'Para contar con una condición usa CONTAR.SI en F4.', titulo: 'F4 usa CONTAR.SI' },
+    { tipo: 'robustez', cambios: experto ? [{ F1: 110 }, { H1: 130 }] : { F1: 110 }, rango: 'D2:D21,F4', mensaje: experto ? 'Al cambiar los umbrales, {celda} no se actualizó: ¿fijaste F1 y H1 con signos de pesos?' : 'Al cambiar el umbral a 110, {celda} no se actualizó: ¿fijaste F1 con signos de pesos ($F$1)?', titulo: 'Resiste cambios de umbral (referencias absolutas)' },
   ];
-
-  function galeria(c) {
-    const fila = LT.u.h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' } });
-    const casos = [
-      ['Comparar categorías → columnas o barras', { tipo: 'columnas', categorias: ['Centro', 'Norte', 'Sur'], series: [{ nombre: 'Ventas', valores: Object.values(totalesPor('sucursal')) }], titulo: 'Ventas por sucursal', formato: '$#,##0' }],
-      ['Cambio en el tiempo → líneas', { tipo: 'lineas', categorias: MESES, series: [{ nombre: 'Café frío', valores: porCat['Café frío'] }], titulo: 'Café frío por mes', formato: '$#,##0' }],
-      ['Partes de un todo (pocas) → circular', { tipo: 'circular', categorias: ['Centro', 'Norte', 'Sur'], series: [{ nombre: 'Ventas', valores: Object.values(totalesPor('sucursal')) }], titulo: 'Participación por sucursal', formato: '$#,##0' }],
-    ];
-    for (const [t, o] of casos) {
-      const g = LT.u.h('div', { class: 'graf-cont' });
-      const lienzo = LT.u.h('div');
-      g.append(LT.u.h('div', { style: { fontWeight: 600, fontSize: '.88rem', marginBottom: '4px' } }, t), lienzo);
-      fila.appendChild(g);
-      setTimeout(() => LT.graficos.dibujar(lienzo, Object.assign({ ancho: 420, alto: 260 }, o)), 0);
-    }
-    c.appendChild(fila);
-  }
-
-  function crearReto(cont, nivel) {
-    const { h } = LT.u;
-    const estado = { g1: null, g2: null, r1: '', r2: '' };
-    const experto = nivel === 'experto', explorador = nivel === 'explorador';
-    const pestanas = h('div', { class: 'grupo-btn', style: { marginBottom: '10px' } });
-    const p1 = h('div'), p2 = h('div');
-    const mostrar = (i) => { p1.style.display = i === 1 ? '' : 'none'; p2.style.display = i === 2 ? '' : 'none'; pestanas.querySelectorAll('button').forEach((b, k) => b.classList.toggle('primario', k + 1 === i)); };
-    pestanas.append(h('button', { class: 'btn chico primario', onclick: () => mostrar(1) }, 'Gráfico 1: ¿qué producto vende más?'), h('button', { class: 'btn chico', onclick: () => mostrar(2) }, 'Gráfico 2: café caliente vs. frío por mes'));
-    const preg1 = h('select', { class: 'herr-sel', onchange: (e) => { estado.r1 = e.target.value; } }, h('option', { value: '' }, 'Elige…'), top5.slice().sort().map((p) => h('option', { value: p }, p)));
-    const preg2 = h('select', { class: 'herr-sel', onchange: (e) => { estado.r2 = e.target.value; } }, h('option', { value: '' }, 'Elige…'), MESES.map((m) => h('option', { value: m }, m)));
-    const g1 = h('div'), g2 = h('div');
-    p1.append(h('p', { class: 'instr' }, explorador ? 'Los datos ya están elegidos. Escoge el tipo de gráfico para comparar productos y escribe un título.' : 'Elige los datos, el tipo de gráfico y escribe un título.'), g1, h('div', { class: 'aviso-caja info' }, 'Según tu gráfico, ¿qué producto vendió más en 2025? ', preg1));
-    p2.append(h('p', { class: 'instr' }, explorador ? 'Elige el conjunto «Ventas mensuales por categoría», deja solo Café caliente y Café frío, y escoge el tipo de gráfico para ver el cambio en el tiempo.' : 'Muestra solo el café caliente y el café frío a lo largo del año.'), g2, h('div', { class: 'aviso-caja info' }, 'Según tu gráfico, ¿en qué mes se vendió más café frío? ', preg2));
-    cont.append(pestanas, p1, p2);
-    setTimeout(() => {
-      LT.graficos.Constructor(g1, { conjuntos: CONJ, estadoInicial: explorador ? { conjunto: 'productos' } : {}, alCambiar: (e) => { estado.g1 = e; } });
-      LT.graficos.Constructor(g2, { conjuntos: CONJ, estadoInicial: explorador ? { conjunto: 'meses' } : {}, alCambiar: (e) => { estado.g2 = e; } });
-      mostrar(1);
-    }, 0);
-    return {
-      verificar: () => {
-        const r = [];
-        const a = estado.g1 || {}, b = estado.g2 || {};
-        const add = (ok, titulo, mensaje) => r.push({ ok, titulo, mensaje: ok ? titulo : mensaje });
-        add(a.conjunto === 'productos', 'Gráfico 1 usa las ventas por producto', 'Gráfico 1: elige los datos «Ventas anuales por producto».');
-        add(experto ? a.tipo === 'barras' : ['columnas', 'barras'].includes(a.tipo), 'Gráfico 1: tipo adecuado para comparar', experto ? 'Gráfico 1: con 20 nombres largos, las barras horizontales se leen mejor.' : 'Gráfico 1: para comparar productos usa columnas o barras.');
-        add(!!(a.titulo || '').trim(), 'Gráfico 1 tiene título', 'Gráfico 1: escribe un título que diga qué muestra.');
-        if (experto) add(!!(a.ejeX || '').trim() && !!(a.ejeY || '').trim() && a.etiquetas, 'Gráfico 1 con títulos de ejes y etiquetas de datos', 'Gráfico 1: agrega títulos a los dos ejes y etiquetas de datos.');
-        add(estado.r1 === lider, 'Respuesta 1 correcta', estado.r1 ? 'Revisa tu gráfico: el producto que más vendió no es ' + estado.r1 + '. Activa las etiquetas de datos o pasa el cursor sobre las barras.' : 'Responde qué producto vendió más.');
-        add(b.conjunto === 'meses', 'Gráfico 2 usa las ventas mensuales por categoría', 'Gráfico 2: elige «Ventas mensuales por categoría».');
-        const s = (b.series || []).slice().sort().join('|');
-        add(s === 'Café caliente|Café frío', 'Gráfico 2 compara solo café caliente y frío', 'Gráfico 2: deja marcadas solo las series Café caliente y Café frío.');
-        add(b.tipo === 'lineas', 'Gráfico 2: líneas para ver el cambio en el tiempo', 'Gráfico 2: para mostrar cómo cambian por mes, usa líneas.');
-        add(!!(b.titulo || '').trim(), 'Gráfico 2 tiene título', 'Gráfico 2: escribe un título.');
-        if (experto) add(!!(b.ejeY || '').trim(), 'Gráfico 2 con título del eje vertical', 'Gráfico 2: agrega el título del eje vertical (por ejemplo «Ventas ($)»).');
-        add(estado.r2 === mesFrio, 'Respuesta 2 correcta', estado.r2 ? 'Revisa la línea del café frío: su punto más alto no está en ' + estado.r2 + '.' : 'Responde en qué mes se vendió más café frío.');
-        return { ok: r.every((x) => x.ok), resultados: r };
-      },
-    };
-  }
+  const dosis = [['EXP-7001', 12.5], ['EXP-7002', 18], ['EXP-7003', 22.4], ['EXP-7004', 9.8], ['EXP-7005', 30]];
+  const pas = [['EXP-7101', 'Centro', 128], ['EXP-7102', 'Norte', 145], ['EXP-7103', 'Sur', 140], ['EXP-7104', 'Centro', 118], ['EXP-7105', 'Norte', 152]];
 
   LT.definirModulo({
     id: 7,
-    objetivo: 'Elegir el tipo de gráfico adecuado, crearlo y personalizarlo; agregar minigráficos.',
-    situacion: 'En la junta del lunes quiero responder con imágenes dos preguntas: <b>¿qué producto nos deja más dinero en el año?</b> y <b>¿cómo cambian las ventas de café caliente y café frío mes a mes?</b>',
+    objetivo: 'Usar referencias absolutas, rangos con nombre, SI (incluso anidado), Y, O, CONTAR.SI, SUMAR.SI, PROMEDIO.SI y funciones de texto y fecha con datos clínicos.',
+    situacion: 'Para el programa de detección oportuna necesito <b>clasificar la glucosa en ayuno</b> de los pacientes de la jornada y saber <b>cuántos tienen la glucosa alterada</b>. El umbral está en una celda porque el comité podría cambiarlo.',
     explicacion: [
-      { html: '<h3>Primero la pregunta, después el gráfico</h3><ul><li><b>Comparar</b> categorías (productos, sucursales): <b>columnas</b>; si los nombres son largos o son muchos, <b>barras</b> horizontales.</li><li><b>Cambio en el tiempo</b> (meses, días): <b>líneas</b>.</li><li><b>Partes de un todo</b> con pocas partes (2 a 5): <b>circular</b>. Con muchas partes, mejor barras.</li></ul><p>Un buen gráfico tiene <b>título</b> que dice qué muestra, ejes claros y, cuando hay varias series, una <b>leyenda</b>. Las <b>etiquetas de datos</b> ayudan cuando el número exacto importa.</p><p>Los <b>minigráficos</b> (Insertar › Minigráficos) son gráficos pequeñitos dentro de una celda: muestran la tendencia de cada fila de un vistazo.</p>' },
-      { titulo: 'Cada pregunta, su gráfico', instr: 'Pasa el cursor sobre las marcas para ver los valores.', widget: galeria },
+      { html: '<h3>Referencias que se mueven y referencias fijas</h3><p>Cuando copias una fórmula, Excel ajusta sus referencias: <code>=B2*F1</code> copiada una fila abajo se convierte en <code>=B3*F2</code>. Eso sirve para B (cada paciente tiene su peso), pero no para F1, donde está la dosis en mg/kg: es una sola celda. Para fijarla se usan signos de pesos: <code>$F$1</code>. Al escribir la fórmula, pon el cursor en la referencia y pulsa <kbd>F4</kbd>: <code>F1 → $F$1 → F$1 → $F1</code>.</p>' },
+      { widget: 'copiarReferencias', titulo: 'Pruébalo: dosis por kilogramo', instr: 'La fórmula de C2 multiplica el peso por la dosis en mg/kg, que está en F1. Cambia el tipo de referencia de F1 y observa qué pasa al copiarla hasta C6. Pasa el cursor sobre cada fila para ver a qué celdas apunta.', opts: { datos: [['Expediente', 'Peso (kg)', 'Dosis (mg)', '', 'mg/kg', 15], ...dosis], formula: '=B2*F1', celda: 'C2', hasta: 'C6', formatos: { 1: '0.0', 5: '0' }, valorCorrecto: (r) => dosis[r - 1][1] * 15, formatoResultado: '0.0', instruccion: '' } },
+      { html: '<h3>Decidir con SI, Y, O</h3><ul><li><code>=SI(prueba, valor_si_verdadero, valor_si_falso)</code>: elige entre dos resultados. Ejemplo: <code>=SI(C2&gt;=$F$1, "Alterada", "Normal")</code>.</li><li><b>SI anidado</b> para más de dos categorías, empezando por la más exigente: <code>=SI(C2&gt;=126, "Diabetes", SI(C2&gt;=100, "Prediabetes", "Normal"))</code>.</li><li><code>Y(…)</code> es verdadero si <b>todas</b> las condiciones se cumplen; <code>O(…)</code> si se cumple <b>al menos una</b>: <code>=SI(O(PAS&gt;=140, PAD&gt;=90), "Elevada", "Normal")</code>.</li></ul><h3>Contar, sumar y promediar con condición</h3><ul><li><code>=CONTAR.SI(C2:C21, "&gt;="&amp;F1)</code> cuenta las glucosas mayores o iguales al umbral. El <code>&amp;</code> une el operador con el valor de la celda.</li><li><code>=SUMAR.SI(B2:B21, "Centro", C2:C21)</code> y <code>=PROMEDIO.SI(…)</code> funcionan igual, con un rango de suma o de promedio.</li></ul><h3>Rangos con nombre, texto y fecha</h3><p>Selecciona F1, escribe <b>Umbral</b> en el cuadro de nombres y pulsa Enter: ahora puedes escribir <code>=C2&gt;=Umbral</code>. Para textos: <code>CONCAT</code> une; para fechas: <code>HOY()</code>, <code>AÑO()</code>, <code>MES()</code>; <code>REDONDEAR(número, decimales)</code> redondea (por ejemplo, una dosis a una décima).</p><p class="aviso-caja info">Los umbrales del curso siguen criterios de uso común y sirven para practicar Excel; el diagnóstico clínico requiere confirmación y criterios completos.</p>' },
     ],
     ejemplo: {
-      tipo: 'pasos', titulo: 'Crear un gráfico de columnas',
-      pasos: ['Selecciona los datos con sus encabezados (por ejemplo, Producto y Ventas).', { texto: 'Insertar › Gráficos › Columnas (o «Gráficos recomendados»).', ruta: ['Insertar', 'Insertar gráfico de columnas o de barras'] }, { texto: 'Con el gráfico seleccionado, en Diseño de gráfico › Agregar elemento de gráfico agrega título, títulos de ejes o etiquetas.', ruta: ['Diseño de gráfico', 'Agregar elemento de gráfico'] }, 'Haz clic en el título para cambiar su texto.'],
-      pregunta: { texto: 'Quieres mostrar cómo cambiaron las ventas <b>mes a mes</b> durante 2025. ¿Qué gráfico eliges?', opciones: ['Circular', 'Líneas', 'Barras apiladas', 'Dispersión'], correcta: 1, explicacion: 'Para ver cambios en el tiempo, las <b>líneas</b> muestran la tendencia de un vistazo.' },
+      titulo: 'Clasificación del primer paciente',
+      hoja: { hojas: [Object.assign(hojaGlucosa(), { objetivo: null, filas: 10 })], altura: 200 },
+      celda: 'D2', formula: '=SI(C2>=$F$1, "Alterada", "Normal")',
+      pregunta: '¿Qué mostrará D2?', respuesta: clasif(glu[0].glucosa, 100),
+      explicacion: [
+        'La prueba es <code>C2&gt;=$F$1</code>: ¿' + glu[0].glucosa + ' es mayor o igual que 100? <b>' + (glu[0].glucosa >= 100 ? 'Sí' : 'No') + '</b>.',
+        'Como la prueba es ' + (glu[0].glucosa >= 100 ? 'verdadera, SI devuelve el segundo argumento' : 'falsa, SI devuelve el tercer argumento') + ': <b>«' + clasif(glu[0].glucosa, 100) + '»</b>.',
+        'Los textos van entre comillas; los signos de pesos en <code>$F$1</code> hacen que, al copiar la fórmula hacia abajo, todas las filas usen el mismo umbral.',
+      ],
     },
     micro: [
-      { titulo: 'Partes de un todo', tipo: 'opcion', enunciado: 'Quieres mostrar qué parte de las ventas totales aporta cada una de las <b>3 sucursales</b>.', opciones: ['Circular', 'Líneas', 'Dispersión', 'Área'], correcta: 0, explicacion: 'Con pocas partes de un total, el gráfico <b>circular</b> funciona bien.' },
-      { titulo: 'Nombres largos', tipo: 'opcion', enunciado: 'Vas a comparar las ventas de los 20 productos; algunos nombres son largos, como «Bagel con queso crema». ¿Qué tipo se lee mejor?', opciones: ['Columnas', 'Barras horizontales', 'Circular', 'Líneas'], correcta: 1, explicacion: 'Las <b>barras horizontales</b> dejan espacio para leer los nombres largos sin girarlos.' },
       {
-        titulo: 'Minigráficos de tendencia', tipo: 'widget', enunciado: 'Elige el tipo de minigráfico que muestra mejor la <b>tendencia</b> mensual de cada sucursal.',
-        crear: (c, listo) => {
-          const { h } = LT.u;
-          const tabla = h('table', { class: 'tabla-sitio', style: { maxWidth: '620px' } });
-          const retro = h('div');
-          const dibujar = (tipo) => {
-            tabla.innerHTML = '';
-            tabla.appendChild(h('thead', null, h('tr', null, h('th', null, 'Sucursal'), h('th', null, 'Ene'), h('th', null, '…'), h('th', null, 'Dic'), h('th', null, 'Minigráfico'))));
-            const tb = h('tbody');
-            for (const [suc, v] of Object.entries(porSuc)) {
-              const td = h('td');
-              if (tipo) td.appendChild(LT.graficos.minigrafico(v, tipo, { ancho: 120, alto: 26 }));
-              tb.appendChild(h('tr', null, h('td', null, suc), h('td', null, LT.formato.formatear(v[0], '$#,##0').texto), h('td', null, '…'), h('td', null, LT.formato.formatear(v[11], '$#,##0').texto), td));
-            }
-            tabla.appendChild(tb);
-          };
-          const botones = h('div', { class: 'grupo-btn', style: { margin: '8px 0' } });
-          [['linea', 'Línea'], ['columna', 'Columna'], ['ganancia', 'Ganancia o pérdida']].forEach(([t, n]) => botones.appendChild(h('button', { class: 'btn chico', onclick: () => {
-            dibujar(t);
-            retro.innerHTML = '';
-            if (t === 'linea') { retro.appendChild(h('div', { class: 'aviso-caja ok' }, '✓ La línea muestra la tendencia: sube en verano para Norte y baja en otoño. El punto naranja marca el mes más alto.')); listo(); }
-            else retro.appendChild(h('div', { class: 'aviso-caja alerta' }, t === 'ganancia' ? 'Ganancia o pérdida solo distingue positivos y negativos: aquí todos son positivos.' : 'Las columnas sirven para comparar meses, pero la tendencia se ve mejor con una línea continua.'));
-          } }, n)));
-          c.append(botones, tabla, retro);
-          dibujar(null);
-        },
+        titulo: 'Fija la referencia', tipo: 'widget',
+        enunciado: 'La dosis de un medicamento se calcula con <code>=B2*F1</code> (peso × mg/kg), pero al copiarla hacia abajo deja de funcionar. Cambia el tipo de referencia de F1 hasta que todas las filas den el resultado correcto.',
+        crear: (c, listo) => LT.widgets.copiarReferencias(c, { datos: [['Expediente', 'Peso (kg)', 'Dosis (mg)', '', 'mg/kg', 15], ...dosis], formula: '=B2*F1', celda: 'C2', hasta: 'C6', formatos: { 1: '0.0', 5: '0' }, valorCorrecto: (r) => dosis[r - 1][1] * 15, formatoResultado: '0.0', instruccion: '', alCambiar: (e) => { if (e.todasBien) listo(); } }),
+      },
+      {
+        titulo: 'Rango con nombre', tipo: 'hoja',
+        enunciado: 'Selecciona F1, escribe <b>Limite</b> en el cuadro de nombres y pulsa Enter. Después, en D2:D6 escribe una fórmula que muestre «Elevada» si la presión sistólica alcanza el límite y «Normal» si no, <b>usando el nombre Limite</b>.',
+        hoja: { hojas: [{ nombre: 'Presión', datos: [['Expediente', 'Sede', 'Sistólica (mmHg)', 'Resultado', 'Límite', 140], ...pas], estilos: { 'A1:D1': ENC, E1: { b: true } }, anchos: { A: 100, C: 120 }, objetivo: 'D2:D6' }], herramientas: ['formulas'] },
+        solucion: { 'D2:D6': '=SI(C2>=Limite,"Elevada","Normal")' }, nombresSolucion: { Limite: '=Presión!$F$1' },
+        pruebas: [
+          { tipo: 'fn', fn: (x) => (x.estado.nombres.Limite && /\$F\$1$/i.test(x.estado.nombres.Limite) ? true : 'Todavía no existe el nombre «Limite» para F1: selecciona F1, escribe Limite en el cuadro de nombres y pulsa Enter.') },
+          { tipo: 'formula', rango: 'D2:D6' },
+          { tipo: 'contiene', rango: 'D2:D6', texto: 'LIMITE', mensaje: 'En {celda} usa el nombre Limite en lugar de F1.' },
+          { tipo: 'valores', rango: 'D2:D6' },
+        ],
+        pista: ['El cuadro de nombres es la casilla donde normalmente dice «F1».', 'La fórmula de D2 es <code>=SI(C2&gt;=Limite,"Elevada","Normal")</code>; luego cópiala hasta D6.'],
+      },
+      {
+        titulo: 'Contar y sumar con condición', tipo: 'hoja',
+        enunciado: 'En F2 calcula el total de atenciones del personal de la sede <b>Centro</b> en octubre y en F3 cuenta cuántos profesionales trabajan en <b>Norte</b>.',
+        hoja: { hojas: [{ nombre: 'Personal', datos: [['Profesional', 'Sede', 'Atenciones (oct.)'], ...pers.map((e) => [e.nombre, e.sede, e.atencionesMes])], celdas: { E2: 'Atenciones de Centro', E3: 'Profesionales de Norte' }, estilos: { 'A1:C1': ENC, 'E2:E3': { b: true } }, anchos: { A: 140, C: 130, E: 170 }, objetivo: 'F2:F3' }], herramientas: ['formulas'] },
+        solucion: { F2: '=SUMAR.SI(B2:B21,"Centro",C2:C21)', F3: '=CONTAR.SI(B2:B21,"Norte")' },
+        pruebas: [
+          { tipo: 'usa', rango: 'F2', funciones: ['SUMAR.SI', 'SUMAR.SI.CONJUNTO'], alguna: true, mensaje: 'En F2 usa SUMAR.SI.' },
+          { tipo: 'valores', rango: 'F2', mensaje: 'F2 muestra {obtenido}; las atenciones de Centro suman {esperado}. Revisa el orden: SUMAR.SI(rango_criterio, criterio, rango_suma).' },
+          { tipo: 'usa', rango: 'F3', funciones: ['CONTAR.SI', 'CONTAR.SI.CONJUNTO'], alguna: true, mensaje: 'En F3 usa CONTAR.SI.' },
+          { tipo: 'valores', rango: 'F3', mensaje: 'F3 muestra {obtenido}, pero en Norte hay {esperado} profesionales.' },
+        ],
+        pista: ['<code>=SUMAR.SI(B2:B21,"Centro",C2:C21)</code>', '<code>=CONTAR.SI(B2:B21,"Norte")</code>'],
+      },
+      {
+        titulo: 'Texto y fecha', tipo: 'hoja',
+        enunciado: 'En D2:D6 une el nombre y el puesto así: «Andrea Solís - Medicina general» (usa CONCAT). En E2:E6 obtén el año de ingreso con AÑO.',
+        hoja: { hojas: [{ nombre: 'Equipo', datos: [['Profesional', 'Puesto', 'Ingreso', 'Etiqueta', 'Año de ingreso'], ...pers.slice(0, 5).map((e) => [e.nombre, e.puesto, fecha(e.ingreso)])], estilos: { 'A1:E1': ENC }, anchos: { A: 140, B: 150, D: 260, E: 110 }, objetivo: 'D2:E6' }], herramientas: ['formulas'] },
+        solucion: { 'D2:D6': '=CONCAT(A2," - ",B2)', 'E2:E6': '=AÑO(C2)' },
+        pruebas: [{ tipo: 'formula', rango: 'D2:E6' }, { tipo: 'valores', rango: 'D2:D6', mensaje: '{celda} muestra {obtenido}; debería ser {esperado} (¿pusiste el texto " - " entre comillas?).' }, { tipo: 'valores', rango: 'E2:E6' }],
+        pista: ['<code>=CONCAT(A2," - ",B2)</code>', '<code>=AÑO(C2)</code>'],
       },
     ],
-    reto: { titulo: '¿Qué producto vende más y cómo cambia por mes?', tipo: 'widget', crear: crearReto, base: { instrucciones: ['<b>Gráfico 1:</b> compara las ventas anuales de los 20 productos con el tipo de gráfico adecuado y un título. Responde qué producto vendió más.', '<b>Gráfico 2:</b> muestra cómo cambian por mes las ventas de <b>Café caliente</b> y <b>Café frío</b> (solo esas dos series), con un título. Responde en qué mes se vendió más café frío.'], pistas: ['Primero piensa qué pregunta responde cada gráfico: comparar o ver un cambio en el tiempo.', 'Comparar → columnas o barras; tiempo → líneas. Desmarca las series que no necesitas.', 'Gráfico 1: «Ventas anuales por producto» + Barras. Gráfico 2: «Ventas mensuales por categoría», solo Café caliente y Café frío, + Líneas.'] },
-      niveles: { explorador: { instrucciones: ['Gráfico 1: los datos ya están elegidos; elige <b>Columnas</b> o <b>Barras</b> y escribe un título.', 'Gráfico 2: deja solo Café caliente y Café frío, elige <b>Líneas</b> y escribe un título.', 'Responde las dos preguntas usando tus gráficos (pasa el cursor para ver los valores).'] }, experto: { instrucciones: ['Gráfico 1: barras horizontales con título, títulos de ambos ejes y etiquetas de datos.', 'Gráfico 2: líneas de Café caliente y Café frío con título y título del eje vertical.', 'Responde las dos preguntas.'] } } },
+    reto: {
+      titulo: 'Clasificación de la glucosa en ayuno', tipo: 'hoja',
+      intro: 'En la hoja <i>Glucosa</i>, la columna A tiene 20 pacientes (filas 2 a 21), B la sede y C la glucosa en ayuno. En F1 está el umbral de glucosa alterada (100 mg/dL).',
+      base: {
+        hoja: { hojas: [hojaGlucosa()], herramientas: ['portapapeles', 'formulas'] },
+        solucion: { 'D2:D21': '=SI(C2>=$F$1, "Alterada", "Normal")', F4: '=CONTAR.SI(C2:C21, ">="&F1)' },
+        pruebas: pruebasBase(false),
+        instrucciones: ['En <b>D2</b>, clasifica la glucosa: «Alterada» si es mayor o igual al umbral de F1; si no, «Normal». Cópiala hasta <b>D21</b>.', 'En <b>F4</b>, cuenta cuántos pacientes tienen la glucosa alterada.'],
+        pistas: ['Necesitas una función que elija entre dos resultados.', 'Su forma es <code>=SI(prueba, valor_si_verdadero, valor_si_falso)</code>; para contar con condición: <code>=CONTAR.SI(rango, criterio)</code>.', 'Al copiar hacia abajo, F1 se vuelve F2, F3…: fíjala con <code>$F$1</code> (tecla F4). En F4: <code>=CONTAR.SI(C2:C21, "&gt;="&amp;F1)</code>.'],
+      },
+      niveles: {
+        explorador: {
+          plantilla: { celda: 'D2', texto: '=SI(C2>=___, "Alterada", "Normal")', copiar: 'D21' },
+          instrucciones: ['Completa el hueco de la fórmula: el umbral está en <b>F1</b>. Usa <b>$</b> para fijarlo (<code>$F$1</code>).', 'Pulsa «Escribir en D2» y copia D2 hasta D21 arrastrando el controlador de relleno.', 'En <b>F4</b> escribe <code>=CONTAR.SI(C2:C21, "&gt;="&amp;F1)</code>.'],
+        },
+        experto: {
+          hoja: { hojas: [hojaGlucosa({ G1: 'Umbral de diabetes', H1: '126' })], herramientas: ['portapapeles', 'formulas'] },
+          solucion: { 'D2:D21': '=SI(C2>=$H$1, "Diabetes", SI(C2>=$F$1, "Prediabetes", "Normal"))', F4: '=CONTAR.SI(C2:C21, ">="&F1)' },
+          pruebas: pruebasBase(true),
+          instrucciones: ['Clasificación en tres categorías en <b>D2:D21</b>: «Diabetes» desde el umbral de H1 (126 mg/dL), «Prediabetes» desde el umbral de F1 (100 mg/dL) y «Normal» por debajo. Resuélvelo con <b>SI anidados</b> en una sola fórmula.', 'En <b>F4</b>, cuenta cuántos pacientes están en o por encima del umbral de F1.'],
+          pistas: ['Evalúa primero la condición más exigente (el umbral de diabetes).', '<code>=SI(prueba1, valor1, SI(prueba2, valor2, valor3))</code>', '<code>=SI(C2&gt;=$H$1, "Diabetes", SI(C2&gt;=$F$1, "Prediabetes", "Normal"))</code>'],
+        },
+      },
+    },
     lab: {
-      archivo: 'lab07-graficos.xlsx', titulo: 'Gráficos para la junta',
-      contexto: 'El libro tiene tres hojas: Productos (ventas anuales), Meses (ventas mensuales por categoría) y Sucursales (ventas mensuales).',
+      archivo: 'lab07-glucosa.xlsx', titulo: 'Clasificación de la glucosa de la segunda jornada',
+      contexto: 'El mismo cálculo con los pacientes de otra jornada, y un resumen por sede.',
       pasos: {
-        explorador: [{ texto: 'En Productos, selecciona A1:B21 e inserta un gráfico de columnas o barras con título.', ruta: ['Insertar', 'Insertar gráfico de columnas o de barras'] }, { texto: 'En Meses, selecciona Mes, Café caliente y Café frío (A1:C13) e inserta un gráfico de líneas con título.', ruta: ['Insertar', 'Insertar gráfico de líneas o de áreas'] }, { texto: 'En Sucursales, selecciona N2:N4 e inserta minigráficos de línea con datos B2:M4.', ruta: ['Insertar', 'Línea'] }, 'Guarda y sube el libro.'],
-        analista: ['Gráfico de columnas o barras de las ventas por producto, con título.', 'Gráfico de líneas de Café caliente y Café frío por mes, con título.', 'Minigráficos de línea en Sucursales!N2:N4.', 'Guarda y sube el libro.'],
-        experto: ['Los dos gráficos y los minigráficos del nivel Analista.', 'Agrega títulos de ejes a ambos gráficos.', 'Guarda y sube el libro.'],
+        explorador: [
+          { texto: 'En la hoja <b>Glucosa</b>, escribe en D2 <code>=SI(C2&gt;=$F$1, "Alterada", "Normal")</code> y cópiala hasta D21.' },
+          { texto: 'En F4 escribe <code>=CONTAR.SI(C2:C21, "&gt;="&amp;F1)</code>.' },
+          { texto: 'En F8, F9 y F10 calcula la glucosa promedio de Centro, Norte y Sur: <code>=PROMEDIO.SI($B$2:$B$21, E8, $C$2:$C$21)</code> y cópiala.', ruta: ['Fórmulas', 'Insertar función'] },
+          'Guarda el libro (Ctrl+G) y súbelo aquí.',
+        ],
+        analista: ['En <b>D2:D21</b>, clasifica la glucosa con el umbral de F1.', 'En <b>F4</b>, cuenta cuántos pacientes tienen la glucosa alterada.', 'En <b>F8:F10</b>, calcula la glucosa promedio por sede con PROMEDIO.SI.', 'Guarda y sube el libro.'],
+        experto: ['Resuelve D2:D21, F4 y F8:F10 como en el nivel Analista.', 'Asigna el nombre <b>Umbral</b> a F1 y úsalo en las fórmulas de la columna D.', 'En <b>G8:G10</b>, cuenta por sede los pacientes con glucosa alterada con CONTAR.SI.CONJUNTO.', 'Guarda y sube el libro.'],
       },
       pruebas: [
-        { titulo: 'Gráfico de columnas o barras con título', fn: (L) => { const g = L.graficos.find((x) => x.tipos.some((t) => t === 'columnas' || t === 'barras')); if (!g) return 'No encontré un gráfico de columnas o barras.'; return g.tieneTitulo ? true : 'El gráfico de columnas o barras no tiene título.'; } },
-        { titulo: 'Gráfico de líneas con dos series y título', fn: (L) => { const g = L.graficos.find((x) => x.tipos.includes('lineas')); if (!g) return 'No encontré un gráfico de líneas.'; if (g.series < 2) return 'El gráfico de líneas debe mostrar Café caliente y Café frío (2 series).'; return g.tieneTitulo ? true : 'El gráfico de líneas no tiene título.'; } },
-        { titulo: 'Minigráficos en Sucursales', fn: (L) => { const h = L.hoja('Sucursales'); const n = h ? h.minigraficos.reduce((s, g) => s + g.cantidad, 0) : 0; return n >= 3 ? true : 'Inserta minigráficos para las tres sucursales (N2:N4).'; } },
-        { titulo: 'Títulos de ejes', nivel: 'experto', fn: (L) => { const sin = L.graficos.filter((g) => !g.tipos.includes('circular')).find((g) => g.ejes.filter((e) => e.conTitulo).length < 2); return sin ? 'Agrega títulos a los dos ejes del gráfico de ' + sin.tipos[0] + '.' : true; } },
+        { titulo: 'D2:D21 tiene fórmulas', fn: (L, A) => { A.hoja('Glucosa'); const x = A.sinFormula('Glucosa', 'D2:D21'); return x ? x.dir + ' no tiene fórmula: clasifica con SI.' : true; } },
+        { titulo: 'Las clasificaciones son correctas', fn: (L, A) => {
+          const u = A.num(L.valor('Glucosa', 'F1'));
+          for (const x of L.celdasRango('D2:D21')) {
+            const g = A.num(L.valor('Glucosa', 'C' + (x.r + 1)));
+            const e = g >= u ? 'alterada' : 'normal';
+            const v = String(L.valor('Glucosa', x.dir) || '').trim().toLowerCase();
+            if (v !== e) return x.dir + ' muestra «' + (v || 'vacío') + '» y debería decir «' + (g >= u ? 'Alterada' : 'Normal') + '».';
+          }
+          return true;
+        } },
+        { titulo: 'F4 cuenta con CONTAR.SI', fn: (L, A) => {
+          const u = A.num(L.valor('Glucosa', 'F1'));
+          const n = L.celdasRango('C2:C21').filter((x) => A.num(L.valor('Glucosa', x.dir)) >= u).length;
+          if (!L.usaFuncion('Glucosa', 'F4', ['COUNTIF', 'COUNTIFS'])) return 'F4 debe usar CONTAR.SI.';
+          return A.cerca(A.num(L.valor('Glucosa', 'F4')), n) ? true : 'F4 muestra ' + A.fmtEs(L.valor('Glucosa', 'F4')) + ', pero ' + n + ' pacientes tienen glucosa alterada.';
+        } },
+        { titulo: 'Las fórmulas resisten un cambio de umbral', fn: (L, A) => {
+          const v = A.conCambios({ 'Glucosa!F1': 110 });
+          let msg = true;
+          for (const x of L.celdasRango('D2:D21')) {
+            const g = A.num(v('Glucosa', 'C' + (x.r + 1))), e = g >= 110 ? 'alterada' : 'normal';
+            if (String(v('Glucosa', x.dir) || '').trim().toLowerCase() !== e) { msg = 'Si el umbral cambia a 110, ' + x.dir + ' no se actualiza bien: ¿fijaste F1 con $?'; break; }
+          }
+          v.restaurar();
+          return msg;
+        } },
+        { titulo: 'Glucosa promedio por sede (F8:F10)', fn: (L, A) => {
+          for (const r of [8, 9, 10]) {
+            const sede = L.valor('Glucosa', 'E' + r);
+            const vals = L.celdasRango('C2:C21').filter((x) => L.valor('Glucosa', 'B' + (x.r + 1)) === sede).map((x) => A.num(L.valor('Glucosa', x.dir)));
+            const esp = vals.reduce((a, b) => a + b, 0) / vals.length;
+            if (!L.usaFuncion('Glucosa', 'F' + r, ['AVERAGEIF', 'AVERAGEIFS'])) return 'F' + r + ' debe usar PROMEDIO.SI.';
+            if (!A.cerca(A.num(L.valor('Glucosa', 'F' + r)), esp)) return 'F' + r + ' (' + sede + ') muestra ' + A.fmtEs(L.valor('Glucosa', 'F' + r)) + '; debería ser ' + A.fmtEs(esp) + '.';
+          }
+          return true;
+        } },
+        { titulo: 'Nombre «Umbral» definido y usado', nivel: 'experto', fn: (L) => {
+          const n = L.nombre('Umbral');
+          if (!n || !/\$F\$1$/i.test(n.ref)) return 'Asigna el nombre Umbral a la celda F1.';
+          return /UMBRAL/i.test(L.formula('Glucosa', 'D2') || '') ? true : 'Usa el nombre Umbral en la fórmula de D2.';
+        } },
+        { titulo: 'Pacientes con glucosa alterada por sede (G8:G10)', nivel: 'experto', fn: (L, A) => {
+          const u = A.num(L.valor('Glucosa', 'F1'));
+          for (const r of [8, 9, 10]) {
+            const sede = L.valor('Glucosa', 'E' + r);
+            const esp = L.celdasRango('C2:C21').filter((x) => L.valor('Glucosa', 'B' + (x.r + 1)) === sede && A.num(L.valor('Glucosa', x.dir)) >= u).length;
+            if (!L.usaFuncion('Glucosa', 'G' + r, ['COUNTIFS'])) return 'G' + r + ' debe usar CONTAR.SI.CONJUNTO.';
+            if (!A.cerca(A.num(L.valor('Glucosa', 'G' + r)), esp)) return 'G' + r + ' (' + sede + ') debería ser ' + esp + '.';
+          }
+          return true;
+        } },
       ],
     },
     donde: [
-      { comando: 'Gráficos recomendados', ruta: ['Insertar', 'Gráficos recomendados'] },
-      { comando: 'Minigráficos de línea', ruta: ['Insertar', 'Línea'], nota: 'Grupo Minigráficos.' },
-      { comando: 'Agregar elemento de gráfico (títulos de ejes)', ruta: ['Diseño de gráfico', 'Agregar elemento de gráfico', 'Títulos de ejes'], nota: 'La pestaña Diseño de gráfico aparece al seleccionar un gráfico.' },
-      { comando: 'Cambiar tipo de gráfico', ruta: ['Diseño de gráfico', 'Cambiar tipo de gráfico'] },
+      { comando: 'Asignar nombre', ruta: ['Fórmulas', 'Asignar nombre'], nota: 'Atajo: escribe el nombre en el cuadro de nombres y pulsa Enter.' },
+      { comando: 'Insertar función', ruta: ['Fórmulas', 'Insertar función'], nota: 'También con el botón fx junto a la barra de fórmulas.' },
+      { comando: 'Funciones lógicas (SI, Y, O)', ruta: ['Fórmulas', 'Lógicas'] },
+      { comando: 'Administrador de nombres', ruta: ['Fórmulas', 'Administrador de nombres'] },
     ],
-    atajos: ['<kbd>Alt+F1</kbd> inserta un gráfico con los datos seleccionados (en Excel).', 'Selecciona columnas no contiguas manteniendo <kbd>Ctrl</kbd>.'],
+    glosario: ['SI', 'Y', 'O', 'CONTAR.SI', 'SUMAR.SI', 'PROMEDIO.SI', 'CONTAR.SI.CONJUNTO', 'HOY', 'AÑO', 'CONCAT', 'REDONDEAR'],
+    atajos: ['<kbd>F4</kbd> mientras escribes una referencia: alterna A1 → $A$1 → A$1 → $A1.', 'Escribe el nombre en el cuadro de nombres y pulsa <kbd>Enter</kbd> para crear un rango con nombre.'],
   });
 })();

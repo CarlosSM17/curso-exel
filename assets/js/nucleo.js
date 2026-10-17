@@ -1,5 +1,5 @@
 /* Núcleo de la plataforma: utilidades DOM, referencias de celda, interfaz y progreso.
-   Todo vive en el espacio de nombres global LT (La Taza). */
+   Todo vive en el espacio de nombres global LT. */
 (function () {
   'use strict';
   const LT = (window.LT = window.LT || {});
@@ -288,7 +288,7 @@
   LT.ui = { toast, modal, aviso };
 
   /* ---------------------------------------------------------- Progreso */
-  const CLAVE = 'laTaza.progreso.v2';
+  const CLAVE = 'excelSalud.progreso.v1';
   function vacio() {
     return { version: 2, participante: { nombre: '', grupo: '' }, modulos: {}, ubicacion: {}, integradores: {}, creado: new Date().toISOString() };
   }
@@ -344,12 +344,12 @@
   function reporte() {
     const p = cargar();
     const datos = JSON.stringify({ ...p, exportado: new Date().toISOString() });
-    return JSON.stringify({ tipo: 'reporte-la-taza', version: 2, datos, huella: huella(datos + 'la-taza') }, null, 1);
+    return JSON.stringify({ tipo: 'reporte-excel-salud', version: 3, datos, huella: huella(datos + 'excel-salud') }, null, 1);
   }
   function leerReporte(texto) {
     const obj = JSON.parse(texto);
-    if (obj.tipo !== 'reporte-la-taza') throw new Error('No es un reporte de la plataforma.');
-    const integro = huella(obj.datos + 'la-taza') === obj.huella;
+    if (obj.tipo !== 'reporte-excel-salud') throw new Error('No es un reporte de la plataforma.');
+    const integro = huella(obj.datos + 'excel-salud') === obj.huella;
     return { datos: JSON.parse(obj.datos), integro };
   }
   function importar(texto) {

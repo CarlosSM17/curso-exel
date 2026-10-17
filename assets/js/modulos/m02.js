@@ -1,153 +1,150 @@
-/* Módulo 2 · Editar un libro de trabajo */
+/* Módulo 2 · Fórmulas básicas */
 (function () {
   const { D, ENC } = LT.caso;
-  const sucio = [
-    ['Código', 'Producto', 'Categoría', 'Precio'],
-    ['CAF-001', 'Espresso', 'Cafe caliente', 35],
-    ['', 'Americano', 'Cafe caliente', 40],
-    ['', 'Capuchno', 'Cafe caliente', 52],
-    ['', 'Latte', 'Cafe caliente', 5.5],
-    ['', 'Café de olla', 'Cafe caliente', 38],
-    ['FRI-001', 'Frappé moka', 'Cafe frío', 68],
-    ['', 'Cold brew', 'Cafe frío', 58],
-    ['', 'Latte helado', 'Cafe frío', 58],
-    ['PAN-001', 'Croissant', 'Panadería', 38],
-    ['', 'Concha', 'Panadería', 22],
-  ];
-  const codigos = ['CAF-001', 'CAF-002', 'CAF-003', 'CAF-004', 'CAF-005', 'CAF-006', 'FRI-001', 'FRI-002', 'FRI-003', 'PAN-001', 'PAN-002'];
-  const nombres = ['Espresso', 'Americano', 'Capuchino', 'Latte', 'Moka', 'Café de olla', 'Frappé moka', 'Cold brew', 'Latte helado', 'Croissant', 'Concha'];
-  const cats = ['Café caliente', 'Café caliente', 'Café caliente', 'Café caliente', 'Café caliente', 'Café caliente', 'Café frío', 'Café frío', 'Café frío', 'Panadería', 'Panadería'];
-  const precios = [35, 40, 52, 55, 60, 38, 68, 58, 58, 38, 22];
-  const hojaPrecios = () => ({ hojas: [{ nombre: 'Precios', datos: sucio, formatos: { 'D2:D14': '$#,##0.00' }, estilos: { 'A1:D1': ENC }, anchos: { A: 90, B: 150, C: 130, D: 90 }, filas: 18 }], herramientas: ['portapapeles', 'edicion', 'celdas'] });
-  const pruebas = (preciosEsp) => [
-    { tipo: 'valores', rango: 'B2:B12', esperado: nombres, titulo: 'Productos completos y bien escritos', mensaje: '{celda} muestra {obtenido}, pero debería decir {esperado}. ¿Insertaste la fila del Moka entre el Latte y el Café de olla? ¿Corregiste «Capuchno»?', detener: true },
-    { tipo: 'valores', rango: 'A2:A12', esperado: codigos, titulo: 'Todos los productos tienen código', mensaje: '{celda} debería tener {esperado}: arrastra el controlador de relleno desde el primer código de cada familia.' },
-    { tipo: 'valores', rango: 'C2:C12', esperado: cats, titulo: 'Categorías con acento', mensaje: '{celda} dice {obtenido}: usa Buscar y reemplazar (Ctrl+L) para cambiar «Cafe» por «Café».' },
-    { tipo: 'valores', rango: 'D2:D12', esperado: preciosEsp, titulo: 'Precios correctos', mensaje: '{celda} muestra {obtenido}, pero el precio es {esperado}.' },
+  const turno = D.turno;
+  const imc = (p) => p.peso / (p.talla * p.talla);
+  const filasTurno = turno.map((p) => [p.expediente, p.hora, p.paciente, p.peso, p.talla]);
+  const BAL = { oral: 900, iv: 1500, diuresis: 1650, insensibles: 450 };
+  const hojaTurno = (extra) => ({
+    nombre: 'Turno',
+    datos: [['Expediente', 'Hora', 'Paciente', 'Peso (kg)', 'Talla (m)', 'IMC', '', 'Resumen del turno'], ...filasTurno],
+    celdas: Object.assign({
+      H2: 'Pacientes medidos', H3: 'IMC promedio', H4: 'IMC máximo', H5: 'IMC mínimo',
+      H8: 'Balance hídrico de ' + turno[0].expediente + ' (mL)', H9: 'Ingresos: vía oral', I9: String(BAL.oral), H10: 'Ingresos: soluciones IV', I10: String(BAL.iv),
+      H11: 'Egresos: diuresis', I11: String(BAL.diuresis), H12: 'Egresos: pérdidas insensibles', I12: String(BAL.insensibles), H13: 'Balance (ingresos − egresos)',
+    }, extra || {}),
+    formatos: { 'D2:D15': '0.0', 'E2:E15': '0.00', 'F2:F15': '0.0', 'I3:I5': '0.0', 'I9:I13': '#,##0', I15: '0.00' },
+    estilos: { 'A1:F1': ENC, H1: { b: true, fs: 15 }, 'H2:H5': { b: true }, H8: { b: true, fs: 13 }, H13: { b: true }, H15: { b: true } },
+    anchos: { A: 80, B: 56, C: 150, D: 76, E: 72, F: 64, G: 20, H: 230, I: 90 },
+    objetivo: 'F2:F15,I2:I5,I13', inmovilizar: { filas: 1 },
+  });
+  const solucion = { 'F2:F15': '=D2/E2^2', I2: '=CONTAR(F2:F15)', I3: '=PROMEDIO(F2:F15)', I4: '=MAX(F2:F15)', I5: '=MIN(F2:F15)', I13: '=(I9+I10)-(I11+I12)' };
+  const pruebas = [
+    { tipo: 'formula', rango: 'F2:F15', titulo: 'IMC con fórmula', mensaje: '{celda} tiene un número escrito: calcula el IMC con una fórmula (peso / talla²).', mensajeVacia: '{celda} está vacía: copia la fórmula del IMC hasta F15.' },
+    { tipo: 'valores', rango: 'F2:F15', titulo: 'IMC correcto', mensaje: '{celda} muestra {obtenido}, pero el IMC es {esperado}. Recuerda: =D2/E2^2 o =D2/(E2*E2). Sin paréntesis, =D2/E2*E2 vuelve a dar el peso.' },
+    { tipo: 'usa', rango: 'I2', funciones: ['CONTAR', 'CONTARA'], alguna: true, titulo: 'Pacientes medidos con CONTAR', mensaje: 'En I2 usa CONTAR sobre los IMC.' },
+    { tipo: 'usa', rango: 'I3', funciones: ['PROMEDIO'], titulo: 'IMC promedio con PROMEDIO', mensaje: 'En I3 usa PROMEDIO.' },
+    { tipo: 'usa', rango: 'I4', funciones: ['MAX'], titulo: 'IMC máximo con MAX', mensaje: 'En I4 usa MAX.' },
+    { tipo: 'usa', rango: 'I5', funciones: ['MIN'], titulo: 'IMC mínimo con MIN', mensaje: 'En I5 usa MIN.' },
+    { tipo: 'valores', rango: 'I2:I5', titulo: 'Resumen correcto', mensaje: '{celda} muestra {obtenido}, pero debería ser {esperado}: revisa el rango (F2:F15).' },
+    { tipo: 'formula', rango: 'I13', titulo: 'Balance calculado con fórmula', mensaje: 'I13 debe calcularse con una fórmula.' },
+    { tipo: 'valores', rango: 'I13', titulo: 'El balance hídrico es correcto', mensaje: 'I13 muestra {obtenido}, pero el balance es {esperado} mL: (ingresos) − (egresos). ¿Usaste paréntesis?' },
+    { tipo: 'robustez', cambios: { D3: 95, E5: 1.62, I12: 600 }, rango: 'F2:F15,I2:I5,I13', titulo: 'Se recalcula si cambian los datos', mensaje: 'Al cambiar un peso, una talla y las pérdidas, {celda} no se actualizó: usa referencias a celdas, no números escritos.' },
   ];
 
   LT.definirModulo({
     id: 2,
-    objetivo: 'Capturar, corregir, copiar y rellenar datos; buscar y reemplazar.',
-    situacion: 'Bienvenido(a) al equipo. Antes de imprimir el menú nuevo necesito que <b>pases a limpio la lista de precios</b>: le faltan códigos, hay errores de captura, falta un producto y alguien escribió «Cafe» sin acento en todos lados.',
+    objetivo: 'Construir fórmulas con operadores (incluida la potencia) y con SUMA, PROMEDIO, MAX, MIN y CONTAR, respetando la prioridad de operaciones.',
+    situacion: 'Terminó el turno matutino de somatometría. Necesito el <b>IMC de cada paciente</b>, un <b>resumen</b> (cuántos se midieron, IMC promedio, máximo y mínimo) y el <b>balance hídrico</b> del paciente hospitalizado.',
     explicacion: [
-      { html: '<h3>Libro, hoja y celda</h3><p>Un <b>libro</b> es el archivo; tiene <b>hojas</b> (pestañas abajo) y cada hoja es una cuadrícula de <b>celdas</b>. Cada celda se nombra con su columna y su fila: <b>B3</b> es la columna B, fila 3. El <b>cuadro de nombres</b> (arriba a la izquierda) muestra la celda activa y la <b>barra de fórmulas</b> muestra lo que contiene.</p><ul><li><b>Capturar:</b> escribe y pulsa <kbd>Enter</kbd> (baja) o <kbd>Tab</kbd> (derecha).</li><li><b>Corregir:</b> doble clic o <kbd>F2</kbd> para editar sin borrar; <kbd>Supr</kbd> borra el contenido; <kbd>Esc</kbd> cancela.</li><li><b>Copiar y pegar:</b> <kbd>Ctrl+C</kbd> y <kbd>Ctrl+V</kbd>; <b>Pegado especial</b> (<kbd>Ctrl+Alt+V</kbd>) pega solo valores, solo formatos o hace operaciones.</li><li><b>Autorrelleno:</b> arrastra el cuadrito verde de la esquina (controlador de relleno) para copiar o continuar una serie.</li><li><b>Buscar y reemplazar:</b> <kbd>Ctrl+B</kbd> busca y <kbd>Ctrl+L</kbd> reemplaza.</li><li><b>Insertar filas o columnas:</b> clic derecho sobre el número de fila o la letra de columna.</li></ul>' },
-      { titulo: 'Zona de práctica libre', instr: 'Escribe, muévete con las flechas, edita con F2, arrastra el controlador de relleno y prueba clic derecho. Aquí nada se califica.', hoja: { altura: 230, hojas: [{ nombre: 'Práctica', datos: [['Día', 'Ventas'], ['Lunes', 3200]], filas: 14, cols: 8 }], herramientas: ['portapapeles', 'edicion', 'celdas'] } },
+      { html: '<h3>Fórmulas con criterio clínico</h3><p>Una fórmula empieza con <code>=</code> y usa <b>referencias</b> (D2) en lugar de números escritos, para que se recalcule sola si un dato cambia. Las fórmulas clínicas dependen mucho de la <b>prioridad de operaciones</b>:</p><ol><li>Paréntesis</li><li>Potencia <code>^</code></li><li>Multiplicación <code>*</code> y división <code>/</code></li><li>Suma <code>+</code> y resta <code>-</code></li></ol><p><b>IMC</b> = peso (kg) / talla (m)²: <code>=D2/E2^2</code>. Como la potencia va antes que la división, no hacen falta paréntesis; <code>=D2/(E2*E2)</code> también funciona. Pero <code>=D2/E2*E2</code> divide y vuelve a multiplicar: da el peso.</p><p><b>Balance hídrico</b> = ingresos − egresos: <code>=(I9+I10)-(I11+I12)</code>. Sin paréntesis, <code>=I9+I10-I11+I12</code> <b>suma</b> las pérdidas insensibles en lugar de restarlas.</p><h3>Funciones básicas</h3><ul><li><code>=SUMA(rango)</code>, <code>=PROMEDIO(…)</code>, <code>=MAX(…)</code>, <code>=MIN(…)</code> y <code>=CONTAR(…)</code> (cuenta celdas con números).</li><li><b>Autosuma</b> (<kbd>Alt+=</kbd>) propone el rango: revísalo siempre.</li></ul>' },
+      { widget: 'copiarReferencias', titulo: 'Cómo se copian las referencias', instr: 'La fórmula del IMC en F2 es <code>=D2/E2^2</code>. Al copiarla hacia abajo, Excel ajusta las filas: en F3 será =D3/E3^2. Pasa el cursor sobre cada fila.', opts: { datos: [['Expediente', 'Hora', 'Paciente', 'Peso (kg)', 'Talla (m)', 'IMC'], ...filasTurno.slice(0, 5)], formula: '=D2/E2^2', celda: 'F2', hasta: 'F6', formatos: { 3: '0.0', 4: '0.00' }, valorCorrecto: (r) => imc(turno[r - 1]), formatoResultado: '0.0', instruccion: '' } },
     ],
     ejemplo: {
-      tipo: 'pasos', titulo: 'Así continúa Excel una serie',
-      intro: 'Antes de arrastrar, predice qué escribirá Excel. Después compara con lo que hace de verdad.',
-      widget: 'autorrelleno', opts: { ejemplos: [['Lunes'], ['CAF-001'], ['ene'], ['5'], ['5', '10'], ['15/10/2025']] },
-      pasos: ['Escribe el valor inicial (por ejemplo <b>CAF-001</b>) y selecciónalo.', 'Coloca el puntero en el cuadrito verde de la esquina inferior derecha: cambia a una cruz delgada.', 'Arrastra hacia abajo (o a la derecha) y suelta. Excel continúa la serie: CAF-002, CAF-003…', 'Si solo quieres copiar el mismo valor, usa el botón de opciones de autorrelleno que aparece al soltar (Copiar celdas).'],
-      pregunta: { texto: 'Escribes <b>Lun</b> en A1 y arrastras el controlador hasta A4. ¿Qué aparece en A4?', opciones: ['Lun', 'Jue', 'Mar', 'Lun4'], correcta: 1, explicacion: 'Excel reconoce los días abreviados: Lun, Mar, Mié, <b>Jue</b>.' },
+      titulo: 'IMC del primer paciente',
+      hoja: { hojas: [{ nombre: 'Turno', datos: [['Expediente', 'Paciente', 'Peso (kg)', 'Talla (m)', 'IMC'], ...turno.slice(0, 4).map((p) => [p.expediente, p.paciente, p.peso, p.talla])], formatos: { 'E2:E5': '0.0' }, estilos: { 'A1:E1': ENC }, anchos: { B: 150 }, filas: 7 }] },
+      celda: 'E2', formula: '=C2/D2^2',
+      respuesta: Math.round(imc(turno[0]) * 10) / 10, formato: '0.0',
+      explicacion: ['Primero se calcula la potencia: ' + turno[0].talla + '² = ' + LT.u.formatoMiles(turno[0].talla * turno[0].talla, 4) + '.', 'Después la división: ' + turno[0].peso + ' / ' + LT.u.formatoMiles(turno[0].talla * turno[0].talla, 4) + ' = <b>' + LT.u.formatoMiles(imc(turno[0]), 1) + '</b>.', 'Si cambias el peso o la talla, el IMC se recalcula solo.'],
     },
     micro: [
+      { titulo: 'Prioridad de operaciones', tipo: 'opcion', enunciado: '¿Qué resultado muestra <code>=70/1.75^2</code>?', opciones: ['22.9', '1600', '40', '3.06'], correcta: 0, explicacion: 'Primero la potencia (1.75² = 3.0625) y luego la división: 70 / 3.0625 = <b>22.9</b>, el IMC de una persona de 70 kg y 1.75 m.', retro: { 1: '1600 sería (70/1.75)²: eso pasa si la división se hiciera primero.' } },
       {
-        titulo: 'Rellena los días', tipo: 'hoja',
-        enunciado: 'En B1 dice «Lunes». Usa el controlador de relleno para completar los días hasta H1 (Domingo).',
-        hoja: { hojas: [{ nombre: 'Semana', datos: [['Producto', 'Lunes'], ['Espresso'], ['Latte'], ['Concha']], estilos: { 'A1:H1': ENC }, objetivo: 'C1:H1', cols: 9, filas: 8 }], herramientas: ['portapapeles'] },
-        pruebas: [{ tipo: 'valores', rango: 'C1:H1', esperado: ['Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'], mensaje: '{celda} debería decir {esperado}: selecciona B1 y arrastra el cuadrito verde hacia la derecha.' }],
-        pista: ['Selecciona B1; en su esquina inferior derecha está el cuadrito verde. Arrástralo hasta H1.'],
+        titulo: 'IMC de cada paciente', tipo: 'hoja',
+        enunciado: 'En E2 calcula el IMC (peso / talla²) y cópialo hasta E8 con el controlador de relleno.',
+        hoja: { hojas: [{ nombre: 'Pacientes', datos: [['Expediente', 'Paciente', 'Peso (kg)', 'Talla (m)', 'IMC'], ...turno.slice(0, 7).map((p) => [p.expediente, p.paciente, p.peso, p.talla])], formatos: { 'E2:E8': '0.0' }, estilos: { 'A1:E1': ENC }, anchos: { B: 150 }, objetivo: 'E2:E8', filas: 11, cols: 7 }], herramientas: ['portapapeles'] },
+        solucion: { 'E2:E8': '=C2/D2^2' },
+        pruebas: [{ tipo: 'formula', rango: 'E2:E8' }, { tipo: 'valores', rango: 'E2:E8', mensaje: '{celda} muestra {obtenido}; el IMC es {esperado}. ¿Elevaste la talla al cuadrado?' }, { tipo: 'robustez', cambios: { C4: 90 }, rango: 'E4', mensaje: 'Si cambia el peso, el IMC no cambia: usa referencias (C2/D2^2), no números.' }],
+        pista: ['En E2 escribe <code>=C2/D2^2</code> y pulsa Enter. Luego selecciona E2 y arrastra el cuadrito hasta E8.'],
       },
       {
-        titulo: 'Buscar y reemplazar', tipo: 'hoja',
-        enunciado: 'En el menú escribieron «Expreso». Cámbialo por «Espresso» en <b>todas</b> las celdas con un solo comando (Ctrl+L).',
-        hoja: { hojas: [{ nombre: 'Menú', datos: [['Bebida', 'Precio'], ['Expreso', 35], ['Expreso doble', 45], ['Americano', 40], ['Expreso cortado', 40], ['Capuchino', 52], ['Latte con expreso extra', 62]], formatos: { 'B2:B7': '$#,##0' }, estilos: { 'A1:B1': ENC }, anchos: { A: 190 }, filas: 10, cols: 5 }], herramientas: ['edicion'] },
-        pruebas: [{ tipo: 'fn', fn: (x) => {
-          const t = Object.values(x.estado.hojas[0].celdas).join(' | ');
-          if (/expreso/i.test(t)) return 'Todavía hay celdas con «Expreso». Abre Buscar y reemplazar y usa «Reemplazar todos».';
-          return (t.match(/Espresso/g) || []).length >= 4 ? true : 'Revisa que las cuatro bebidas digan «Espresso».';
-        } }],
-        pista: ['Pulsa Ctrl+L (o el botón de reemplazar de la barra). En «Buscar» escribe Expreso y en «Reemplazar con» Espresso.'],
-      },
-      {
-        titulo: 'Pegar solo valores', tipo: 'hoja',
-        enunciado: 'La columna C calcula el precio con IVA con fórmulas. Copia C2:C6 y pégalos en D2:D6 <b>como valores</b> (Pegado especial › Valores), para que no dependan de las fórmulas.',
-        hoja: { hojas: [{ nombre: 'IVA', datos: [['Producto', 'Precio', 'Con IVA', 'Con IVA (valores)'], ...D.productos.slice(0, 5).map((p, i) => [p.nombre, p.precio, '=B' + (i + 2) + '*1.16'])], formatos: { 'B2:D6': '$#,##0.00' }, estilos: { 'A1:D1': ENC }, anchos: { A: 130, D: 130 }, objetivo: 'D2:D6', filas: 9, cols: 6 }], herramientas: ['portapapeles'] },
-        pruebas: [
-          { tipo: 'valores', rango: 'D2:D6', esperado: D.productos.slice(0, 5).map((p) => Math.round(p.precio * 1.16 * 100) / 100), mensaje: '{celda} muestra {obtenido}; debería tener el precio con IVA {esperado}.' },
-          { tipo: 'fn', fn: (x) => { const c = x.celdas('D2:D6').find((y) => String(x.entrada(y.dir)).startsWith('=')); return c ? c.dir + ' tiene una fórmula: usa Pegado especial › Valores.' : true; } },
-        ],
-        pista: ['Selecciona C2:C6 y copia (Ctrl+C). Selecciona D2 y abre Pegado especial con Ctrl+Alt+V (o el botón «Especial»). Elige «Valores».'],
+        titulo: 'Autosuma', tipo: 'hoja',
+        enunciado: 'Selecciona C8 y usa <b>Autosuma</b> (botón Σ o <kbd>Alt+=</kbd>) para sumar el volumen de soluciones administradas en el turno.',
+        hoja: { hojas: [{ nombre: 'Soluciones', datos: [['Hora', 'Solución', 'Volumen (mL)'], ['07:00', 'Salina 0.9 %', 500], ['09:00', 'Glucosada 5 %', 250], ['11:00', 'Hartmann', 500], ['13:00', 'Salina 0.9 %', 250], ['15:00', 'Glucosada 5 %', 100], ['17:00', 'Salina 0.9 %', 250], ['', 'Total']], formatos: { 'C2:C8': '#,##0' }, estilos: { 'A1:C1': ENC, 'B8:C8': { b: true } }, anchos: { B: 130, C: 110 }, objetivo: 'C8', filas: 10, cols: 5 }], herramientas: ['edicion'] },
+        solucion: { C8: '=SUMA(C2:C7)' },
+        pruebas: [{ tipo: 'usa', rango: 'C8', funciones: ['SUMA'] }, { tipo: 'valores', rango: 'C8', mensaje: 'C8 muestra {obtenido}; la suma de C2:C7 es {esperado} mL.' }],
+        pista: ['Haz clic en C8 y pulsa el botón «Autosuma» (Σ); revisa que proponga C2:C7 y pulsa Enter.'],
       },
     ],
     reto: {
-      titulo: 'Pasar a limpio la lista de precios', tipo: 'hoja',
-      intro: 'La hoja <i>Precios</i> tiene la lista que pasó Marta. Déjala lista para imprimir el menú.',
+      titulo: 'Somatometría y balance hídrico del turno', tipo: 'hoja',
+      intro: 'La hoja <i>Turno</i> tiene los 14 pacientes medidos (filas 2 a 15). A la derecha está el resumen y el balance hídrico de ' + turno[0].expediente + '.',
       base: {
-        hoja: hojaPrecios(),
-        pruebas: pruebas(precios),
-        instrucciones: [
-          'Faltan los códigos de casi todos los productos: cada familia (CAF, FRI, PAN) tiene solo el primero.',
-          'Falta el <b>Moka</b> (Café caliente, $60) entre el Latte y el Café de olla: debe quedar como CAF-005.',
-          '«Capuchno» está mal escrito.',
-          'El Latte cuesta $55, no $5.5.',
-          'En las categorías, «Cafe» va con acento: «Café».',
-        ],
-        pistas: ['Hay cinco herramientas en juego: insertar fila, autorrelleno, editar celda, buscar y reemplazar… y atención al orden: inserta la fila del Moka antes de rellenar los códigos.', 'Clic derecho en el número de fila 6 › «Insertar fila arriba». Para los códigos, selecciona el primer código de cada familia y arrastra el cuadrito verde. Ctrl+L abre Buscar y reemplazar.', 'Pasos exactos: inserta la fila 6 y escribe Moka, Cafe caliente, 60; arrastra A2 hasta A7, A8 hasta A10 y A11 hasta A12; corrige B4 y D5; reemplaza «Cafe» por «Café».'],
+        hoja: { hojas: [hojaTurno()], herramientas: ['portapapeles', 'edicion'] },
+        solucion, pruebas,
+        instrucciones: ['En <b>F2:F15</b> calcula el IMC de cada paciente: peso / talla².', 'En <b>I2:I5</b> calcula cuántos pacientes se midieron, el IMC promedio, el máximo y el mínimo (CONTAR, PROMEDIO, MAX, MIN).', 'En <b>I13</b> calcula el balance hídrico: (ingresos) − (egresos). Si es positivo, el paciente retuvo líquidos.'],
+        pistas: ['Cada resultado debe venir de una fórmula que use celdas, para que se actualice si cambia un dato.', 'IMC: <code>=D2/E2^2</code>. Funciones: <code>=CONTAR(F2:F15)</code>, <code>=PROMEDIO(F2:F15)</code>… En el balance, los paréntesis agrupan ingresos y egresos.', 'I13: <code>=(I9+I10)-(I11+I12)</code> o <code>=SUMA(I9:I10)-SUMA(I11:I12)</code>.'],
       },
       niveles: {
         explorador: {
-          instrucciones: [
-            'Clic derecho en el <b>número de fila 6</b> › «Insertar fila arriba». En la fila nueva escribe <b>Moka</b> (B6), <b>Cafe caliente</b> (C6) y <b>60</b> (D6).',
-            'Selecciona <b>A2</b> y arrastra el cuadrito verde hasta <b>A7</b>: aparecen CAF-002 a CAF-006. Haz lo mismo desde <b>A8</b> hasta A10 y desde <b>A11</b> hasta A12.',
-            'Haz doble clic en <b>B4</b> y corrige «Capuchino».',
-            'En <b>D5</b> escribe 55.',
-            'Pulsa <kbd>Ctrl+L</kbd>: busca <b>Cafe</b>, reemplaza con <b>Café</b> y elige «Reemplazar todos».',
-          ],
+          plantilla: { celda: 'F2', texto: '=___/___^2', copiar: 'F15' },
+          instrucciones: ['Completa la fórmula del IMC con el peso (D2) y la talla (E2), escríbela en F2 y cópiala hasta F15.', 'En I2 a I5 escribe: <code>=CONTAR(F2:F15)</code>, <code>=PROMEDIO(F2:F15)</code>, <code>=MAX(F2:F15)</code>, <code>=MIN(F2:F15)</code>.', 'En I13 escribe <code>=(I9+I10)-(I11+I12)</code>.'],
         },
         experto: {
-          instrucciones: ['La lista tiene <b>cinco problemas</b> (códigos, un nombre, un precio, acentos y un producto faltante: el Moka, CAF-005, Café caliente, $60). Encuéntralos y corrígelos.', 'Además, sube <b>10 %</b> los precios de Panadería sin escribirlos a mano y sin fórmulas: escribe 1.1 en una celda auxiliar, cópiala y usa <b>Pegado especial › Multiplicar</b> sobre los precios; después borra la celda auxiliar.'],
-          pruebas: pruebas(precios.slice(0, 9).concat([41.8, 24.2])).concat([
-            { tipo: 'fn', titulo: 'Los precios de Panadería son valores, no fórmulas', fn: (x) => (x.celdas('D11:D12').some((c) => String(x.entrada(c.dir)).startsWith('=')) ? 'Los precios de Panadería deben quedar como valores: usa Pegado especial › Multiplicar.' : true) },
-          ]),
-          pistas: ['Revisa columna por columna: códigos, nombres, categorías y precios.', 'Pegado especial (Ctrl+Alt+V) tiene la sección «Operación».', 'Escribe 1.1 en F1, cópiala, selecciona D11:D12 y en Pegado especial elige Valores + Multiplicar. Luego borra F1.'],
+          hoja: { hojas: [hojaTurno({ H15: 'Superficie corporal de ' + turno[0].expediente + ' (m²)' })], herramientas: ['portapapeles', 'edicion'] },
+          solucion: Object.assign({}, solucion, { I15: '=RAIZ(D2*E2*100/3600)' }),
+          pruebasExtra: [
+            { tipo: 'formula', rango: 'I15', titulo: 'Superficie corporal calculada', mensaje: 'Falta I15: calcula la superficie corporal del primer paciente.' },
+            { tipo: 'valores', rango: 'I15', titulo: 'Superficie corporal correcta', mensaje: 'I15 muestra {obtenido}; la superficie corporal (Mosteller) es {esperado} m². La talla va en centímetros: E2*100.' },
+            { tipo: 'robustez', cambios: { D2: 64 }, rango: 'I15', titulo: 'La superficie corporal se recalcula', mensaje: 'Si cambia el peso, I15 no se actualiza: usa D2 y E2 en tu fórmula.' },
+          ],
+          instrucciones: ['Resuelve F2:F15, I2:I5 e I13 como en el nivel Analista.', 'En <b>I15</b> calcula la superficie corporal del paciente de la fila 2 con la fórmula de Mosteller: raíz cuadrada de (talla en cm × peso en kg / 3600).'],
+          pistas: ['La talla está en metros: en centímetros es E2*100.', 'La raíz cuadrada se calcula con RAIZ(…) o elevando a 0.5.', '<code>=RAIZ(D2*E2*100/3600)</code> o <code>=(D2*E2*100/3600)^0.5</code>.'],
         },
       },
     },
     lab: {
-      archivo: 'lab02-lista-precios.xlsx', titulo: 'Lista de precios de té, postres y alimentos',
-      contexto: 'La segunda parte de la lista de precios tiene problemas parecidos. Resuélvela en Excel.',
+      archivo: 'lab02-somatometria.xlsx', titulo: 'Somatometría del turno vespertino',
+      contexto: 'El libro tiene el registro de otro turno, con la misma estructura y otro balance hídrico.',
       pasos: {
-        explorador: [
-          { texto: 'Inserta una fila antes de «Galleta de avna» (clic derecho en el número de fila 5 › Insertar) y escribe: Brownie, Postre, 40.', ruta: ['Inicio', 'Insertar', 'Insertar filas de hoja'] },
-          { texto: 'Rellena los códigos que faltan arrastrando el controlador de relleno desde TE-001, POS-001 y ALI-001.', ruta: ['Inicio', 'Rellenar', 'Hacia abajo'] },
-          'Corrige «Galleta de avna» → «Galleta de avena» y el precio del Panini caprese: 85.',
-          { texto: 'Reemplaza la categoría «Postre» por «Postres».', ruta: ['Inicio', 'Buscar y seleccionar', 'Reemplazar…'] },
-          'Guarda y sube el libro.',
-        ],
-        analista: ['Inserta el <b>Brownie</b> (Postres, $40) entre el Pay de queso y la Galleta de avena.', 'Completa los códigos que faltan con autorrelleno.', 'Corrige el nombre mal escrito y el precio del Panini caprese ($85).', 'Cambia la categoría «Postre» por «Postres» en toda la lista.', 'Guarda y sube el libro.'],
-        experto: ['Corrige los cinco problemas de la lista (incluye el Brownie, POS-002, Postres, $40, que falta antes de la Galleta).', 'Sube 10 % los precios de Alimentos con Pegado especial › Multiplicar (deben quedar como números, sin fórmulas).', 'Guarda y sube el libro.'],
+        explorador: [{ texto: 'En F2 escribe <code>=D2/E2^2</code> y cópiala hasta el último paciente.' }, { texto: 'En I2 a I5 usa CONTAR, PROMEDIO, MAX y MIN sobre la columna F.', ruta: ['Inicio', 'Autosuma', 'Promedio'] }, 'En I13 calcula <code>=(I9+I10)-(I11+I12)</code>.', 'Guarda y sube el libro.'],
+        analista: ['Calcula el IMC en la columna F.', 'Completa el resumen I2:I5 con funciones.', 'Calcula el balance hídrico en I13.', 'Guarda y sube el libro.'],
+        experto: ['Resuelve el turno como en el nivel Analista.', 'En I15 calcula la superficie corporal (Mosteller) del paciente de la fila 2.', 'Guarda y sube el libro.'],
       },
       pruebas: [
-        { titulo: 'Lista completa y bien escrita', fn: (L, A) => {
-          A.hoja('Precios');
-          const esp = [['TE-001', 'Chai latte', 'Té'], ['TE-002', 'Té verde', 'Té'], ['POS-001', 'Pay de queso', 'Postres'], ['POS-002', 'Brownie', 'Postres'], ['POS-003', 'Galleta de avena', 'Postres'], ['ALI-001', 'Sándwich de pavo', 'Alimentos'], ['ALI-002', 'Panini caprese', 'Alimentos']];
-          for (let i = 0; i < esp.length; i++) for (let j = 0; j < 3; j++) {
-            const d = 'ABC'[j] + (i + 2);
-            const v = String(L.valor('Precios', d) == null ? '' : L.valor('Precios', d)).trim();
-            if (v.toLowerCase() !== esp[i][j].toLowerCase()) return d + ' dice «' + v + '», pero debería decir «' + esp[i][j] + '».';
+        { titulo: 'IMC con fórmula y correcto', fn: (L, A) => {
+          A.hoja('Turno');
+          let n = 0;
+          for (let r = 2; r <= 40; r++) {
+            const peso = A.num(L.valor('Turno', 'D' + r)), talla = A.num(L.valor('Turno', 'E' + r));
+            if (peso == null || talla == null) break;
+            n++;
+            if (!L.tieneFormula('Turno', 'F' + r)) return 'F' + r + ' no tiene fórmula.';
+            if (!A.cerca(A.num(L.valor('Turno', 'F' + r)), peso / (talla * talla))) return 'F' + r + ' debería ser ' + A.fmtEs(peso / (talla * talla)) + ' (peso / talla²).';
+          }
+          return n ? true : 'No encontré los pacientes en la hoja Turno.';
+        } },
+        { titulo: 'Resumen con CONTAR, PROMEDIO, MAX y MIN', fn: (L, A) => {
+          const v = [];
+          for (let r = 2; r <= 40; r++) { const x = A.num(L.valor('Turno', 'F' + r)); if (x == null) break; v.push(x); }
+          const esp = { I2: ['COUNT', v.length], I3: ['AVERAGE', v.reduce((a, b) => a + b, 0) / v.length], I4: ['MAX', Math.max(...v)], I5: ['MIN', Math.min(...v)] };
+          const es = { AVERAGE: 'PROMEDIO', MAX: 'MAX', MIN: 'MIN', COUNT: 'CONTAR' };
+          for (const [d, [fn, x]] of Object.entries(esp)) {
+            if (!L.usaFuncion('Turno', d, fn === 'COUNT' ? ['COUNT', 'COUNTA'] : fn)) return d + ' debe usar ' + es[fn] + '.';
+            if (!A.cerca(A.num(L.valor('Turno', d)), x)) return d + ' muestra ' + A.fmtEs(L.valor('Turno', d)) + '; debería ser ' + A.fmtEs(x) + '.';
           }
           return true;
         } },
-        { titulo: 'Precios correctos', fn: (L, A, nivel) => {
-          const esp = [54, 38, 55, 40, 25, 78, 85].map((p, i) => (nivel === 'experto' && i >= 5 ? Math.round(p * 1.1 * 100) / 100 : p));
-          for (let i = 0; i < esp.length; i++) {
-            const v = L.valor('Precios', 'D' + (i + 2));
-            if (typeof v !== 'number') return 'D' + (i + 2) + ' no es un número (¿quedó como texto?).';
-            if (!A.cerca(v, esp[i])) return 'D' + (i + 2) + ' muestra ' + A.fmtEs(v) + '; el precio es ' + A.fmtEs(esp[i]) + '.';
-          }
-          return true;
+        { titulo: 'Balance hídrico (I13)', fn: (L, A) => {
+          if (!L.tieneFormula('Turno', 'I13')) return 'I13 debe tener una fórmula.';
+          const n = (d) => A.num(L.valor('Turno', d));
+          const e = n('I9') + n('I10') - (n('I11') + n('I12'));
+          return A.cerca(n('I13'), e) ? true : 'I13 muestra ' + A.fmtEs(L.valor('Turno', 'I13')) + '; el balance es ' + A.fmtEs(e) + ' mL. ¿Usaste paréntesis?';
         } },
-        { titulo: 'Los precios de Alimentos son valores (Pegado especial)', nivel: 'experto', fn: (L) => (L.tieneFormula('Precios', 'D7') || L.tieneFormula('Precios', 'D8') ? 'D7 y D8 deben ser valores: usa Pegado especial › Multiplicar en lugar de fórmulas.' : true) },
+        { titulo: 'Superficie corporal (I15)', nivel: 'experto', fn: (L, A) => {
+          if (!L.tieneFormula('Turno', 'I15')) return 'I15 debe tener una fórmula.';
+          const e = Math.sqrt(A.num(L.valor('Turno', 'D2')) * A.num(L.valor('Turno', 'E2')) * 100 / 3600);
+          return A.cerca(A.num(L.valor('Turno', 'I15')), e) ? true : 'I15 debería ser ' + A.fmtEs(e) + ' m² (raíz de talla en cm × peso / 3600).';
+        } },
       ],
     },
     donde: [
-      { comando: 'Reemplazar', ruta: ['Inicio', 'Buscar y seleccionar', 'Reemplazar…'], nota: 'Atajo: Ctrl+L. En Mac: ⌃H.' },
-      { comando: 'Pegado especial', ruta: ['Inicio', 'Pegar', 'Pegado especial…'], nota: 'Atajo: Ctrl+Alt+V.' },
-      { comando: 'Insertar filas', ruta: ['Inicio', 'Insertar', 'Insertar filas de hoja'], nota: 'También con clic derecho sobre el número de fila.' },
-      { comando: 'Rellenar series', ruta: ['Inicio', 'Rellenar', 'Series…'] },
+      { comando: 'Autosuma', ruta: ['Inicio', 'Autosuma', 'Suma'], nota: 'Atajo: Alt+=. También está en Fórmulas › Autosuma.' },
+      { comando: 'Promedio, Máx., Mín. y Contar números (desde Autosuma)', ruta: ['Inicio', 'Autosuma', 'Promedio'] },
+      { comando: 'Insertar función', ruta: ['Fórmulas', 'Insertar función'] },
+      { comando: 'Mostrar fórmulas', ruta: ['Fórmulas', 'Mostrar fórmulas'], nota: 'Atajo: Ctrl+`.' },
     ],
-    atajos: ['<kbd>F2</kbd> editar la celda · <kbd>Esc</kbd> cancelar · <kbd>Supr</kbd> borrar contenido', '<kbd>Ctrl+C</kbd>, <kbd>Ctrl+X</kbd>, <kbd>Ctrl+V</kbd>, <kbd>Ctrl+Alt+V</kbd> (pegado especial)', '<kbd>Ctrl+Z</kbd> deshacer · <kbd>Ctrl+Y</kbd> rehacer', '<kbd>Ctrl+B</kbd> buscar · <kbd>Ctrl+L</kbd> reemplazar', '<kbd>Ctrl+J</kbd> rellenar hacia abajo (Excel en español)'],
+    glosario: ['SUMA', 'PROMEDIO', 'MAX', 'MIN', 'CONTAR', 'CONTARA'],
+    atajos: ['<kbd>Alt+=</kbd> Autosuma', 'Escribe <kbd>=</kbd> y haz clic en una celda para insertar su referencia (modo Señalar).', 'Doble clic en el controlador de relleno: copia la fórmula hasta el final de los datos.', '<kbd>Ctrl+`</kbd> muestra u oculta las fórmulas.'],
   });
 })();

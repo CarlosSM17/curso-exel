@@ -1,194 +1,235 @@
-/* Módulo 13 · Gestionar y automatizar información */
+/* Módulo 13 · Dashboards */
 (function () {
-  const { D, ENC, fecha, serial } = LT.caso;
+  const { D, ENC, fecha, filasCronicos } = LT.caso;
   const F = LT.formato;
-  const CLI = D.clientesCorp;
-  const PROD = D.productos;
-  const ped = D.pedidos.slice(0, 10).map((p, i) => ({ folio: 1001 + i, fecha: p.fecha, cliente: p.cliente, producto: p.producto, cantidad: p.cantidad }));
-  const NUEVO = { folio: 1011, fecha: '2025-10-20', cliente: 'Agencia Pixel', producto: 'Capuchino', cantidad: 24 };
-  const CONSULTA = 'Notaría 14';
+  const CRON = filasCronicos();
+  const pct = (filas) => filas.filter((f) => f.Controlado === 'Sí').length / filas.length;
+  const INDICADORES = [
+    { id: 'consultas', nombre: 'Consultas', calc: (f) => f.length, formato: '#,##0' },
+    { id: 'control', nombre: '% de pacientes en control', calc: pct, formato: '0.0%', mejor: 'alto' },
+    { id: 'espera', nombre: 'Espera promedio (min)', calc: (f) => f.reduce((s, x) => s + x.Espera, 0) / f.length, formato: '0.0', mejor: 'bajo' },
+    { id: 'edad', nombre: 'Edad promedio', calc: (f) => f.reduce((s, x) => s + x.Edad, 0) / f.length, formato: '0.0' },
+  ];
+  const GRAFICOS = [
+    { id: 'consultasMes', nombre: 'Consultas por mes', categoria: 'Mes', medida: 'consultas' },
+    { id: 'controlSede', nombre: '% de control por sede', categoria: 'Sede', medida: 'control' },
+    { id: 'consultasPrograma', nombre: 'Consultas por programa', categoria: 'Programa', medida: 'consultas' },
+    { id: 'esperaSede', nombre: 'Espera promedio por sede', categoria: 'Sede', medida: 'espera' },
+  ];
+  const SEGM = ['Programa', 'Sede', 'Trimestre'];
+  const r1 = (x) => Math.round(x * 1000) / 10;
+  const PCT_HTA = r1(pct(CRON.filter((f) => f.Programa === 'Hipertensión')));
+  const PCT_DM_SUR = r1(pct(CRON.filter((f) => f.Programa === 'Diabetes tipo 2' && f.Sede === 'Sur')));
 
+  // ---------- hoja de indicadores con fórmulas (primer cuatrimestre)
+  const sub = D.cronicos.filter((c) => +c.fecha.slice(5, 7) <= 4);
+  const N = sub.length;
+  const filaFin = N + 1;
+  const datosConsultas = [['Folio', 'Fecha', 'Sede', 'Programa', 'Sexo', 'Edad', 'Controlado', 'Espera (min)'], ...sub.map((c) => [c.folio, fecha(c.fecha), c.sede, c.programa, c.sexo, c.edad, c.controlado, c.espera])];
+  const hojaTablero = (experto) => ({
+    nombre: 'Tablero',
+    celdas: { B1: 'Tablero del programa de enfermedades crónicas', B2: 'Sede:', C2: 'Centro', B3: 'Programa:', C3: 'Diabetes tipo 2', B5: 'Consultas', B6: 'Pacientes en control', B7: '% de control', B8: 'Meta de control', C8: '0.7', B9: 'Semáforo', B10: 'Espera promedio (min)' },
+    formatos: { C7: '0.0%', C8: '0%', C10: '0.0' },
+    estilos: { B1: { b: true, fs: 15, fg: '#0f766e' }, 'C2:C3': { bg: '#fff8d6', b: true }, 'B5:B10': { b: true } },
+    anchos: { A: 24, B: 200, C: 170 }, objetivo: 'C5:C7,C9:C10', filas: 14, cols: 5,
+  });
   const libroReto = (experto) => ({
-    hojas: [
-      { nombre: 'Pedidos', datos: [['Folio', 'Fecha', 'Cliente', 'Producto', 'Cantidad', 'Precio', 'Importe'], ...ped.map((p) => [p.folio, fecha(p.fecha), p.cliente, p.producto, p.cantidad])], formatos: { 'F2:G30': '$#,##0.00', 'B2:B30': 'dd/mm/yyyy' }, estilos: { 'A1:G1': ENC }, anchos: { A: 60, B: 90, C: 170, D: 150, E: 74, F: 80, G: 90 }, objetivo: 'F2:G12,A12:E12', inmovilizar: { filas: 1 }, filasExtra: 10 },
-      { nombre: 'Catálogo', datos: [['Producto', 'Precio', 'Categoría'], ...PROD.map((p) => [p.nombre, p.precio, p.categoria])], formatos: { 'B2:B21': '$#,##0' }, estilos: { 'A1:C1': ENC }, anchos: { A: 170, C: 120 } },
-      { nombre: 'Clientes', datos: [['Cliente', 'Contacto', 'Correo'], ...CLI.map((c) => [c.cliente, c.contacto, c.correo])], estilos: { 'A1:C1': ENC }, anchos: { A: 180, B: 150, C: 190 } },
-      { nombre: 'Consulta', celdas: Object.assign({ B1: 'Consulta de clientes', B2: 'Cliente:', C2: CONSULTA, B4: 'Número de pedidos', B5: 'Total comprado' }, experto ? { B7: 'Productos pedidos' } : {}), formatos: { C5: '$#,##0.00' }, estilos: { B1: { b: true, fs: 15 }, C2: { bg: '#fff8d6', b: true }, 'B4:B7': { b: true } }, anchos: { A: 30, B: 160, C: 180 }, objetivo: experto ? 'C4:C5,C7' : 'C4:C5', filas: 16, cols: 5 },
-    ],
-    pestanas: true, herramientas: ['captura', 'formulas', 'portapapeles'], altura: 400,
+    hojas: [hojaTablero(experto), { nombre: 'Consultas', datos: datosConsultas, estilos: { 'A1:H1': ENC }, anchos: { A: 70, B: 86, C: 70, D: 130, E: 50, F: 50, G: 90, H: 90 }, inmovilizar: { filas: 1 } }],
+    pestanas: true, herramientas: ['formulas', 'estilos', 'captura'], altura: 360,
   });
+  const R = (col) => 'Consultas!$' + col + '$2:$' + col + '$' + filaFin;
   const solucion = {
-    'Pedidos!F2:F12': '=BUSCARX(D2,Catálogo!$A$2:$A$21,Catálogo!$B$2:$B$21)', 'Pedidos!G2:G12': '=E2*F2',
-    'Pedidos!A12': String(NUEVO.folio), 'Pedidos!B12': fecha(NUEVO.fecha), 'Pedidos!C12': NUEVO.cliente, 'Pedidos!D12': NUEVO.producto, 'Pedidos!E12': String(NUEVO.cantidad),
-    'Consulta!C4': '=CONTAR.SI(Pedidos!C2:C50,C2)', 'Consulta!C5': '=SUMAR.SI(Pedidos!C2:C50,C2,Pedidos!G2:G50)',
+    'Tablero!C5': '=CONTAR.SI.CONJUNTO(' + R('C') + ',C2,' + R('D') + ',C3)',
+    'Tablero!C6': '=CONTAR.SI.CONJUNTO(' + R('C') + ',C2,' + R('D') + ',C3,' + R('G') + ',"Sí")',
+    'Tablero!C7': '=C6/C5',
+    'Tablero!C9': '=SI(C7>=C8,"En meta","Debajo de la meta")',
+    'Tablero!C10': '=SUMAR.SI.CONJUNTO(' + R('H') + ',' + R('C') + ',C2,' + R('D') + ',C3)/C5',
   };
-  const validacion = (x, hoja, celda) => { const h = x.estado.hojas.find((y) => y.nombre === hoja); return h ? h.validaciones.find((v) => LT.refs.celdasDe(v.rango).some((c) => c.dir === celda)) : null; };
-  const cubreHasta = (v, fila) => String(v.rango).split(',').some((p) => { const g = LT.refs.parseRango(p); return g && g.r2 + 1 >= fila; });
-  const pruebaValidaciones = { tipo: 'fn', titulo: 'Listas desplegables y validación de la cantidad', fn: (x) => {
-    const vc = validacion(x, 'Pedidos', 'C2'), vd = validacion(x, 'Pedidos', 'D2'), ve = validacion(x, 'Pedidos', 'E2');
-    if (!vc || vc.tipo !== 'lista') return 'Falta la lista desplegable de clientes en Pedidos!C2:C50 (Validación › Lista › Origen =Clientes!$A$2:$A$11).';
-    const clientes = x.hoja.valoresLista(vc, 0);
-    if (CLI.some((c) => !clientes.includes(c.cliente))) return 'La lista de clientes debe tomar los 10 clientes de la hoja Clientes (=Clientes!$A$2:$A$11).';
-    if (!vd || vd.tipo !== 'lista') return 'Falta la lista desplegable de productos en Pedidos!D2:D50 (Origen =Catálogo!$A$2:$A$21).';
-    const prods = x.hoja.valoresLista(vd, 0);
-    if (PROD.some((p) => !prods.includes(p.nombre))) return 'La lista de productos debe tomar los 20 productos de la hoja Catálogo.';
-    if (!ve || ve.tipo !== 'entero' || +ve.min !== 1 || +ve.max !== 200) return 'En Cantidad (E2:E50) permite solo números enteros entre 1 y 200.';
-    return [vc, vd, ve].every((v) => cubreHasta(v, 50)) ? true : 'Las validaciones deben cubrir hasta la fila 50, para los pedidos que vienen.';
+  const k = (r, c) => r + ',' + c;
+  const rojo = (fx) => !!fx && (fx.bg === '#ffc7ce' || fx.fg === '#9c0006' || fx.fg === '#c00000');
+  const pruebaSemaforo = { tipo: 'fn', titulo: 'Formato condicional: % de control en rojo si está debajo de la meta', fn: (x) => {
+    const hj = x.hoja.libro.hojas[0];
+    if (!hj.condicionales.some((r) => LT.refs.celdasDe(r.rango).some((c) => c.dir === 'C7'))) return 'Agrega a C7 una regla de formato condicional: «Es menor que» =$C$8 con relleno rojo claro.';
+    const hf = x.hoja.hf, sid = x.hoja.idHoja(0);
+    const prev = hf.getCellSerialized({ sheet: sid, row: 1, col: 2 });
+    const pintado = (sede) => { hf.setCellContents({ sheet: sid, row: 1, col: 2 }, [[sede]]); return rojo(x.hoja._evaluarCondicionales(hj)[k(6, 2)]); };
+    const conSur = pintado('Sur'), conCentro = pintado('Centro');
+    hf.setCellContents({ sheet: sid, row: 1, col: 2 }, [[prev]]);
+    if (!conSur) return 'Con la sede Sur (por debajo de la meta), C7 debería verse en rojo: la regla debe comparar con la meta de C8.';
+    return conCentro ? 'Con la sede Centro (en meta), C7 no debería verse en rojo: compara con C8, no con un número fijo.' : true;
   } };
-  const pruebasBase = [
-    pruebaValidaciones,
-    { tipo: 'valores', rango: 'Pedidos!A12:E12', esperado: [[NUEVO.folio, serial(NUEVO.fecha), NUEVO.cliente, NUEVO.producto, NUEVO.cantidad]], titulo: 'Pedido nuevo capturado en la fila 12', mensaje: '{celda} muestra {obtenido}; el pedido nuevo es 1011 · 20/10/2025 · Agencia Pixel · Capuchino · 24.' },
-    { tipo: 'formula', rango: 'Pedidos!F2:G12', titulo: 'Precio e importe con fórmulas', mensaje: '{celda} tiene un valor escrito: búscalo o calcúlalo con una fórmula.', mensajeVacia: '{celda} está vacía (copia las fórmulas hasta la fila 12).' },
-    { tipo: 'usa', rango: 'Pedidos!F2:F12', funciones: ['BUSCARX', 'INDICE', 'BUSCARV'], alguna: true, titulo: 'Precio buscado en el catálogo', mensaje: '{celda} debe buscar el precio en la hoja Catálogo con BUSCARX.' },
-    { tipo: 'valores', rango: 'Pedidos!F2:G12', titulo: 'Precios e importes correctos', mensaje: '{celda} muestra {obtenido}, pero debería ser {esperado}.' },
-    { tipo: 'usa', rango: 'Consulta!C4', funciones: ['CONTAR.SI', 'CONTAR.SI.CONJUNTO'], alguna: true, titulo: 'Número de pedidos con CONTAR.SI', mensaje: 'En Consulta!C4 cuenta los pedidos del cliente con CONTAR.SI.' },
-    { tipo: 'usa', rango: 'Consulta!C5', funciones: ['SUMAR.SI', 'SUMAR.SI.CONJUNTO'], alguna: true, titulo: 'Total comprado con SUMAR.SI', mensaje: 'En Consulta!C5 suma los importes del cliente con SUMAR.SI.' },
-    { tipo: 'valores', rango: 'Consulta!C4:C5', titulo: 'Consulta correcta', mensaje: '{celda} muestra {obtenido}; para ' + CONSULTA + ' debería ser {esperado}.' },
-    { tipo: 'robustez', cambios: [{ 'Consulta!C2': 'Hospital San Rafael' }, { 'Consulta!C2': 'Agencia Pixel', 'Pedidos!E12': 30 }], rango: 'Consulta!C4:C5', titulo: 'La consulta funciona con cualquier cliente', mensaje: 'Al cambiar el cliente de C2, {celda} no se actualiza bien: usa C2 en la fórmula.' },
-  ];
-  const registrosCarta = D.pedidos.slice(0, 5).map((p, i) => {
-    const c = CLI.find((x) => x.cliente === p.cliente);
-    const imp = p.cantidad * p.precio;
-    return { Folio: 2501 + i, Cliente: p.cliente, Contacto: c.contacto, Producto: p.producto, Cantidad: p.cantidad, Importe: imp, 'Importe_texto': F.formatear(imp, '$#,##0.00').texto, Entrega: fecha(p.compromiso) };
-  });
-  const HUECOS = [
-    { id: 'contacto', etiqueta: 'Contacto', correcto: 'Contacto' },
-    { id: 'cliente', etiqueta: 'Empresa', correcto: 'Cliente' },
-    { id: 'folio', etiqueta: 'Número de pedido', correcto: 'Folio' },
-    { id: 'cantidad', etiqueta: 'Cantidad', correcto: 'Cantidad' },
-    { id: 'producto', etiqueta: 'Producto', correcto: 'Producto' },
-    { id: 'importe', etiqueta: 'Importe', correcto: 'Importe_texto', aviso: { Importe: 'En la vista previa el importe sale como ' + registrosCarta[0].Importe + ' (sin formato de moneda). Usa el campo «Importe_texto», que ya trae el formato $#,##0.00.' } },
-    { id: 'entrega', etiqueta: 'Fecha de entrega', correcto: 'Entrega' },
-  ];
-  const PLANTILLA = ['Cafetería La Taza · Confirmación de pedido', 'Estimado(a) {contacto}', '{cliente}', 'Le confirmamos el pedido número {folio}: {cantidad} piezas de {producto}, por un importe de {importe}. La entrega está programada para el {entrega}.', '¡Gracias por su preferencia!'];
+  const pruebasHoja = (experto) => [
+    { tipo: 'formula', rango: 'Tablero!C5:C7', titulo: 'Indicadores con fórmulas', mensaje: '{celda} tiene un número escrito: calcula el indicador con una fórmula.', mensajeVacia: '{celda} está vacía.' },
+    { tipo: 'usa', rango: 'Tablero!C5:C6', funciones: ['CONTAR.SI.CONJUNTO'], titulo: 'Conteos con CONTAR.SI.CONJUNTO', mensaje: '{celda} debe contar con CONTAR.SI.CONJUNTO usando la sede (C2) y el programa (C3).' },
+    { tipo: 'valores', rango: 'Tablero!C5:C7', titulo: 'Consultas, pacientes en control y % correctos', mensaje: '{celda} muestra {obtenido}, pero debería ser {esperado}.' },
+    { tipo: 'valores', rango: 'Tablero!C9', titulo: 'Semáforo correcto', mensaje: 'C9 muestra {obtenido}; debería decir {esperado} (compara C7 con la meta de C8).' },
+    { tipo: 'valores', rango: 'Tablero!C10', titulo: 'Espera promedio correcta', mensaje: 'C10 muestra {obtenido}; la espera promedio es {esperado} min (suma de esperas ÷ consultas, con los mismos criterios).' },
+    pruebaSemaforo,
+    { tipo: 'robustez', cambios: [{ 'Tablero!C2': 'Sur' }, { 'Tablero!C2': 'Norte', 'Tablero!C3': 'Hipertensión' }, { 'Tablero!C8': 0.8 }], rango: 'Tablero!C5:C7,Tablero!C9:C10', titulo: 'El tablero responde a la sede, el programa y la meta', mensaje: 'Al cambiar la sede, el programa o la meta, {celda} no se actualiza: usa C2, C3 y C8 en las fórmulas.' },
+  ].concat(experto ? [
+    { tipo: 'fn', titulo: 'Selectores con lista desplegable', fn: (x) => { const hj = x.estado.hojas[0]; const v = (d) => hj.validaciones.find((y) => y.tipo === 'lista' && LT.refs.celdasDe(y.rango).some((c) => c.dir === d)); const a = v('C2'), b = v('C3'); if (!a || !x.hoja.valoresLista(a, 0).includes('Sur')) return 'Pon en C2 una lista desplegable con Centro, Norte y Sur.'; return b && x.hoja.valoresLista(b, 0).includes('Hipertensión') ? true : 'Pon en C3 una lista desplegable con Diabetes tipo 2 e Hipertensión.'; } },
+    { tipo: 'usa', rango: 'Tablero!C7', funciones: ['SI.ERROR'], titulo: '% de control protegido con SI.ERROR', mensaje: 'En C7 usa SI.ERROR para que no aparezca #¡DIV/0! si una combinación no tiene consultas.' },
+  ] : []);
+
+  // ---------- reto: dos pestañas (indicadores con fórmulas + diseño del tablero)
+  function crearReto(cont, nivel) {
+    const { h } = LT.u;
+    const experto = nivel === 'experto', explorador = nivel === 'explorador';
+    let hoja = null, tab = null, est = null;
+    const pestanas = h('div', { class: 'grupo-btn', style: { marginBottom: '10px' } });
+    const p1 = h('div'), p2 = h('div');
+    const mostrar = (i) => { p1.style.display = i === 1 ? '' : 'none'; p2.style.display = i === 2 ? '' : 'none'; pestanas.querySelectorAll('button').forEach((b, j) => b.classList.toggle('primario', j + 1 === i)); };
+    pestanas.append(h('button', { class: 'btn chico', onclick: () => mostrar(1) }, '1. Indicadores con fórmulas'), h('button', { class: 'btn chico', onclick: () => mostrar(2) }, '2. Diseño del tablero'));
+    const hc = h('div');
+    const resp = h('input', { type: 'text', placeholder: '0.0 %', style: { width: '110px', padding: '6px 8px', borderRadius: '7px', border: '1px solid var(--linea-2)' }, 'aria-label': 'Respuesta' });
+    const zt = h('div');
+    p1.append(h('p', { class: 'instr' }, 'Hoja Tablero: indicadores del primer cuatrimestre que cambian según la sede (C2) y el programa (C3). Los datos están en la hoja Consultas (filas 2 a ' + filaFin + ').'), hc);
+    p2.append(h('p', { class: 'instr' }, explorador ? 'Marca las tarjetas y los gráficos que se piden, escribe la meta y conecta la segmentación con todos los elementos.' : 'Diseña el tablero con los datos de todo 2025.'), zt, h('div', { class: 'aviso-caja info' }, experto ? 'Con Programa = Diabetes tipo 2 y Sede = Sur, ¿cuál es el % de pacientes en control? ' : 'Con la segmentación Programa en Hipertensión, ¿cuál es el % de pacientes en control? ', resp));
+    cont.append(pestanas, p1, p2);
+    setTimeout(() => {
+      hoja = new LT.Hoja(hc, libroReto(experto));
+      tab = LT.widgets.tablero(zt, { datos: CRON, indicadores: INDICADORES, graficos: GRAFICOS, segmentaciones: SEGM, inicial: explorador ? { tarjetas: { consultas: { meta: '' }, control: { meta: '' }, espera: { meta: '' } } } : {}, alCambiar: (e) => { est = e; } });
+      est = tab.estado();
+      mostrar(1);
+    }, 0);
+    return {
+      verificar: () => {
+        const r = [];
+        const add = (ok, titulo, mensaje) => r.push({ ok, titulo, mensaje: ok ? titulo : mensaje });
+        const spec = { solucion: experto ? Object.assign({}, solucion, { 'Tablero!C7': '=SI.ERROR(C6/C5,0)' }) : solucion, pruebas: pruebasHoja(experto) };
+        const v = LT.verificar(hoja, spec);
+        v.resultados.forEach((x) => r.push({ ok: x.ok, titulo: 'Hoja · ' + (x.titulo || ''), mensaje: x.ok ? 'Hoja · ' + (x.titulo || '') : 'Hoja · ' + x.mensaje }));
+        const e = est || { tarjetas: {}, visuales: {}, segm: [], conexiones: {} };
+        add(!!(e.titulo || '').trim(), 'Tablero con título', 'Tablero: escribe un título que diga qué muestra (programa, periodo).');
+        const faltan = ['consultas', 'control', 'espera'].filter((id) => !e.tarjetas[id]);
+        add(!faltan.length, 'Tarjetas de Consultas, % en control y Espera', 'Tablero: agrega las tarjetas ' + faltan.map((id) => '«' + INDICADORES.find((x) => x.id === id).nombre + '»').join(', ') + '.');
+        const metaCtrl = e.tarjetas.control ? parseFloat(String(e.tarjetas.control.meta).replace(/[%\s]/g, '')) : NaN;
+        add(metaCtrl === 70 || metaCtrl === 0.7, 'Meta de control del 70 %', 'Tablero: escribe la meta de la tarjeta «% de pacientes en control»: 70 %.');
+        if (experto) { const m = e.tarjetas.espera ? parseFloat(String(e.tarjetas.espera.meta)) : NaN; add(m === 30, 'Meta de espera de 30 minutos', 'Tablero: escribe 30 como meta de la espera promedio (mejor si es bajo).'); }
+        add(e.visuales.consultasMes && e.visuales.consultasMes.tipo === 'lineas', 'Consultas por mes en líneas', 'Tablero: agrega «Consultas por mes» como gráfico de líneas (es un cambio en el tiempo).');
+        add(e.visuales.controlSede && ['columnas', 'barras'].includes(e.visuales.controlSede.tipo), '% de control por sede en columnas o barras', 'Tablero: agrega «% de control por sede» como columnas o barras (comparación entre categorías).');
+        const els = Object.keys(e.tarjetas).map((id) => 'k:' + id).concat(Object.keys(e.visuales).map((id) => 'g:' + id));
+        const cp = (e.conexiones && e.conexiones.Programa) || [];
+        add(e.segm.includes('Programa') && els.every((x) => cp.includes(x)), 'Segmentación Programa conectada a todo el tablero', e.segm.includes('Programa') ? 'Conexiones de informe: conecta la segmentación Programa a todas las tarjetas y gráficos.' : 'Tablero: inserta una segmentación por Programa.');
+        if (experto) {
+          const cs = (e.conexiones && e.conexiones.Sede) || [];
+          const deben = els.filter((x) => x !== 'g:controlSede');
+          add(e.segm.includes('Sede') && deben.every((x) => cs.includes(x)) && !cs.includes('g:controlSede'), 'Segmentación Sede bien conectada', 'Conexiones de informe: conecta la segmentación Sede a las tarjetas y a los demás gráficos, pero no al gráfico «% de control por sede» (se quedaría con una sola barra).');
+        }
+        const n = parseFloat(String(resp.value).replace(/[%\s]/g, ''));
+        const esp = experto ? PCT_DM_SUR : PCT_HTA;
+        add(isFinite(n) && Math.abs((n <= 1 ? n * 100 : n) - esp) < 0.6, 'Respuesta correcta', resp.value ? 'Revisa la tarjeta «% de pacientes en control» con el filtro aplicado (¿está conectada a la segmentación?).' : 'Responde la pregunta usando el tablero filtrado.');
+        return { ok: r.every((x) => x.ok), resultados: r };
+      },
+      partes: () => ({ hoja, tab }),
+    };
+  }
+
+  function demo(c) {
+    LT.widgets.tablero(c, { datos: CRON, indicadores: INDICADORES, graficos: GRAFICOS, segmentaciones: SEGM, inicial: { titulo: 'Programa de enfermedades crónicas · 2025', tarjetas: { consultas: { meta: '' }, control: { meta: '70%' }, espera: { meta: '30' } }, visuales: { consultasMes: { tipo: 'lineas' }, controlSede: { tipo: 'columnas' } }, segm: ['Programa'], conexiones: { Programa: ['k:consultas', 'k:control', 'k:espera', 'g:consultasMes', 'g:controlSede'] } } });
+  }
 
   LT.definirModulo({
     id: 13,
-    objetivo: 'Diseñar una base de datos y sus campos; capturar con formularios, validación y listas desplegables; buscar y consultar información; automatizar tareas con macros (grabadora, botones, seguridad, introducción a VBA) y generar documentos combinando correspondencia entre Excel y Word.',
-    situacion: 'Los pedidos de catering se capturan cada quien a su manera y luego nadie encuentra nada. Quiero un <b>registro de pedidos</b> bien diseñado: que se capture con <b>listas</b>, que el precio se <b>busque solo</b>, una <b>consulta por cliente</b>, un <b>botón</b> que limpie la captura y las <b>cartas de confirmación</b> hechas en automático.',
+    objetivo: 'Diseñar y construir un dashboard de indicadores de salud: elegir indicadores con metas, calcularlos con fórmulas, combinarlos con tablas y gráficos dinámicos, conectar segmentaciones y presentarlo para que se lea en segundos.',
+    situacion: 'La dirección quiere un <b>tablero del programa de enfermedades crónicas</b> (diabetes e hipertensión): cuántas consultas damos, qué <b>porcentaje de pacientes está en control</b> contra la meta del 70 %, cuánto esperan y cómo cambia por mes y por sede. Debe poder filtrarse por programa y leerse de un vistazo en la junta.',
     explicacion: [
-      { html: '<h3>Diseñar una base de datos</h3><p>Una base de datos en Excel es una lista donde <b>cada fila es un registro</b> (un pedido) y <b>cada columna es un campo</b> (fecha, cliente, producto…). Reglas de oro:</p><ul><li>Encabezados en una sola fila, únicos y sin celdas combinadas; nada encima de la tabla.</li><li><b>Un dato por celda</b>: «2 Latte, 1 Moka» son dos registros con su cantidad y su producto.</li><li>Sin filas ni columnas vacías y sin subtotales dentro de los datos.</li><li>Cada campo con un solo tipo de dato: fechas reales, números sin unidades, textos escritos siempre igual.</li><li>Un campo clave que identifique cada registro (Folio, ID).</li><li>Lo que se repite va en su propia tabla (catálogo de productos, clientes) y se trae con búsquedas.</li></ul><h3>Identificar los campos: el diccionario de datos</h3><div class="tabla-scroll"><table class="tabla-sitio"><thead><tr><th>Campo</th><th>Tipo</th><th>¿Obligatorio?</th><th>Valores permitidos</th><th>Cómo se llena</th></tr></thead><tbody><tr><td>Folio</td><td>Número entero</td><td>Sí, único</td><td>Consecutivo</td><td>Captura</td></tr><tr><td>Fecha</td><td>Fecha</td><td>Sí</td><td>Fechas del año</td><td>Captura</td></tr><tr><td>Cliente</td><td>Texto</td><td>Sí</td><td>Lista de la hoja Clientes</td><td>Lista desplegable</td></tr><tr><td>Producto</td><td>Texto</td><td>Sí</td><td>Lista del catálogo</td><td>Lista desplegable</td></tr><tr><td>Cantidad</td><td>Número entero</td><td>Sí</td><td>1 a 200</td><td>Validación</td></tr><tr><td>Precio</td><td>Moneda</td><td>—</td><td>Del catálogo</td><td>Fórmula (BUSCARX)</td></tr><tr><td>Importe</td><td>Moneda</td><td>—</td><td>Cantidad × Precio</td><td>Fórmula</td></tr></tbody></table></div>' },
-      { widget: 'disenoBD', titulo: '¿Qué está mal en esta base?', opts: { minimo: 5 } },
-      { html: '<h3>Capturar sin errores</h3><ul><li><b>Validación de datos</b> (Datos › Validación de datos): limita lo que se acepta: lista, número entero entre dos valores, fecha, longitud de texto; con mensaje de entrada y de error.</li><li><b>Listas desplegables</b>: Permitir «Lista» con un origen de celdas (<code>=Clientes!$A$2:$A$11</code>) o valores separados por coma.</li><li><b>Formulario de datos</b>: el comando «Formulario…» (agrégalo a la barra de acceso rápido, como en el módulo 1) muestra un registro a la vez para capturar, buscar o revisar sin moverse por la hoja.</li><li>Alternativas: una hoja de captura con celdas desbloqueadas y validadas, o Microsoft Forms conectado a Excel.</li></ul><h3>Buscar y consultar</h3><p><code>=BUSCARX(D2, Catálogo!$A$2:$A$21, Catálogo!$B$2:$B$21)</code> trae el precio del producto. Para consultar: <code>=CONTAR.SI(Pedidos!C2:C50, C2)</code> cuenta los pedidos de un cliente y <code>=SUMAR.SI(…)</code> suma lo que compró; <code>=FILTRAR(…)</code> lista sus pedidos.</p>' },
-      { widget: 'buscarX', titulo: 'Cómo busca BUSCARX', instr: 'Escribe un producto y mira cómo recorre el catálogo.', opts: { columnas: ['Producto', 'Precio', 'Categoría'], letras: ['A', 'B', 'C'], filas: PROD.slice(0, 10).map((p) => [p.nombre, p.precio, p.categoria]), inicial: 'Latte' } },
-      { html: '<h3>Automatizar tareas: macros</h3><ul><li>Una <b>macro</b> es una serie de pasos guardada para repetirla con un clic. La <b>grabadora</b> (Programador › Grabar macro) traduce tus acciones a código VBA.</li><li><b>Referencias relativas</b>: la macro repite los pasos desde la celda activa; absolutas: siempre en las mismas celdas.</li><li><b>Botones</b>: inserta una forma o un botón de formulario y usa «Asignar macro…».</li><li><b>Seguridad</b>: guarda como <b>.xlsm</b>; al abrir un archivo con macros aparece «Habilitar contenido»: hazlo solo si confías en su origen. Los archivos descargados de internet llegan bloqueados (Propiedades del archivo › Desbloquear).</li></ul><h3>Introducción a VBA</h3><p>Lo que graba la grabadora es código <b>VBA</b> (Visual Basic para Aplicaciones). Se ve con <kbd>Alt+F11</kbd>. Una macro es un procedimiento <code>Sub … End Sub</code> que trabaja con <b>objetos</b> (<code>Range</code>, <code>Worksheets</code>), sus <b>propiedades</b> (<code>.Value</code>, <code>.Font.Bold</code>) y sus <b>métodos</b> (<code>.Select</code>, <code>.ClearContents</code>):</p><pre class="mono" style="background:#1e1e1e;color:#d4d4d4;padding:12px;border-radius:10px;overflow:auto">Sub LimpiarCaptura()\n    \' Borra los datos capturados\n    Range("C2:C5").Select\n    Selection.ClearContents\n    Range("C2").Select\nEnd Sub</pre><h3>Generar documentos: combinar correspondencia</h3><p>Con una base bien diseñada, Word genera una carta por registro: <b>Correspondencia › Iniciar combinación de correspondencia › Cartas</b>; <b>Seleccionar destinatarios › Usar una lista existente</b> (el libro y su hoja); <b>Insertar campo combinado</b> en cada lugar; <b>Vista previa de resultados</b>; <b>Finalizar y combinar › Editar documentos individuales</b> (o imprimir o enviar por correo). Consejo: Word no respeta el formato de moneda de Excel; usa una columna de texto con <code>=TEXTO(G2,"$#,##0.00")</code> o el modificador <code>\\# "$#,##0.00"</code> en el campo.</p>' },
+      { html: '<h3>¿Qué es un dashboard?</h3><p>Un <b>dashboard</b> (tablero de control) reúne en una sola pantalla los <b>indicadores clave</b> para tomar decisiones. No es un reporte con todos los datos: es una respuesta rápida a pocas preguntas. Se construye en capas: <b>datos</b> (una tabla bien diseñada) → <b>cálculos</b> (fórmulas y tablas dinámicas, a menudo en una hoja auxiliar) → <b>presentación</b> (tarjetas, gráficos y segmentaciones en la hoja Tablero).</p><h3>Indicadores de salud</h3><p>Un indicador tiene nombre, fórmula (numerador / denominador), periodo, fuente y <b>meta</b>. El modelo de Donabedian los clasifica en:</p><ul><li><b>Estructura:</b> recursos disponibles (consultorios, personal por 1,000 habitantes, existencias de insulina).</li><li><b>Proceso:</b> lo que se hace (% de diabéticos con HbA1c medida en el año, tiempo de espera).</li><li><b>Resultado:</b> el efecto en la salud (% de pacientes con HbA1c &lt; 7 %, % con presión arterial &lt; 140/90).</li></ul><h3>Principios de diseño</h3><ul><li><b>Pocas cosas, bien elegidas:</b> de 3 a 6 indicadores; lo más importante arriba a la izquierda.</li><li><b>Contexto:</b> cada cifra con su meta, periodo y unidad; un semáforo solo tiene sentido con una meta.</li><li><b>El gráfico correcto:</b> líneas para el tiempo, columnas o barras para comparar, nada de 3D ni de circulares con muchas partes.</li><li><b>Colores con significado:</b> rojo y verde solo para fuera y dentro de meta; considera el daltonismo (agrega ✓ y ✗, no solo color).</li><li><b>Filtros coherentes:</b> las segmentaciones deben filtrar todo lo que se ve, salvo cuando no tenga sentido (una segmentación de sede no debe filtrar el gráfico «por sede»).</li><li><b>Limpieza:</b> oculta las líneas de cuadrícula, alinea los elementos y protege la hoja si otros la usarán.</li></ul>' },
+      { titulo: 'Así funciona un tablero', instr: 'Este tablero ya está armado. Usa la segmentación de Programa (Ctrl+clic para varios) y observa cómo cambian las tarjetas y los gráficos conectados. Prueba también desconectar un elemento en «Conexiones de informe».', widget: demo },
+      { html: '<h3>Construirlo en Excel</h3><ol><li>Convierte los datos en <b>tabla</b> (Ctrl+T): el tablero crecerá con los registros nuevos.</li><li>Crea las <b>tablas dinámicas</b> que necesitas (por mes, por sede) en una hoja auxiliar (Cálculos).</li><li>Inserta un <b>gráfico dinámico</b> por cada pregunta y muévelo a la hoja Tablero (Diseño de gráfico dinámico › Mover gráfico).</li><li>Inserta las <b>segmentaciones</b> y la <b>escala de tiempo</b>; conéctalas a todas las tablas dinámicas con clic derecho › <b>Conexiones de informe</b> (o Conexiones de filtro).</li><li>Calcula las <b>tarjetas KPI</b> con fórmulas: <code>CONTAR.SI.CONJUNTO</code>, <code>SUMAR.SI.CONJUNTO</code>, <code>PROMEDIO.SI.CONJUNTO</code>, o con <code>IMPORTARDATOSDINAMICOS</code> para tomarlas de una tabla dinámica filtrada. Protege las divisiones con <code>SI.ERROR</code>.</li><li>Agrega el <b>semáforo</b> con formato condicional contra la meta.</li><li>Pulido: oculta la cuadrícula (Vista › Líneas de cuadrícula), quita los botones de campo de los gráficos y alinea con Formato › Alinear.</li></ol><p>Ejemplo de tarjeta: <code>=CONTAR.SI.CONJUNTO(Consultas[Sede], C2, Consultas[Programa], C3, Consultas[Controlado], "Sí") / CONTAR.SI.CONJUNTO(Consultas[Sede], C2, Consultas[Programa], C3)</code>.</p>' },
     ],
     ejemplo: {
-      tipo: 'pasos', titulo: 'Cartas de confirmación desde la base de pedidos',
-      pasos: ['Guarda el libro con la base (encabezados en la fila 1) y ciérralo.', { texto: 'En Word: Correspondencia › Iniciar combinación de correspondencia › Cartas.' }, 'Seleccionar destinatarios › Usar una lista existente › elige el libro y la hoja «Pedidos».', 'Coloca el cursor en cada lugar de la carta e inserta el campo combinado (Cliente, Producto, Cantidad…).', 'Vista previa de resultados para revisar algunos registros; después Finalizar y combinar › Editar documentos individuales.'],
-      pregunta: { texto: 'En la vista previa, el importe sale como <b>1250.5</b> en lugar de <b>$1,250.50</b>. ¿Qué haces?', opciones: ['Agrego en Excel una columna con =TEXTO(G2,"$#,##0.00") y uso ese campo (o un modificador de formato en el campo)', 'Escribo los importes a mano en cada carta', 'Cambio el formato de la celda en Excel y listo', 'Imprimo y corrijo con pluma'], correcta: 0, explicacion: 'Word lee el valor guardado, no el formato de la celda. Un campo de texto ya formateado (o el modificador <code>\\# "$#,##0.00"</code>) resuelve el problema.', retro: { 2: 'Word ignora el formato de la celda: lee el número guardado.' } },
+      tipo: 'pasos', titulo: 'Conectar una segmentación a varias tablas dinámicas',
+      pasos: ['Crea dos tablas dinámicas a partir de la misma tabla de datos (por ejemplo, consultas por mes y % de control por sede).', { texto: 'Selecciona una de ellas › Análisis de tabla dinámica › Insertar segmentación de datos › Programa.', ruta: ['Análisis de tabla dinámica', 'Insertar segmentación de datos'] }, { texto: 'Clic derecho en la segmentación › Conexiones de informe (Conexiones de filtro) y marca las dos tablas dinámicas.', ruta: ['Segmentación', 'Conexiones de informe'] }, 'Haz clic en «Hipertensión»: las dos tablas, sus gráficos y las tarjetas que dependan de ellas se filtran a la vez.'],
+      pregunta: { texto: 'Insertaste una segmentación desde la tabla dinámica de consultas por mes. Al filtrar, el gráfico de % por sede <b>no cambia</b>. ¿Por qué?', opciones: ['La segmentación solo está conectada a la tabla dinámica desde la que se insertó; falta agregar la otra en Conexiones de informe', 'Los gráficos de columnas no se pueden filtrar', 'Hay que actualizar el libro cada vez', 'La segmentación solo funciona con fechas'], correcta: 0, explicacion: 'Una segmentación nace conectada solo a su tabla dinámica de origen. Para que controle todo el tablero hay que conectarla a las demás en <b>Conexiones de informe</b> (todas deben venir de la misma fuente de datos).' },
     },
     micro: [
-      { titulo: 'Detecta los problemas de diseño', tipo: 'widget', enunciado: 'Encuentra al menos 6 problemas de diseño en esta base.', crear: (c, listo) => LT.widgets.disenoBD(c, { minimo: 6, alListo: () => listo() }) },
+      { titulo: 'Tipos de indicador', tipo: 'opcion', enunciado: 'El indicador «<b>% de pacientes con diabetes con HbA1c menor a 7 %</b>» es, según Donabedian, un indicador de…', opciones: ['Resultado', 'Estructura', 'Proceso', 'Demanda'], correcta: 0, explicacion: 'Mide el efecto en la salud del paciente (control glucémico): es un indicador de <b>resultado</b>. «% de diabéticos con HbA1c medida en el año» sería de proceso.' },
+      { titulo: 'El gráfico para cada pregunta', tipo: 'opcion', enunciado: 'En el tablero quieres mostrar si el <b>% de control</b> mejoró <b>mes a mes</b> respecto a la meta del 70 %.', opciones: ['Líneas con una línea de referencia en 70 %', 'Circular por mes', 'Barras apiladas en 3D', 'Una tabla con todos los registros'], correcta: 0, explicacion: 'Para ver la evolución en el tiempo se usan <b>líneas</b>; la línea de meta da el contexto para juzgar si se cumple.' },
       {
-        titulo: 'Lista desplegable y formulario', tipo: 'hoja', enunciado: 'Agrega una <b>lista desplegable</b> en C2:C20 con Centro, Norte y Sur. Después usa el botón <b>Formulario</b> para capturar el registro: Folio 4 · Cliente Gimnasio Fénix · Sucursal Norte · Cantidad 30.',
-        hoja: { hojas: [{ nombre: 'Registro', datos: [['Folio', 'Cliente', 'Sucursal', 'Cantidad'], [1, 'Notaría 14', 'Centro', 24], [2, 'Agencia Pixel', 'Sur', 12], [3, 'Coworking Nodo', 'Centro', 36]], estilos: { 'A1:D1': ENC }, anchos: { B: 170 }, filas: 12, cols: 6 }], herramientas: ['captura'] },
-        pruebas: [
-          { tipo: 'fn', fn: (x) => { const v = validacion(x, 'Registro', 'C2'); if (!v || v.tipo !== 'lista') return 'Falta la lista desplegable en C2:C20 (botón Validación › Lista).'; const l = x.hoja.valoresLista(v, 0).map((s) => s.toLowerCase()).sort().join(); return l === 'centro,norte,sur' && cubreHasta(v, 20) ? true : 'La lista debe cubrir C2:C20 y tener exactamente Centro, Norte y Sur.'; } },
-          { tipo: 'valores', rango: 'A5:D5', esperado: [[4, 'Gimnasio Fénix', 'Norte', 30]], mensaje: '{celda} muestra {obtenido}; el registro nuevo es 4 · Gimnasio Fénix · Norte · 30.' },
-        ],
-        pista: ['Selecciona C2:C20 › Validación › Permitir: Lista › Origen: Centro,Norte,Sur. Luego clic en una celda de la tabla › Formulario › Agregar.'],
+        titulo: 'Tarjeta con CONTAR.SI.CONJUNTO', tipo: 'hoja',
+        enunciado: 'En E2 cuenta las consultas de <b>Hipertensión</b> en la sede <b>Norte</b> y en E3 cuántas de ellas tienen al paciente <b>en control</b> («Sí»). Usa CONTAR.SI.CONJUNTO.',
+        hoja: { hojas: [{ nombre: 'Consultas', datos: [['Sede', 'Programa', 'Controlado'], ...sub.slice(0, 30).map((c) => [c.sede, c.programa, c.controlado])], celdas: { D2: 'Consultas HTA Norte', D3: 'En control' }, estilos: { 'A1:C1': ENC, 'D2:D3': { b: true } }, anchos: { B: 130, D: 160 }, objetivo: 'E2:E3', cols: 7 }], herramientas: ['formulas'] },
+        solucion: { E2: '=CONTAR.SI.CONJUNTO(A2:A31,"Norte",B2:B31,"Hipertensión")', E3: '=CONTAR.SI.CONJUNTO(A2:A31,"Norte",B2:B31,"Hipertensión",C2:C31,"Sí")' },
+        pruebas: [{ tipo: 'usa', rango: 'E2:E3', funciones: ['CONTAR.SI.CONJUNTO'], mensaje: 'En {celda} usa CONTAR.SI.CONJUNTO.' }, { tipo: 'valores', rango: 'E2:E3', mensaje: '{celda} muestra {obtenido}; debería ser {esperado}. Cada criterio va en pareja: rango, criterio.' }],
+        pista: ['<code>=CONTAR.SI.CONJUNTO(A2:A31,"Norte",B2:B31,"Hipertensión")</code>; en E3 agrega un tercer par: <code>C2:C31,"Sí"</code>.'],
       },
-      { titulo: 'Combinar correspondencia', tipo: 'widget', enunciado: 'Arma la carta de confirmación: inicia la combinación como Cartas, conecta la lista de pedidos, coloca cada campo en su lugar, revisa la vista previa y finaliza.', crear: (c, listo) => LT.widgets.combinarCorrespondencia(c, { registros: registrosCarta, huecos: HUECOS, plantilla: PLANTILLA, alListo: () => listo() }) },
       {
-        titulo: 'Macro con botón', tipo: 'hoja', enunciado: 'Graba una macro llamada <b>LimpiarCaptura</b> que seleccione C2:C5 y borre su contenido (tecla Supr). Inserta un botón y asígnale la macro (clic derecho › Asignar macro…).',
-        hoja: { hojas: [{ nombre: 'Captura', datos: [['Captura de pedido'], ['Cliente', '', 'Agencia Pixel'], ['Producto', '', 'Latte'], ['Cantidad', '', 20], ['Fecha', '', '21/10/2025']], inicio: 'A1', estilos: { A1: { b: true, fs: 15 }, 'C2:C5': { bg: '#fff8d6' } }, anchos: { A: 110, B: 20, C: 160 }, filas: 10, cols: 6 }], altura: 240 },
-        alCrear: (hoja) => { const p = LT.u.h('div'); hoja.raiz.parentNode.insertBefore(p, hoja.raiz); LT.widgets.grabadora(hoja, p, { textoBoton: 'Limpiar captura', nombreMacro: 'LimpiarCaptura' }); },
-        pruebas: [
-          { tipo: 'fn', fn: (x) => { const m = Object.values(x.hoja.macros || {}); if (!m.length) return 'Graba la macro con «Grabar macro» y «Detener grabación».'; return m.some((y) => y.pasos.some((p) => p.tipo === 'borrar')) ? true : 'La macro debe borrar el contenido (selecciona C2:C5 y pulsa Supr mientras grabas).'; } },
-          { tipo: 'fn', fn: (x) => (x.celdas('C2:C5').every((c) => !x.entrada(c.dir)) ? true : 'C2:C5 debe quedar vacío.') },
-          { tipo: 'fn', fn: (x) => ((x.estado.hojas[0].objetos || []).some((o) => o.macro) ? true : 'Inserta un botón y asígnale la macro (clic derecho › Asignar macro…).') },
-        ],
-        pista: ['Grabar macro › nombre LimpiarCaptura › selecciona C2:C5 › Supr › Detener. Luego «Insertar botón», clic derecho › Asignar macro.'],
+        titulo: 'Conexiones de informe', tipo: 'widget', enunciado: 'El tablero tiene una segmentación de <b>Sede</b> que no filtra nada. Conéctala a las tres tarjetas y al gráfico de consultas por mes, pero <b>no</b> al gráfico «% de control por sede».',
+        crear: (c, listo) => {
+          const { h } = LT.u;
+          const info = h('div', { class: 'retro' });
+          const z = h('div');
+          c.append(z, info);
+          LT.widgets.tablero(z, { datos: CRON, indicadores: INDICADORES, graficos: GRAFICOS, segmentaciones: SEGM, inicial: { titulo: 'Programa de enfermedades crónicas', tarjetas: { consultas: { meta: '' }, control: { meta: '70%' }, espera: { meta: '30' } }, visuales: { consultasMes: { tipo: 'lineas' }, controlSede: { tipo: 'columnas' } }, segm: ['Sede'], conexiones: { Sede: [] } }, alCambiar: (e) => {
+            const cs = e.conexiones.Sede || [];
+            const ok = ['k:consultas', 'k:control', 'k:espera', 'g:consultasMes'].every((x) => cs.includes(x)) && !cs.includes('g:controlSede');
+            info.innerHTML = '';
+            if (ok) { info.appendChild(h('div', { class: 'aviso-caja ok' }, '✓ Ahora la sede filtra las tarjetas y la evolución mensual; el gráfico por sede sigue comparando las tres sedes.')); listo(); }
+            else if (cs.includes('g:controlSede')) info.appendChild(h('div', { class: 'aviso-caja alerta' }, 'Si filtras «% de control por sede» con la sede, el gráfico se queda con una sola barra y ya no compara: desconéctalo.'));
+          } });
+        },
       },
     ],
     reto: {
-      titulo: 'Registro de pedidos: captura y consulta', tipo: 'hoja',
-      intro: 'El libro tiene cuatro hojas: <i>Pedidos</i> (la base), <i>Catálogo</i>, <i>Clientes</i> y <i>Consulta</i>. La macro y las cartas se practican en los micro-retos y en el laboratorio.',
+      titulo: 'Tablero del programa de enfermedades crónicas', tipo: 'widget', crear: crearReto,
       base: {
-        hoja: libroReto(false), solucion, pruebas: pruebasBase,
-        instrucciones: ['En <b>Pedidos</b>: lista desplegable de clientes en C2:C50 (origen <code>=Clientes!$A$2:$A$11</code>), de productos en D2:D50 (<code>=Catálogo!$A$2:$A$21</code>) y cantidad entera entre 1 y 200 en E2:E50.', 'Precio (F) con BUSCARX desde el catálogo e Importe (G) = cantidad × precio, hasta la fila 12.', 'Captura en la fila 12 el pedido: 1011 · 20/10/2025 · Agencia Pixel · Capuchino · 24 (puedes usar el botón Formulario).', 'En <b>Consulta</b>: C4 = número de pedidos del cliente de C2 (CONTAR.SI) y C5 = total comprado (SUMAR.SI).'],
-        pistas: ['Primero valida la captura, después busca y al final consulta. Selecciona el rango antes de crear cada validación.', 'Validación › Lista › Origen <code>=Clientes!$A$2:$A$11</code>. Precio: <code>=BUSCARX(D2, Catálogo!$A$2:$A$21, Catálogo!$B$2:$B$21)</code>.', 'C4: <code>=CONTAR.SI(Pedidos!C2:C50, C2)</code> · C5: <code>=SUMAR.SI(Pedidos!C2:C50, C2, Pedidos!G2:G50)</code>.'],
+        instrucciones: ['<b>Pestaña 1 (hoja Tablero):</b> C5 = consultas de la sede de C2 y el programa de C3; C6 = cuántas tienen al paciente en control; C7 = % de control (C6/C5); C9 = «En meta» si C7 ≥ C8 y si no «Debajo de la meta»; C10 = espera promedio. Agrega a C7 un formato condicional rojo cuando esté debajo de la meta (=$C$8).', '<b>Pestaña 2 (diseño):</b> título; tarjetas de Consultas, % de pacientes en control (meta 70 %) y Espera promedio; gráfico «Consultas por mes» en líneas y «% de control por sede» en columnas o barras; segmentación Programa conectada a todo. Responde la pregunta.'],
+        pistas: ['Las tarjetas son conteos con dos criterios (sede y programa) y un tercero para «en control».', 'C5: <code>=CONTAR.SI.CONJUNTO(Consultas!$C$2:$C$' + filaFin + ', C2, Consultas!$D$2:$D$' + filaFin + ', C3)</code>. C10: SUMAR.SI.CONJUNTO de la espera entre C5. Formato condicional: Es menor que… =$C$8.', 'C6 agrega el par <code>Consultas!$G$2:$G$' + filaFin + ', "Sí"</code>; C7 <code>=C6/C5</code>; C9 <code>=SI(C7&gt;=C8, "En meta", "Debajo de la meta")</code>. En el diseño, marca la segmentación Programa y todas sus conexiones.'],
       },
       niveles: {
-        explorador: {
-          plantilla: { celda: 'F2', texto: '=BUSCARX(D2, ___, ___)', copiar: 'F12' },
-          instrucciones: ['Selecciona Pedidos!C2:C50 › <b>Validación</b> › Lista › Origen <code>=Clientes!$A$2:$A$11</code>. Repite en D2:D50 con <code>=Catálogo!$A$2:$A$21</code>. En E2:E50: Número entero, mínimo 1, máximo 200.', 'Completa la fórmula del precio: busca en <code>Catálogo!$A$2:$A$21</code> y devuelve <code>Catálogo!$B$2:$B$21</code>. Cópiala hasta F12. En G2 escribe <code>=E2*F2</code> y cópiala hasta G12.', 'Clic en una celda de la tabla › <b>Formulario</b> › escribe el pedido 1011 · 20/10/2025 · Agencia Pixel · Capuchino · 24 › Agregar.', 'En Consulta: C4 <code>=CONTAR.SI(Pedidos!C2:C50,C2)</code> y C5 <code>=SUMAR.SI(Pedidos!C2:C50,C2,Pedidos!G2:G50)</code>.'],
-        },
-        experto: {
-          hoja: libroReto(true),
-          solucion: Object.assign({}, solucion, { 'Consulta!C7': '=FILTRAR(Pedidos!D2:D50,Pedidos!C2:C50=C2)' }),
-          instrucciones: ['Todo lo del nivel Analista (validaciones, precio, importe, captura y consulta).', 'En Consulta!C2 pon una lista desplegable con los clientes.', 'En Consulta!C7, con FILTRAR, lista los productos que ha pedido el cliente (se desbordará hacia abajo).'],
-          pruebasExtra: [
-            { tipo: 'fn', titulo: 'Lista de clientes en la consulta', fn: (x) => { const v = validacion(x, 'Consulta', 'C2'); return v && v.tipo === 'lista' && x.hoja.valoresLista(v, 3).includes('Agencia Pixel') ? true : 'Pon en Consulta!C2 una lista desplegable con los clientes.'; } },
-            { tipo: 'usa', rango: 'Consulta!C7', funciones: ['FILTRAR'], titulo: 'Productos pedidos con FILTRAR', mensaje: 'Usa FILTRAR en Consulta!C7.' },
-            { tipo: 'valores', rango: 'Consulta!C7:C10', titulo: 'Lista de productos del cliente', mensaje: '{celda} muestra {obtenido}; debería ser {esperado}.' },
-          ],
-        },
+        explorador: { instrucciones: ['Pestaña 1: C5 <code>=CONTAR.SI.CONJUNTO(Consultas!$C$2:$C$' + filaFin + ',C2,Consultas!$D$2:$D$' + filaFin + ',C3)</code>; C6 igual con <code>,Consultas!$G$2:$G$' + filaFin + ',"Sí"</code> al final; C7 <code>=C6/C5</code>; C9 <code>=SI(C7&gt;=C8,"En meta","Debajo de la meta")</code>; C10 <code>=SUMAR.SI.CONJUNTO(Consultas!$H$2:$H$' + filaFin + ',Consultas!$C$2:$C$' + filaFin + ',C2,Consultas!$D$2:$D$' + filaFin + ',C3)/C5</code>. Selecciona C7 › Formato condicional › Es menor que… › =$C$8.', 'Pestaña 2: las tres tarjetas ya están; escribe 70% como meta de control, agrega los dos gráficos con su tipo, la segmentación Programa y marca todas sus conexiones. Filtra Hipertensión y responde.'] },
+        experto: { instrucciones: ['Pestaña 1: lo del nivel Analista, con listas desplegables en C2 (sedes) y C3 (programas), y SI.ERROR en C7 para evitar #¡DIV/0!.', 'Pestaña 2: lo del nivel Analista, con meta de 30 minutos en la espera y una segunda segmentación por Sede conectada a todo excepto al gráfico «% de control por sede». Responde con Programa = Diabetes tipo 2 y Sede = Sur.'] },
       },
     },
     lab: {
-      archivo: 'lab13-gestion-pedidos.xlsx', titulo: 'Registro de pedidos y cartas de confirmación', docx: true, acepta: '.xlsx,.xlsm,.docx',
-      descargas: [{ ruta: 'laboratorios/lab13-carta.docx', texto: 'Carta (Word)' }],
-      contexto: 'Parte 1 en Excel (base, validación, búsqueda y consulta) y parte 2 en Word (combinar correspondencia). Sube el libro y el documento de Word juntos.',
+      archivo: 'lab13-tablero.xlsx', titulo: 'Dashboard del programa de crónicos en Excel',
+      contexto: 'La hoja Consultas tiene las ' + D.cronicos.length + ' consultas de seguimiento de 2025. La hoja Tablero es para tu dashboard y Respuestas para tus conclusiones.',
       pasos: {
-        explorador: [{ texto: 'En Pedidos: listas desplegables en Cliente (C2:C60) y Producto (D2:D60), y Cantidad entera de 1 a 200 (E2:E60).', ruta: ['Datos', 'Validación de datos'] }, 'Precio con BUSCARX desde Catálogo e Importe = Cantidad × Precio para todos los pedidos.', 'En Consulta: C4 número de pedidos y C5 total comprado del cliente de C2.', 'Guarda y cierra el libro. Abre lab13-carta.docx en Word: Correspondencia › Iniciar combinación › Cartas › Seleccionar destinatarios › Usar una lista existente (este libro, hoja Pedidos).', 'Inserta los campos Cliente, Producto, Cantidad e Importe donde dice [Campo]. Guarda la carta y sube los dos archivos.'],
-        analista: ['Excel: validaciones en Pedidos (cliente, producto, cantidad 1–200), precio con BUSCARX, importe y la consulta por cliente (C4, C5).', 'Word: combina la carta con la hoja Pedidos usando al menos los campos Cliente, Producto, Cantidad e Importe. Sube el libro y la carta.'],
-        experto: ['Lo del nivel Analista.', 'Graba una macro que limpie Consulta!C2, asígnala a un botón y guarda el libro como .xlsm.', 'En Word, aplica al campo Importe el formato de moneda con el modificador \\# "$#,##0.00" (Alt+F9 muestra los códigos de campo).'],
+        explorador: [{ texto: 'Convierte Consultas en tabla (Ctrl+T).', ruta: ['Insertar', 'Tabla'] }, 'En Tablero: C4 = número de consultas (CONTARA de los folios), C5 = % de control (CONTAR.SI de «Sí» entre el número de consultas) y C6 = espera promedio (PROMEDIO).', { texto: 'Crea dos tablas dinámicas (consultas por mes; % de control por sede) y un gráfico dinámico de cada una; muévelos a Tablero.', ruta: ['Insertar', 'Tabla dinámica'] }, { texto: 'Inserta una segmentación por Programa y conéctala a las dos tablas dinámicas.', ruta: ['Análisis de tabla dinámica', 'Insertar segmentación de datos'] }, 'En Respuestas: B2 = % de control de Hipertensión y B3 = sede con menor % de control en Diabetes tipo 2. Guarda y sube el libro.'],
+        analista: ['Tablero: tarjetas C4 (consultas), C5 (% de control) y C6 (espera promedio) con fórmulas.', 'Al menos dos tablas dinámicas y dos gráficos dinámicos.', 'Segmentación por Programa conectada a dos o más tablas dinámicas.', 'Respuestas B2 (% de control en Hipertensión) y B3 (sede con menor control en Diabetes tipo 2). Guarda y sube el libro.'],
+        experto: ['Lo del nivel Analista.', 'Escala de tiempo por Fecha conectada al tablero.', 'Formato condicional en C5 contra la meta del 70 %.', 'Oculta las líneas de cuadrícula de la hoja Tablero. Guarda y sube el libro.'],
       },
-      notaWeb: 'Combinar correspondencia y las macros requieren Word y Excel de escritorio.',
+      notaWeb: 'Excel para la web crea tablas dinámicas, gráficos dinámicos y segmentaciones; las conexiones de informe y la escala de tiempo pueden requerir Excel de escritorio.',
       pruebas: [
-        { titulo: 'Validaciones de captura', fn: (L, A) => {
-          const h = A.hoja('Pedidos');
-          const v = (col) => h.validaciones.find((x) => A.rangoCubre(x.sqref, col + '2:' + col + '40'));
-          const c = v('C'), d = v('D'), e = v('E');
-          if (!c || c.tipo !== 'list' || !/clientes|despacho|notar/i.test(c.formula1)) return 'Falta la lista desplegable de clientes en C2:C60.';
-          if (!d || d.tipo !== 'list' || !/cat[aá]logo|latte|espresso/i.test(d.formula1)) return 'Falta la lista desplegable de productos en D2:D60.';
-          if (!e || e.tipo !== 'whole' || +e.formula1 !== 1 || +e.formula2 !== 200) return 'En E2:E60 permite solo números enteros entre 1 y 200.';
-          return true;
+        { titulo: 'Tarjetas con fórmulas', fn: (L, A) => {
+          A.hoja('Tablero');
+          const filas = [];
+          for (let r = 2; r <= 600; r++) { const f = L.valor('Consultas', 'A' + r); if (f == null || f === '') break; filas.push(r); }
+          const n = filas.length;
+          const sies = filas.filter((r) => String(L.valor('Consultas', 'G' + r)) === 'Sí').length;
+          const espera = filas.reduce((s, r) => s + (A.num(L.valor('Consultas', 'H' + r)) || 0), 0) / n;
+          for (const d of ['C4', 'C5', 'C6']) if (!L.tieneFormula('Tablero', d)) return 'Tablero!' + d + ' debe calcularse con una fórmula.';
+          if (!A.cerca(A.num(L.valor('Tablero', 'C4')), n)) return 'C4 debería mostrar ' + n + ' consultas.';
+          const c5 = A.num(L.valor('Tablero', 'C5'));
+          if (!(A.cerca(c5, sies / n) || A.cerca(c5, sies / n * 100))) return 'C5 debería ser el % de control: ' + A.fmtEs(Math.round(sies / n * 1000) / 10) + ' %.';
+          return A.cerca(A.num(L.valor('Tablero', 'C6')), espera) ? true : 'C6 debería ser la espera promedio: ' + A.fmtEs(Math.round(espera * 10) / 10) + ' min.';
         } },
-        { titulo: 'Precio e importe con fórmulas', fn: (L, A) => {
-          for (let r = 2; r <= 60; r++) {
-            const prod = L.valor('Pedidos', 'D' + r);
-            if (!prod) break;
-            if (!L.usaFuncion('Pedidos', 'F' + r, ['XLOOKUP', 'INDEX', 'VLOOKUP'])) return 'F' + r + ' debe buscar el precio con BUSCARX.';
-            const p = PROD.find((x) => x.nombre === prod);
-            const cant = A.num(L.valor('Pedidos', 'E' + r));
-            if (!p || !A.cerca(A.num(L.valor('Pedidos', 'F' + r)), p.precio)) return 'F' + r + ' debería mostrar el precio de ' + prod + '.';
-            if (!L.tieneFormula('Pedidos', 'G' + r) || !A.cerca(A.num(L.valor('Pedidos', 'G' + r)), cant * p.precio)) return 'G' + r + ' debe calcular Cantidad × Precio.';
-          }
-          return true;
+        { titulo: 'Dos tablas dinámicas y dos gráficos dinámicos', fn: (L) => (L.dinamicas.length < 2 ? 'Crea al menos dos tablas dinámicas (hay ' + L.dinamicas.length + ').' : L.graficos.filter((g) => g.dinamico).length >= 2 ? true : 'Crea al menos dos gráficos dinámicos.') },
+        { titulo: 'Segmentación de Programa conectada a varias tablas', fn: (L) => { const s = L.segmentaciones.find((x) => /programa/i.test(x.campo || x.nombre)); if (!s) return 'Inserta una segmentación por Programa.'; return s.dinamicas.length >= 2 ? true : 'Conecta la segmentación a dos o más tablas dinámicas (clic derecho › Conexiones de informe).'; } },
+        { titulo: 'Respuestas del tablero', fn: (L) => {
+          if (!L.hoja('Respuestas')) return 'No encontré la hoja Respuestas.';
+          const b2 = L.valor('Respuestas', 'B2');
+          const n = typeof b2 === 'number' ? (b2 <= 1 ? b2 * 100 : b2) : parseFloat(String(b2 || '').replace(/[%\s]/g, ''));
+          if (!isFinite(n) || Math.abs(n - PCT_HTA) > 0.6) return 'B2: el % de control en Hipertensión no es «' + (b2 == null ? 'vacío' : b2) + '». Filtra el tablero por Programa.';
+          const sedes = { Centro: 0, Norte: 0, Sur: 0 };
+          const menor = Object.keys(sedes).map((s) => [s, pct(CRON.filter((f) => f.Programa === 'Diabetes tipo 2' && f.Sede === s))]).sort((a, b) => a[1] - b[1])[0][0];
+          return String(L.valor('Respuestas', 'B3') || '').trim().toLowerCase() === menor.toLowerCase() ? true : 'B3: revisa el gráfico de % de control por sede con el filtro en Diabetes tipo 2.';
         } },
-        { titulo: 'Consulta por cliente', fn: (L, A) => {
-          A.hoja('Consulta');
-          if (!L.usaFuncion('Consulta', 'C4', ['COUNTIF', 'COUNTIFS']) || !L.usaFuncion('Consulta', 'C5', ['SUMIF', 'SUMIFS'])) return 'Usa CONTAR.SI en C4 y SUMAR.SI en C5.';
-          const v = A.conCambios({ 'Consulta!C2': 'Hospital San Rafael' });
-          let n = 0, t = 0;
-          for (let r = 2; r <= 60; r++) { if (v('Pedidos', 'C' + r) === 'Hospital San Rafael') { n++; t += A.num(v('Pedidos', 'G' + r)) || 0; } }
-          const ok = A.cerca(A.num(v('Consulta', 'C4')), n) && A.cerca(A.num(v('Consulta', 'C5')), t);
-          v.restaurar();
-          return ok ? true : 'Con otro cliente en C2 la consulta no se actualiza bien: usa C2 en las fórmulas.';
-        } },
-        { titulo: 'Carta combinada en Word', fn: (L) => {
-          if (!L.docx) return 'Sube también el documento de Word (.docx) con la combinación de correspondencia.';
-          const c = L.docx.campos.map((x) => x.toLowerCase());
-          if (c.length) { const faltan = ['cliente', 'producto', 'cantidad', 'importe'].filter((x) => !c.some((y) => y.startsWith(x))); return faltan.length ? 'A la carta le faltan los campos: ' + faltan.join(', ') + '.' : true; }
-          const nombres = CLI.map((x) => x.cliente).filter((n) => L.docx.texto.includes(n));
-          return nombres.length >= 3 ? true : 'No encontré campos combinados en la carta. Inserta los campos con Correspondencia › Insertar campo combinado.';
-        } },
-        { titulo: 'Libro con macro y botón', nivel: 'experto', fn: (L) => (!L.habilitadoMacros || !L.tieneVBA ? 'Guarda el libro como .xlsm con la macro.' : L.hojas.some((x) => x.controles.some((c) => c.macro) || x.dibujo.conMacro.length) ? true : 'Asigna la macro a un botón.') },
-        { titulo: 'Importe con formato de moneda en la carta', nivel: 'experto', fn: (L) => { if (!L.docx) return 'Sube la carta de Word.'; const i = L.docx.instrucciones.find((x) => /importe/i.test(x.campo)); return i && /\\#/.test(i.resto) ? true : 'Agrega al campo Importe el modificador \\# "$#,##0.00" (Alt+F9 para ver los códigos de campo).'; } },
+        { titulo: 'Escala de tiempo', nivel: 'experto', fn: (L) => (L.escalasTiempo.length ? true : 'Agrega una escala de tiempo por Fecha.') },
+        { titulo: 'Semáforo en el % de control', nivel: 'experto', fn: (L, A) => (L.hoja('Tablero').condicionales.some((x) => A.rangoCubre(x.sqref, 'C5')) ? true : 'Agrega a Tablero!C5 un formato condicional contra la meta del 70 %.') },
+        { titulo: 'Tablero sin líneas de cuadrícula', nivel: 'experto', fn: (L) => (L.hoja('Tablero').sinCuadricula ? true : 'Oculta las líneas de cuadrícula de la hoja Tablero (Vista › Líneas de cuadrícula).') },
       ],
     },
     donde: [
-      { comando: 'Validación de datos', ruta: ['Datos', 'Validación de datos'] },
-      { comando: 'Grabar macro', ruta: ['Programador', 'Grabar macro'], nota: 'También en Vista › Macros › Grabar macro…' },
-      { comando: 'Botón (control de formulario)', ruta: ['Programador', 'Insertar', 'Botón (control de formulario)'] },
-      { comando: 'Seguridad de macros', ruta: ['Programador', 'Seguridad de macros'] },
-      { comando: 'Guardar como .xlsm', ruta: ['Archivo', 'Guardar como', 'Libro de Excel habilitado para macros (*.xlsm)'] },
-      { comando: 'Funciones de búsqueda (BUSCARX)', ruta: ['Fórmulas', 'Búsqueda y referencia'] },
+      { comando: 'Conexiones de informe (segmentación)', ruta: ['Segmentación', 'Conexiones de informe'], nota: 'También con clic derecho sobre la segmentación. En versiones recientes se llama Conexiones de filtro.' },
+      { comando: 'Escala de tiempo', ruta: ['Análisis de tabla dinámica', 'Insertar escala de tiempo'] },
+      { comando: 'Gráfico dinámico', ruta: ['Análisis de tabla dinámica', 'Gráfico dinámico'] },
+      { comando: 'Mover gráfico a la hoja Tablero', ruta: ['Diseño de gráfico dinámico', 'Mover gráfico'] },
+      { comando: 'Ocultar líneas de cuadrícula', ruta: ['Vista', 'Líneas de cuadrícula'] },
+      { comando: 'Ocultar botones de campo del gráfico', ruta: ['Análisis de gráfico dinámico', 'Botones de campo'] },
     ],
-    glosario: ['BUSCARX', 'BUSCARV', 'INDICE', 'COINCIDIR', 'FILTRAR', 'CONTAR.SI', 'SUMAR.SI', 'TEXTO', 'SI.ERROR'],
-    atajos: ['<kbd>Alt+F11</kbd> editor de VBA · <kbd>Alt+F8</kbd> lista de macros', 'En Word: <kbd>Alt+F9</kbd> muestra u oculta los códigos de campo', 'Para el Formulario de datos: agrega «Formulario…» a la barra de acceso rápido (Todos los comandos).'],
+    glosario: ['CONTAR.SI.CONJUNTO', 'SUMAR.SI.CONJUNTO', 'SI', 'SI.ERROR', 'CONTARA', 'PROMEDIO'],
+    atajos: ['<kbd>Alt+F5</kbd> actualiza la tabla dinámica seleccionada; <kbd>Ctrl+Alt+F5</kbd> actualiza todo el libro.', 'Con <kbd>Alt</kbd> presionado al mover un gráfico, se ajusta a la cuadrícula: el tablero queda alineado.', 'Formato › Alinear › Alinear a la izquierda / Distribuir horizontalmente para ordenar tarjetas y gráficos.'],
   });
 })();

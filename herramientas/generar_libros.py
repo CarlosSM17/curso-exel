@@ -1,14 +1,14 @@
-"""Genera los libros de Excel (y la carta de Word) del curso, versión 2: 13 módulos.
+"""Genera los libros de Excel (y la carta de Word) del curso «Excel para Ciencias de la Salud».
 
-  datos/la-taza-base.xlsx                 libro de datos del caso
-  laboratorios/labXX-*.xlsx               13 laboratorios (etapa 4) y lab13-carta.docx
+  datos/clinica-vida-sana-base.xlsx       libro de datos del caso
+  laboratorios/labXX-*.xlsx               13 laboratorios (etapa 4) y lab12-carta.docx
   integradores/int-*.xlsx                 retos integradores
   <privado>/soluciones/laboratorios/      soluciones de los laboratorios   } fuera del sitio:
   <privado>/soluciones/integradores/      soluciones de los integradores   } no se publican
 
-<privado> es la carpeta hermana «curso-excel-la-taza-v2-privado» (o la variable de
-entorno LT_PRIVADO). Después ejecuta herramientas/proteger_docente.py para cifrar las
-soluciones dentro del área docente.
+<privado> es la carpeta hermana «curso-excel-salud-privado» (o la variable de entorno
+LT_PRIVADO). Después ejecuta herramientas/proteger_docente.py para cifrar las soluciones
+dentro del área docente.
 
 Uso:  python herramientas/generar_libros.py
 La disposición de las celdas coincide con las pruebas de assets/js/modulos/mXX.js
@@ -24,30 +24,27 @@ from xml.sax.saxutils import escape
 
 from openpyxl import Workbook
 from openpyxl.chart import BarChart, LineChart, Reference
-from openpyxl.comments import Comment
 from openpyxl.drawing.image import Image
 from openpyxl.formatting.rule import CellIsRule, DataBarRule, FormulaRule, IconSetRule
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Protection, Side
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.workbook.defined_name import DefinedName
 from openpyxl.worksheet.datavalidation import DataValidation
-from openpyxl.worksheet.formula import DataTableFormula
-from openpyxl.worksheet.scenario import InputCells, Scenario, ScenarioList
-from openpyxl.worksheet.table import Table, TableColumn, TableFormula, TableStyleInfo
+from openpyxl.worksheet.table import Table, TableFormula, TableStyleInfo
 
-import lataza_datos as LD
+import salud_datos as SD
 
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
 PRIVADO = pathlib.Path(os.environ.get("LT_PRIVADO") or RAIZ.parent / (RAIZ.name + "-privado"))
-D = LD.generar()
-PROD = {p["codigo"]: p for p in D["productos"]}
-CATS = D["categorias"]
+D = SD.generar()
+SERV = {s["codigo"]: s for s in D["servicios"]}
 MESES = D["mesesCortos"]
 DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
+EST = D["estudios"]
 
 NEGRITA = Font(bold=True)
-TITULO = Font(bold=True, size=16, color="5B3A29")
-RELLENO_ENC = PatternFill("solid", fgColor="F3EBDF")
+TITULO = Font(bold=True, size=16, color="0F5E57")
+RELLENO_ENC = PatternFill("solid", fgColor="DFF0EF")
 RELLENO_ENTRADA = PatternFill("solid", fgColor="FFF8D6")
 FINO = Side(style="thin", color="555555")
 BORDE = Border(left=FINO, right=FINO, top=FINO, bottom=FINO)
@@ -55,6 +52,7 @@ ROJO = PatternFill("solid", fgColor="FFC7CE")
 AMARILLO = PatternFill("solid", fgColor="FFEB9C")
 MONEDA = "$#,##0.00"
 MONEDA0 = "$#,##0"
+LOGO = RAIZ / "assets" / "img" / "logo-vida-sana.png"
 
 
 # ------------------------------------------------------------------ utilidades
@@ -103,7 +101,7 @@ def libro(titulo, contexto, pasos, criterios=None):
             fila += 1
     fila += 1
     ws.cell(row=fila, column=1, value="Importante: no cambies los nombres de las hojas ni muevas los datos de lugar. "
-            "Al terminar, guarda el libro y súbelo en la página del módulo (etapa 4).").font = Font(italic=True, color="7A4D0E")
+            "Al terminar, guarda el libro y súbelo en la página del módulo (etapa 4). Datos ficticios con fines didácticos.").font = Font(italic=True, color="0F5E57")
     ws.column_dimensions["A"].width = 120
     for r in ws.iter_rows(min_row=1, max_row=fila):
         for c in r:
@@ -132,17 +130,9 @@ def guardar(wb, ruta):
     wb.save(ruta)
 
 
-def numerar(wb, nombre):
-    """Los constructores de la versión 1 se reutilizan: ajusta «Laboratorio N» al número nuevo."""
-    n = int(nombre[3:5])
-    a1 = wb["Instrucciones"]["A1"]
-    a1.value = re.sub(r"^Laboratorio \d+", f"Laboratorio {n}", a1.value)
-    return wb
-
-
 def lab(nombre, constructor):
-    guardar(numerar(constructor(False), nombre), RAIZ / "laboratorios" / f"{nombre}.xlsx")
-    guardar(numerar(constructor(True), nombre), PRIVADO / "soluciones" / "laboratorios" / f"{nombre}-solucion.xlsx")
+    guardar(constructor(False), RAIZ / "laboratorios" / f"{nombre}.xlsx")
+    guardar(constructor(True), PRIVADO / "soluciones" / "laboratorios" / f"{nombre}-solucion.xlsx")
 
 
 def integrador(nombre, constructor):
@@ -150,31 +140,106 @@ def integrador(nombre, constructor):
     guardar(constructor(True), PRIVADO / "soluciones" / "integradores" / f"{nombre}-solucion.xlsx")
 
 
-def hoja_ventas(wb, nombre="Ventas"):
+def tabla_excel(ws, nombre, ref, estilo="TableStyleMedium2", totales=None, calculadas=None):
+    """Convierte ref en tabla con nombre; totales={índice: 'sum'|etiqueta}; calculadas={índice: fórmula}."""
+    t = Table(displayName=nombre, ref=ref, totalsRowCount=1 if totales else None)
+    t.tableStyleInfo = TableStyleInfo(name=estilo, showRowStripes=True)
+    t._initialise_columns()
+    fila_enc = ws[int(re.sub(r"[A-Z]", "", ref.split(":")[0]))]
+    for col, cel in zip(t.tableColumns, fila_enc):
+        col.name = str(cel.value)
+    for i, v in (totales or {}).items():
+        if v == "sum":
+            t.tableColumns[i].totalsRowFunction = "sum"
+        else:
+            t.tableColumns[i].totalsRowLabel = v
+    for i, f in (calculadas or {}).items():
+        t.tableColumns[i].calculatedColumnFormula = TableFormula(attr_text=f)
+    ws.add_table(t)
+    return t
+
+
+# ============================================================ hojas comunes
+def hoja_servicios(wb):
+    ws = wb.create_sheet("Servicios")
+    encabezados(ws, 1, ["Código", "Servicio", "Área", "Cuota", "Costo"])
+    for i, s in enumerate(D["servicios"], 2):
+        for j, k in enumerate(["codigo", "nombre", "area", "cuota", "costo"], 1):
+            ws.cell(row=i, column=j, value=s[k])
+        ws.cell(row=i, column=4).number_format = MONEDA0
+        ws.cell(row=i, column=5).number_format = MONEDA0
+    anchos(ws, A=10, B=30, C=15, D=9, E=9)
+    return ws
+
+
+def hoja_atenciones(wb, nombre="Atenciones"):
     ws = wb.create_sheet(nombre)
-    encabezados(ws, 1, ["Folio", "Fecha", "Sucursal", "Código", "Producto", "Categoría", "Cantidad", "Precio", "Total", "Vendedor", "Pago"])
-    for i, v in enumerate(D["ventas"], 2):
+    encabezados(ws, 1, ["Folio", "Fecha", "Sede", "Código", "Servicio", "Área", "Atenciones", "Cuota", "Ingresos", "Profesional", "Pago"])
+    for i, v in enumerate(D["atenciones"], 2):
         ws.cell(row=i, column=1, value=v["folio"])
         poner_fecha(ws.cell(row=i, column=2), v["fecha"])
-        for j, k in enumerate(["sucursal", "codigo", "producto", "categoria", "cantidad", "precio", "total", "vendedor", "pago"], 3):
+        for j, k in enumerate(["sede", "codigo", "servicio", "area", "atenciones", "cuota", "ingresos", "profesional", "pago"], 3):
             ws.cell(row=i, column=j, value=v[k])
         ws.cell(row=i, column=8).number_format = MONEDA0
         ws.cell(row=i, column=9).number_format = MONEDA0
-    anchos(ws, A=9, B=11, C=10, D=10, E=22, F=15, G=10, H=9, I=10, J=18, K=14)
+    anchos(ws, A=9, B=11, C=9, D=10, E=30, F=15, G=11, H=8, I=10, J=18, K=22)
     ws.freeze_panes = "A2"
     return ws
 
 
-def hoja_productos(wb):
-    ws = wb.create_sheet("Productos")
-    encabezados(ws, 1, ["Código", "Producto", "Categoría", "Precio", "Costo"])
-    for i, p in enumerate(D["productos"], 2):
-        for j, k in enumerate(["codigo", "nombre", "categoria", "precio", "costo"], 1):
-            ws.cell(row=i, column=j, value=p[k])
-        ws.cell(row=i, column=4).number_format = MONEDA0
-        ws.cell(row=i, column=5).number_format = MONEDA0
-    anchos(ws, A=10, B=22, C=15, D=9, E=9)
+def hoja_cronicos(wb, nombre="Consultas"):
+    ws = wb.create_sheet(nombre)
+    encabezados(ws, 1, ["Folio", "Fecha", "Sede", "Programa", "Sexo", "Edad", "Controlado", "Espera (min)"])
+    for i, c in enumerate(D["cronicos"], 2):
+        ws.cell(row=i, column=1, value=c["folio"])
+        poner_fecha(ws.cell(row=i, column=2), c["fecha"])
+        for j, k in enumerate(["sede", "programa", "sexo", "edad", "controlado", "espera"], 3):
+            ws.cell(row=i, column=j, value=c[k])
+    anchos(ws, A=9, B=11, C=9, D=16, E=6, F=6, G=11, H=12)
+    ws.freeze_panes = "A2"
     return ws
+
+
+def escribir_requisiciones(ws, reqs):
+    encabezados(ws, 1, ["Folio", "Fecha", "Área", "Sede", "Insumo", "Cantidad", "Precio", "Entrega", "Estado"])
+    for i, p in enumerate(reqs, 2):
+        ws.cell(row=i, column=1, value=p["folio"])
+        poner_fecha(ws.cell(row=i, column=2), p["fecha"])
+        ws.cell(row=i, column=3, value=p["area"])
+        ws.cell(row=i, column=4, value=p["sede"])
+        ws.cell(row=i, column=5, value=p["insumo"])
+        ws.cell(row=i, column=6, value=p["cantidad"])
+        ws.cell(row=i, column=7, value=p["precio"]).number_format = MONEDA0
+        poner_fecha(ws.cell(row=i, column=8), p["entrega"])
+        ws.cell(row=i, column=9, value=p["estado"])
+    anchos(ws, A=8, B=11, C=17, D=9, E=36, F=10, G=9, H=11, I=11)
+
+
+def escribir_farmacia(ws, meds):
+    encabezados(ws, 1, ["Medicamento", "Unidad", "Existencia", "Mínimo", "Máximo", "Costo unitario", "Proveedor", "Cobertura"], relleno=False)
+    for i, x in enumerate(meds, 2):
+        for j, k in enumerate(["medicamento", "unidad", "existencia", "minimo", "maximo", "costo", "proveedor"], 1):
+            ws.cell(row=i, column=j, value=x[k])
+        ws.cell(row=i, column=6).number_format = MONEDA
+        ws.cell(row=i, column=8, value=f"=C{i}/D{i}").number_format = "0%"
+    anchos(ws, A=36, B=10, C=11, D=9, E=9, F=14, G=30, H=11)
+
+
+def escribir_padron(ws, filas, sol):
+    encabezados(ws, 1, ["Expediente", "Nombre", "Apellido", "Teléfono", "Correo", "Sede", "Registro", "Consultas", "Usuario"])
+    for i, c in enumerate(filas, 2):
+        n, a = c["nombre"].split()
+        ws.cell(row=i, column=1, value=c["id"])
+        ws.cell(row=i, column=2, value=n if sol else c["nombre"])
+        ws.cell(row=i, column=3, value=a if sol else None)
+        ws.cell(row=i, column=4, value=c["telefono"])
+        ws.cell(row=i, column=5, value=c["correo"])
+        ws.cell(row=i, column=6, value=c["sede"])
+        poner_fecha(ws.cell(row=i, column=7), c["registro"])
+        ws.cell(row=i, column=8, value=c["consultas"])
+        if sol:
+            ws.cell(row=i, column=9, value=c["correo"].split("@")[0])
+    anchos(ws, A=11, B=14, C=14, D=13, E=32, F=9, G=12, H=10, I=22)
 
 
 # ============================================================ libro de datos
@@ -182,180 +247,133 @@ def libro_base():
     wb = Workbook()
     ws = wb.active
     ws.title = "Léeme"
-    ws["A1"] = "Cafetería La Taza · datos del caso"
+    ws["A1"] = "Clínica Universitaria Vida Sana · datos del caso"
     ws["A1"].font = TITULO
     filas = [
-        "Libro de datos del curso «Excel con La Taza». Todos los módulos usan estas mismas tablas.",
-        "Productos: catálogo de 20 productos con precio y costo.",
-        "Ventas: 720 registros de 2025 (día, sucursal y producto).",
-        "Empleados: 20 vendedores con sus ventas de octubre y noviembre.",
-        "Clientes: base del programa de lealtad (sin limpiar).",
-        "Pedidos: 40 pedidos de catering con fecha de compromiso y estado.",
-        "Inventario y Presupuesto: insumos y gastos del semestre.",
+        "Libro de datos del curso «Excel para Ciencias de la Salud». Datos ficticios con fines didácticos: no los uses para decisiones clínicas.",
+        "Servicios: catálogo de 20 servicios con cuota de recuperación y costo.",
+        "Atenciones: 720 registros de 2025 (atenciones de un servicio en un día y sede).",
+        "Personal: 20 profesionales con sus atenciones de octubre y noviembre.",
+        "Pacientes: padrón exportado del sistema de citas (sin depurar).",
+        "Requisiciones: 40 requisiciones de insumos con fecha de entrega y estado.",
+        "Farmacia: existencias, mínimos y máximos de 15 medicamentos.",
+        "Órdenes: 40 órdenes de estudios de laboratorio e imagen.",
+        "Crónicos: 378 consultas de seguimiento del programa de diabetes e hipertensión.",
     ]
     for i, t in enumerate(filas, 3):
         ws.cell(row=i, column=1, value=t)
-    ws.column_dimensions["A"].width = 100
-    hoja_productos(wb)
-    hoja_ventas(wb)
-    ws = wb.create_sheet("Empleados")
-    encabezados(ws, 1, ["Nombre", "Sucursal", "Puesto", "Ingreso", "Ventas octubre", "Ventas noviembre"])
-    for i, e in enumerate(D["empleados"], 2):
-        ws.cell(row=i, column=1, value=e["nombre"])
-        ws.cell(row=i, column=2, value=e["sucursal"])
-        ws.cell(row=i, column=3, value=e["puesto"])
-        poner_fecha(ws.cell(row=i, column=4), e["ingreso"])
-        ws.cell(row=i, column=5, value=e["ventasMes"]).number_format = MONEDA0
-        ws.cell(row=i, column=6, value=e["ventasMesLab"]).number_format = MONEDA0
-    anchos(ws, A=20, B=10, C=12, D=12, E=15, F=17)
-    ws = wb.create_sheet("Clientes")
-    encabezados(ws, 1, ["ID", "Nombre completo", "Teléfono", "Correo", "Sucursal", "Registro", "Puntos"])
-    for i, c in enumerate(D["clientesSucios"], 2):
-        for j, k in enumerate(["id", "nombre", "telefono", "correo", "sucursal"], 1):
-            ws.cell(row=i, column=j, value=int(c[k]) if k == "telefono" else c[k])
-        poner_fecha(ws.cell(row=i, column=6), c["registro"])
-        ws.cell(row=i, column=7, value=c["puntos"])
-    anchos(ws, A=9, B=22, C=13, D=30, E=10, F=12, G=8)
-    escribir_pedidos(wb.create_sheet("Pedidos"), D["pedidos"])
-    ws = wb.create_sheet("Inventario")
-    escribir_inventario(ws, D["inventario"])
-    ws = wb.create_sheet("Presupuesto")
-    escribir_presupuesto(ws)
-    guardar(wb, RAIZ / "datos" / "la-taza-base.xlsx")
-
-
-def escribir_pedidos(ws, pedidos, importe=False):
-    cols = ["Folio", "Fecha", "Cliente", "Sucursal", "Producto", "Cantidad", "Precio", "Compromiso", "Estado"]
-    encabezados(ws, 1, cols)
-    for i, p in enumerate(pedidos, 2):
-        ws.cell(row=i, column=1, value=p["folio"])
-        poner_fecha(ws.cell(row=i, column=2), p["fecha"])
-        ws.cell(row=i, column=3, value=p["cliente"])
-        ws.cell(row=i, column=4, value=p["sucursal"])
-        ws.cell(row=i, column=5, value=p["producto"])
-        ws.cell(row=i, column=6, value=p["cantidad"])
-        ws.cell(row=i, column=7, value=p["precio"]).number_format = MONEDA0
-        poner_fecha(ws.cell(row=i, column=8), p["compromiso"])
-        ws.cell(row=i, column=9, value=p["estado"])
-    anchos(ws, A=8, B=11, C=24, D=10, E=22, F=10, G=9, H=12, I=11)
-
-
-def escribir_inventario(ws, inv):
-    encabezados(ws, 1, ["Insumo", "Unidad", "Existencia", "Mínimo", "Máximo", "Costo unitario", "Proveedor", "Cobertura"], relleno=False)
-    for i, x in enumerate(inv, 2):
-        for j, k in enumerate(["insumo", "unidad", "existencia", "minimo", "maximo", "costo", "proveedor"], 1):
-            ws.cell(row=i, column=j, value=x[k])
-        ws.cell(row=i, column=6).number_format = MONEDA
-        ws.cell(row=i, column=8, value=f"=C{i}/D{i}").number_format = "0%"
-    anchos(ws, A=24, B=9, C=11, D=9, E=9, F=14, G=18, H=11)
-
-
-def escribir_presupuesto(ws):
-    ws["A1"] = "Presupuesto de gastos · 1.er semestre 2026"
-    ws["A1"].font = TITULO
-    encabezados(ws, 3, ["Concepto", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Total"])
-    for i, p in enumerate(D["presupuesto"], 4):
-        ws.cell(row=i, column=1, value=p["concepto"])
-        for j, v in enumerate(p["meses"], 2):
-            ws.cell(row=i, column=j, value=v).number_format = MONEDA0
-        ws.cell(row=i, column=8, value=f"=SUM(B{i}:G{i})").number_format = MONEDA0
-    ws.cell(row=12, column=1, value="Total").font = NEGRITA
-    for j in range(2, 9):
-        L = get_column_letter(j)
-        c = ws.cell(row=12, column=j, value=f"=SUM({L}4:{L}11)")
-        c.number_format = MONEDA0
-        c.font = NEGRITA
-    anchos(ws, A=22)
+    ws.column_dimensions["A"].width = 110
+    hoja_servicios(wb)
+    hoja_atenciones(wb)
+    wp = wb.create_sheet("Personal")
+    encabezados(wp, 1, ["Profesional", "Sede", "Puesto", "Ingreso", "Atenciones octubre", "Atenciones noviembre"])
+    for i, e in enumerate(D["personal"], 2):
+        wp.cell(row=i, column=1, value=e["nombre"])
+        wp.cell(row=i, column=2, value=e["sede"])
+        wp.cell(row=i, column=3, value=e["puesto"])
+        poner_fecha(wp.cell(row=i, column=4), e["ingreso"])
+        wp.cell(row=i, column=5, value=e["atencionesMes"])
+        wp.cell(row=i, column=6, value=e["atencionesMesLab"])
+    anchos(wp, A=20, B=9, C=22, D=12, E=18, F=20)
+    escribir_padron(wb.create_sheet("Pacientes"), D["pacientesSucios"], False)
+    escribir_requisiciones(wb.create_sheet("Requisiciones"), D["requisiciones"])
+    escribir_farmacia(wb.create_sheet("Farmacia"), D["medicamentos"])
+    wo = wb.create_sheet("Órdenes")
+    encabezados(wo, 1, ["Folio", "Fecha", "Paciente", "Edad", "Estudio", "Cuota", "Sede", "Cita", "Hora"])
+    for i, o in enumerate(D["ordenes"], 2):
+        wo.cell(row=i, column=1, value=o["folio"])
+        poner_fecha(wo.cell(row=i, column=2), o["fecha"])
+        for j, k in enumerate(["paciente", "edad", "estudio", "cuota", "sede"], 3):
+            wo.cell(row=i, column=j, value=o[k])
+        poner_fecha(wo.cell(row=i, column=8), o["cita"])
+        wo.cell(row=i, column=9, value=o["hora"])
+    anchos(wo, A=8, B=11, C=20, D=6, E=26, F=9, G=9, H=11, I=8)
+    hoja_cronicos(wb, "Crónicos")
+    guardar(wb, RAIZ / "datos" / "clinica-vida-sana-base.xlsx")
 
 
 # ================================================================ laboratorios
-def lab01(sol):
-    wb = libro("Laboratorio 1 · Lista de precios de té, postres y alimentos",
-               "La segunda parte de la lista de precios tiene los mismos problemas que viste en el simulador.",
-               ["Inserta el Brownie (POS-002, Postres, $40) entre el Pay de queso y la Galleta de avena.",
+def lab_catalogo(sol):
+    wb = libro("Laboratorio 1 · Catálogo de imagenología, rehabilitación y vacunación",
+               "La segunda parte del catálogo de servicios tiene los mismos problemas que viste en el simulador.",
+               ["Inserta la Terapia respiratoria (REH-002, Rehabilitación, $260) entre la Sesión de fisioterapia y la Terapia de lenguaje.",
                 "Completa los códigos que faltan con autorrelleno.",
-                "Corrige «Galleta de avna» y el precio del Panini caprese ($85).",
-                "Reemplaza la categoría «Postre» por «Postres» en toda la lista.",
-                "Nivel Experto: sube 10 % los precios de Alimentos con Pegado especial › Multiplicar."],
-               ["Códigos, productos, categorías y precios correctos en A2:D8.", "Precios como números."])
-    ws = wb.create_sheet("Precios")
-    encabezados(ws, 1, ["Código", "Producto", "Categoría", "Precio"])
+                "Corrige «Terapia de lenguage» y la cuota de la vacuna contra neumococo ($450).",
+                "Reemplaza «Rehabilitacion» por «Rehabilitación» en toda la lista.",
+                "Nivel Experto: sube 10 % las cuotas de Vacunación con Pegado especial › Multiplicar."],
+               ["Códigos, servicios, áreas y cuotas correctos en A2:D8.", "Cuotas como números."])
+    ws = wb.create_sheet("Catálogo")
+    encabezados(ws, 1, ["Código", "Servicio", "Área", "Cuota"])
     if sol:
-        filas = [["TE-001", "Chai latte", "Té", 54], ["TE-002", "Té verde", "Té", 38], ["POS-001", "Pay de queso", "Postres", 55],
-                 ["POS-002", "Brownie", "Postres", 40], ["POS-003", "Galleta de avena", "Postres", 25], ["ALI-001", "Sándwich de pavo", "Alimentos", 78],
-                 ["ALI-002", "Panini caprese", "Alimentos", 85]]
+        filas = [["IMG-001", "Radiografía de tórax", "Imagenología", 350], ["IMG-002", "Ultrasonido abdominal", "Imagenología", 600],
+                 ["REH-001", "Sesión de fisioterapia", "Rehabilitación", 300], ["REH-002", "Terapia respiratoria", "Rehabilitación", 260],
+                 ["REH-003", "Terapia de lenguaje", "Rehabilitación", 280], ["VAC-001", "Vacuna contra influenza", "Vacunación", 180],
+                 ["VAC-002", "Vacuna contra neumococo", "Vacunación", 450]]
     else:
-        filas = [["TE-001", "Chai latte", "Té", 54], [None, "Té verde", "Té", 38], ["POS-001", "Pay de queso", "Postre", 55],
-                 [None, "Galleta de avna", "Postre", 25], ["ALI-001", "Sándwich de pavo", "Alimentos", 78], [None, "Panini caprese", "Alimentos", 8.5]]
+        filas = [["IMG-001", "Radiografía de tórax", "Imagenología", 350], [None, "Ultrasonido abdominal", "Imagenología", 600],
+                 ["REH-001", "Sesión de fisioterapia", "Rehabilitacion", 300], [None, "Terapia de lenguage", "Rehabilitacion", 280],
+                 ["VAC-001", "Vacuna contra influenza", "Vacunación", 180], [None, "Vacuna contra neumococo", "Vacunación", 4.5]]
     for i, f in enumerate(filas, 2):
         for j, v in enumerate(f, 1):
             ws.cell(row=i, column=j, value=v)
         ws.cell(row=i, column=4).number_format = MONEDA
-    anchos(ws, A=10, B=22, C=14, D=10)
+    anchos(ws, A=10, B=28, C=16, D=10)
     if sol:
         hoja_solucion(wb, ["Esta solución corresponde al nivel Analista.",
                            "Nivel Experto: escribe 1.1 en una celda libre, cópiala, selecciona D7:D8 y usa Pegado especial › Valores + Multiplicar.",
-                           "Resultado Experto: Sándwich de pavo $85.80 y Panini caprese $93.50 (valores, sin fórmulas); después borra la celda con 1.1."])
+                           "Resultado Experto: influenza $198.00 y neumococo $495.00 (valores, sin fórmulas); después borra la celda con 1.1."])
     return wb
 
 
-def tickets_norte():
-    rng = random.Random(202)
-    cods = ["CAF-002", "CAF-004", "PAN-002", "CAF-003", "FRI-002", "PAN-001", "CAF-006", "ALI-002", "FRI-001", "POS-002", "CAF-001", "TE-001", "FRI-003", "CAF-004"]
-    horas = ["07:05", "07:31", "07:52", "08:16", "08:58", "09:20", "09:44", "10:30", "11:15", "12:48", "13:36", "15:10", "17:05", "18:40"]
-    return [{"ticket": 2101 + i, "hora": h, "producto": PROD[c]["nombre"], "cantidad": rng.randint(1, 4), "precio": PROD[c]["precio"]} for i, (c, h) in enumerate(zip(cods, horas))]
-
-
-def lab02(sol):
-    wb = libro("Laboratorio 2 · Corte de caja de la sucursal Norte", "Mismo corte que en el simulador, con los tickets de otro día.",
-               ["Calcula el importe de cada ticket en la columna F (cantidad × precio).", "Completa I2:I6 con SUMA, PROMEDIO, MAX, MIN y CONTAR sobre la columna F.",
-                "Calcula en I10 la diferencia de caja: dinero contado − (fondo inicial + total vendido).", "Nivel Experto: en I11 calcula el IVA incluido en las ventas (precios con 16 % de IVA)."])
-    ws = wb.create_sheet("Corte")
-    encabezados(ws, 1, ["Ticket", "Hora", "Producto", "Cantidad", "Precio", "Importe"])
-    ws["H1"] = "Resumen del día"
+def lab_somatometria(sol):
+    wb = libro("Laboratorio 2 · Somatometría del turno vespertino", "Mismo registro que en el simulador, con los pacientes de otro turno y otro balance hídrico.",
+               ["Calcula el IMC de cada paciente en la columna F (peso / talla²).", "Completa I2:I5 con CONTAR, PROMEDIO, MAX y MIN sobre la columna F.",
+                "Calcula en I13 el balance hídrico: (ingresos) − (egresos).", "Nivel Experto: en I15 calcula la superficie corporal (Mosteller) del paciente de la fila 2."])
+    ws = wb.create_sheet("Turno")
+    encabezados(ws, 1, ["Expediente", "Hora", "Paciente", "Peso (kg)", "Talla (m)", "IMC"])
+    ws["H1"] = "Resumen del turno"
     ws["H1"].font = Font(bold=True, size=13)
-    t = tickets_norte()
-    total = 0
-    for i, x in enumerate(t, 2):
-        ws.cell(row=i, column=1, value=x["ticket"])
-        hh, mm = map(int, x["hora"].split(":"))
-        c = ws.cell(row=i, column=2, value=dt.time(hh, mm))
-        c.number_format = "hh:mm"
-        ws.cell(row=i, column=3, value=x["producto"])
-        ws.cell(row=i, column=4, value=x["cantidad"])
-        ws.cell(row=i, column=5, value=x["precio"]).number_format = MONEDA
-        ws.cell(row=i, column=6).number_format = MONEDA
-        total += x["cantidad"] * x["precio"]
-    etiquetas = {2: "Total vendido", 3: "Ticket promedio", 4: "Venta mayor", 5: "Venta menor", 6: "Número de tickets", 8: "Fondo inicial", 9: "Dinero contado al cierre", 10: "Diferencia de caja", 11: "IVA incluido en las ventas"}
-    for r, txt in etiquetas.items():
-        ws.cell(row=r, column=8, value=txt).font = NEGRITA
-        if r != 6:
-            ws.cell(row=r, column=9).number_format = MONEDA
-    ws["I8"] = 1500
-    ws["I9"] = 1500 + total - 35
+    t = D["turnoLab"]
+    for i, p in enumerate(t, 2):
+        ws.cell(row=i, column=1, value=p["expediente"])
+        ws.cell(row=i, column=2, value=p["hora"])
+        ws.cell(row=i, column=3, value=p["paciente"])
+        ws.cell(row=i, column=4, value=p["peso"]).number_format = "0.0"
+        ws.cell(row=i, column=5, value=p["talla"]).number_format = "0.00"
+        ws.cell(row=i, column=6).number_format = "0.0"
+    for celda, txt in (("H2", "Pacientes medidos"), ("H3", "IMC promedio"), ("H4", "IMC máximo"), ("H5", "IMC mínimo"),
+                       ("H8", "Balance hídrico de " + t[0]["expediente"] + " (mL)"), ("H9", "Ingresos: vía oral"), ("H10", "Ingresos: soluciones IV"),
+                       ("H11", "Egresos: diuresis"), ("H12", "Egresos: pérdidas insensibles"), ("H13", "Balance (ingresos − egresos)"), ("H15", "Superficie corporal de " + t[0]["expediente"] + " (m²)")):
+        ws[celda] = txt
+        ws[celda].font = NEGRITA
+    ws["I9"], ws["I10"], ws["I11"], ws["I12"] = 1100, 1000, 1400, 500
+    for d in ("I3", "I4", "I5"):
+        ws[d].number_format = "0.0"
+    anchos(ws, A=11, B=8, C=22, D=10, E=10, F=8, G=3, H=34, I=12)
     if sol:
-        for i in range(2, 16):
-            ws.cell(row=i, column=6, value=f"=D{i}*E{i}")
-        ws["I2"], ws["I3"], ws["I4"], ws["I5"], ws["I6"] = "=SUM(F2:F15)", "=AVERAGE(F2:F15)", "=MAX(F2:F15)", "=MIN(F2:F15)", "=COUNT(F2:F15)"
-        ws["I10"], ws["I11"] = "=I9-(I8+I2)", "=I2-I2/1.16"
-    anchos(ws, A=8, B=8, C=22, D=10, E=10, F=12, G=3, H=26, I=13)
+        n = len(t) + 1
+        for i in range(2, n + 1):
+            ws.cell(row=i, column=6, value=f"=D{i}/E{i}^2")
+        ws["I2"], ws["I3"], ws["I4"], ws["I5"] = f"=COUNT(F2:F{n})", f"=AVERAGE(F2:F{n})", f"=MAX(F2:F{n})", f"=MIN(F2:F{n})"
+        ws["I13"] = "=(I9+I10)-(I11+I12)"
+        ws["I15"] = "=SQRT(D2*E2*100/3600)"
+        ws["I15"].number_format = "0.00"
     return wb
 
 
-def lab03(sol):
-    wb = libro("Laboratorio 3 · Reporte semanal de la sucursal Norte", "El reporte tiene los números correctos pero no tiene formato.",
+def lab_reporte(sol):
+    wb = libro("Laboratorio 3 · Reporte semanal de la sede Norte", "El reporte tiene los números correctos pero no tiene formato.",
                ["Destaca el título (A1): negrita y tamaño 14 o más (o estilo Título).", "Da formato de fecha a B2 y D2.", "Encabezados A4:E4 en negrita, con relleno y centrados.",
-                "Precio y Ventas (B5:B12, D5:D13) en moneda; Participación (E5:E13) en porcentaje.", "Bordes en A4:E13 y fila de total en negrita.",
+                "Cuota e Ingresos (B5:B12, D5:D13) en moneda; Participación (E5:E13) en porcentaje.", "Bordes en A4:E13 y fila de total en negrita.",
                 "Nivel Experto: estilos de celda Título (A1) y Total (fila 13); columna A más ancha."])
     ws = wb.create_sheet("Reporte")
-    ws["A1"] = "Reporte semanal de ventas · Sucursal Norte"
+    ws["A1"] = "Reporte semanal de atenciones · Sede Norte"
     ws["A2"], ws["B2"], ws["C2"], ws["D2"] = "Del", serial("2025-10-13"), "al", serial("2025-10-19")
-    for j, v in enumerate(["Producto", "Precio", "Unidades", "Ventas", "Participación"], 1):
+    for j, v in enumerate(["Servicio", "Cuota", "Atenciones", "Ingresos", "Participación"], 1):
         ws.cell(row=4, column=j, value=v)
-    filas = D["semanaSucursal"]["Norte"]
-    for i, p in enumerate(filas, 5):
-        ws.cell(row=i, column=1, value=p["producto"])
-        ws.cell(row=i, column=2, value=p["precio"])
+    for i, p in enumerate(D["semanaSede"]["Norte"], 5):
+        ws.cell(row=i, column=1, value=p["servicio"])
+        ws.cell(row=i, column=2, value=p["cuota"])
         ws.cell(row=i, column=3, value=sum(p["cantidades"]))
         ws.cell(row=i, column=4, value=f"=B{i}*C{i}")
         ws.cell(row=i, column=5, value=f"=D{i}/$D$13")
@@ -375,55 +393,55 @@ def lab03(sol):
             ws.cell(row=r, column=2).number_format = MONEDA
             ws.cell(row=r, column=4).number_format = MONEDA
             ws.cell(row=r, column=5).number_format = "0.0%"
-        anchos(ws, A=22)
+        anchos(ws, A=30)
     return wb
 
 
-def lab04(sol):
-    wb = libro("Laboratorio 4 · Encabezado del menú", "Descarga también el logo (logo-la-taza.png) desde la página del módulo.",
-               ["Inserta el logo en la parte superior.", "Inserta una forma con el texto «Menú de temporada».", "Inserta un icono de café.",
-                "En A5 inserta un vínculo con el texto «Ver menú en línea» a https://lataza.mx/menu.", "Nivel Experto: texto alternativo en logo e icono; cuadro de texto con «Abierto de 7:00 a 21:00»."])
-    ws = wb.create_sheet("Menú")
-    encabezados(ws, 7, ["Bebida", "Categoría", "Precio"])
-    beb = [p for p in D["productos"] if p["codigo"][:3] in ("CAF", "FRI") or p["codigo"].startswith("TE")]
-    for i, p in enumerate(beb, 8):
-        ws.cell(row=i, column=1, value=p["nombre"])
-        ws.cell(row=i, column=2, value=p["categoria"])
-        ws.cell(row=i, column=3, value=p["precio"]).number_format = MONEDA0
-    anchos(ws, A=24, B=16, C=10)
+def lab_indicaciones(sol):
+    wb = libro("Laboratorio 4 · Hoja de indicaciones para estudios", "Descarga también el logo (logo-vida-sana.png) desde la página del módulo.",
+               ["Inserta el logo en la parte superior.", "Inserta una forma con el texto «Indicaciones para su estudio».", "Inserta un icono relacionado con la salud.",
+                "En A5 inserta un vínculo con el texto «Agendar cita en línea» a https://clinicavidasana.mx/citas.",
+                "Nivel Experto: texto alternativo en logo e icono; cuadro de texto con «Toma de muestras de 7:00 a 10:00»."])
+    ws = wb.create_sheet("Indicaciones")
+    encabezados(ws, 7, ["Estudio", "Preparación", "Cuota"])
+    for i, e in enumerate(EST, 8):
+        ws.cell(row=i, column=1, value=e["estudio"])
+        ws.cell(row=i, column=2, value=e["preparacion"])
+        ws.cell(row=i, column=3, value=e["cuota"]).number_format = MONEDA0
+    anchos(ws, A=26, B=58, C=10)
     if sol:
-        img = Image(str(RAIZ / "assets" / "img" / "logo-la-taza.png"))
+        img = Image(str(LOGO))
         img.width = img.height = 90
         ws.add_image(img, "A1")
-        ws["A5"] = "Ver menú en línea"
-        ws["A5"].hyperlink = "https://lataza.mx/menu"
+        ws["A5"] = "Agendar cita en línea"
+        ws["A5"].hyperlink = "https://clinicavidasana.mx/citas"
         ws["A5"].style = "Hyperlink"
-        hoja_solucion(wb, ["1. Insertar › Imágenes › Este dispositivo › logo-la-taza.png.", "2. Insertar › Formas › Cinta; escribe «Menú de temporada».",
-                           "3. Insertar › Iconos › busca «café».", "4. A5 › Insertar › Vínculo › texto «Ver menú en línea», dirección https://lataza.mx/menu.",
+        hoja_solucion(wb, ["1. Insertar › Imágenes › Este dispositivo › logo-vida-sana.png.", "2. Insertar › Formas › Cinta; escribe «Indicaciones para su estudio».",
+                           "3. Insertar › Iconos › busca «laboratorio» o «salud».", "4. A5 › Insertar › Vínculo › texto «Agendar cita en línea», dirección https://clinicavidasana.mx/citas.",
                            "Nota: openpyxl no crea formas ni iconos; esta solución incluye solo el logo y el vínculo."])
     return wb
 
 
-def semana43(suc):
-    rng = random.Random(4300 + len(suc))
-    return [{"producto": p["producto"], "cantidades": [max(3, round(c * rng.uniform(0.85, 1.15))) for c in p["cantidades"]]} for p in D["semanaSucursal"][suc]]
+def semana43(sede):
+    rng = random.Random(4300 + len(sede))
+    return [{"servicio": p["servicio"], "cantidades": [max(1, round(c * rng.uniform(0.85, 1.15))) for c in p["cantidades"]]} for p in D["semanaSede"][sede]]
 
 
-def lab05(sol):
-    wb = libro("Laboratorio 5 · Organizar el libro de la semana 43", "Hoja1, Hoja2 y Hoja3 son las sucursales (el nombre está en A1 de cada una). Hoja4 es el resumen.",
-               ["Cambia el nombre de cada hoja de sucursal según su título en A1.", "Cambia Hoja4 a «Resumen» y colócala antes de las hojas de sucursal.",
-                "Pon color a las pestañas de las sucursales.", "En Resumen!B2:B4 trae el total (I11) de cada sucursal con referencias a las otras hojas; en B5 súmalos.",
+def lab_sedes(sol):
+    wb = libro("Laboratorio 5 · Organizar el libro de la semana 43", "Hoja1, Hoja2 y Hoja3 son las sedes (el nombre está en A1 de cada una). Hoja4 es el resumen.",
+               ["Cambia el nombre de cada hoja de sede según su título en A1.", "Cambia Hoja4 a «Resumen» y colócala antes de las hojas de sede.",
+                "Pon color a las pestañas de las sedes.", "En Resumen!B2:B4 trae el total (I11) de cada sede con referencias a las otras hojas; en B5 súmalos.",
                 "Nivel Experto: en Centro inmoviliza las filas 1–2 y la columna A."])
     orden = [("Hoja1", "Sur"), ("Hoja2", "Centro"), ("Hoja3", "Norte")]
     hojas = {}
-    for nombre, suc in orden:
-        ws = wb.create_sheet(suc if sol else nombre)
-        hojas[suc] = ws
-        ws["A1"] = f"Sucursal {suc} · Semana 43 (unidades vendidas)"
+    for nombre, sede in orden:
+        ws = wb.create_sheet(sede if sol else nombre)
+        hojas[sede] = ws
+        ws["A1"] = f"Sede {sede} · Semana 43 (atenciones)"
         ws["A1"].font = Font(bold=True, size=13)
-        encabezados(ws, 2, ["Producto"] + DIAS + ["Total"])
-        for i, p in enumerate(semana43(suc), 3):
-            ws.cell(row=i, column=1, value=p["producto"])
+        encabezados(ws, 2, ["Servicio"] + DIAS + ["Total"])
+        for i, p in enumerate(semana43(sede), 3):
+            ws.cell(row=i, column=1, value=p["servicio"])
             for j, v in enumerate(p["cantidades"], 2):
                 ws.cell(row=i, column=j, value=v)
             ws.cell(row=i, column=9, value=f"=SUM(B{i}:H{i})")
@@ -431,159 +449,135 @@ def lab05(sol):
         for j in range(2, 10):
             L = get_column_letter(j)
             ws.cell(row=11, column=j, value=f"=SUM({L}3:{L}10)").font = NEGRITA
-        anchos(ws, A=22)
+        anchos(ws, A=30)
     ws = wb.create_sheet("Resumen" if sol else "Hoja4")
-    encabezados(ws, 1, ["Sucursal", "Total semana"])
+    encabezados(ws, 1, ["Sede", "Atenciones de la semana"])
     for i, s in enumerate(["Centro", "Norte", "Sur", "Total"], 2):
         ws.cell(row=i, column=1, value=s)
-    anchos(ws, A=14, B=14)
+    anchos(ws, A=14, B=24)
     if sol:
         for i, s in enumerate(["Centro", "Norte", "Sur"], 2):
             ws.cell(row=i, column=2, value=f"={s}!I11")
         ws["B5"] = "=SUM(B2:B4)"
-        for s, color in (("Centro", "1E7145"), ("Norte", "2463A6"), ("Sur", "C0392B")):
+        for s, color in (("Centro", "0F766E"), ("Norte", "2463A6"), ("Sur", "7B3F9E")):
             hojas[s].sheet_properties.tabColor = color
         hojas["Centro"].freeze_panes = "B3"
         wb.move_sheet("Resumen", offset=-3)
     return wb
 
 
-def totales_producto():
-    t = {}
-    for v in D["ventas"]:
-        t[v["producto"]] = t.get(v["producto"], 0) + v["total"]
-    return t
-
-
-def mensual(clave, valor_clave=None):
+def mensual(clave):
     o = {}
-    for v in D["ventas"]:
-        k = v[clave]
-        o.setdefault(k, [0] * 12)[int(v["fecha"][5:7]) - 1] += v["total"]
+    for v in D["atenciones"]:
+        o.setdefault(v[clave], [0] * 12)[int(v["fecha"][5:7]) - 1] += v["atenciones"]
     return o
 
 
-def lab06(sol):
-    wb = libro("Laboratorio 6 · Gráficos para la junta", "Tres hojas: Productos (ventas anuales), Meses (ventas mensuales por categoría) y Sucursales.",
-               ["Gráfico de columnas o barras de las ventas por producto (Productos!A1:B21), con título.", "Gráfico de líneas de Café caliente y Café frío por mes (Meses!A1:C13), con título.",
-                "Minigráficos de línea en Sucursales!N2:N4 (datos B2:M4).", "Nivel Experto: títulos de ejes en ambos gráficos."])
-    ws = wb.create_sheet("Productos")
-    encabezados(ws, 1, ["Producto", "Ventas 2025"])
-    tp = totales_producto()
-    for i, p in enumerate(D["productos"], 2):
-        ws.cell(row=i, column=1, value=p["nombre"])
-        ws.cell(row=i, column=2, value=tp.get(p["nombre"], 0)).number_format = MONEDA0
-    anchos(ws, A=24, B=14)
+def lab_graficos(sol):
+    wb = libro("Laboratorio 6 · Gráficos para el Comité de Calidad", "Tres hojas: Servicios (atenciones anuales), Meses (atenciones mensuales por área) y Sedes.",
+               ["Gráfico de columnas o barras de las atenciones por servicio (Servicios!A1:B21), con título.", "Gráfico de líneas de Vacunación y Rehabilitación por mes (Meses!A1:C13), con título.",
+                "Minigráficos de línea en Sedes!N2:N4 (datos B2:M4).", "Nivel Experto: títulos de ejes en ambos gráficos."])
+    ws = wb.create_sheet("Servicios")
+    encabezados(ws, 1, ["Servicio", "Atenciones 2025"])
+    tot = {}
+    for v in D["atenciones"]:
+        tot[v["servicio"]] = tot.get(v["servicio"], 0) + v["atenciones"]
+    for i, s in enumerate(D["servicios"], 2):
+        ws.cell(row=i, column=1, value=s["nombre"])
+        ws.cell(row=i, column=2, value=tot.get(s["nombre"], 0))
+    anchos(ws, A=30, B=16)
     wm = wb.create_sheet("Meses")
-    encabezados(wm, 1, ["Mes"] + CATS)
-    mc = mensual("categoria")
+    areas = ["Vacunación", "Rehabilitación", "Consulta", "Laboratorio", "Imagenología", "Enfermería"]
+    encabezados(wm, 1, ["Mes"] + areas)
+    ma = mensual("area")
     for i, m in enumerate(MESES, 2):
         wm.cell(row=i, column=1, value=m)
-        for j, c in enumerate(CATS, 2):
-            wm.cell(row=i, column=j, value=mc[c][i - 2]).number_format = MONEDA0
-    anchos(wm, A=8, B=14, C=12, D=10, E=12, F=10, G=12)
-    wsu = wb.create_sheet("Sucursales")
-    encabezados(wsu, 1, ["Sucursal"] + MESES + ["Tendencia"])
-    ms = mensual("sucursal")
+        for j, a in enumerate(areas, 2):
+            wm.cell(row=i, column=j, value=ma[a][i - 2])
+    anchos(wm, A=8, B=12, C=15, D=11, E=12, F=14, G=12)
+    wsd = wb.create_sheet("Sedes")
+    encabezados(wsd, 1, ["Sede"] + MESES + ["Tendencia"])
+    ms = mensual("sede")
     for i, s in enumerate(["Centro", "Norte", "Sur"], 2):
-        wsu.cell(row=i, column=1, value=s)
+        wsd.cell(row=i, column=1, value=s)
         for j in range(12):
-            wsu.cell(row=i, column=j + 2, value=ms[s][j]).number_format = MONEDA0
-    anchos(wsu, A=11, N=16)
+            wsd.cell(row=i, column=j + 2, value=ms[s][j])
+    anchos(wsd, A=11, N=16)
     if sol:
         b = BarChart()
         b.type = "bar"
-        b.title = "Ventas 2025 por producto"
-        b.x_axis.title, b.y_axis.title = "Producto", "Ventas ($)"
+        b.title = "Atenciones 2025 por servicio"
+        b.x_axis.title, b.y_axis.title = "Servicio", "Atenciones"
         b.add_data(Reference(ws, min_col=2, min_row=1, max_row=21), titles_from_data=True)
         b.set_categories(Reference(ws, min_col=1, min_row=2, max_row=21))
         b.height, b.width = 12, 18
         ws.add_chart(b, "D2")
         lc = LineChart()
-        lc.title = "Café caliente vs. café frío"
-        lc.x_axis.title, lc.y_axis.title = "Mes", "Ventas ($)"
+        lc.title = "Vacunación y rehabilitación por mes"
+        lc.x_axis.title, lc.y_axis.title = "Mes", "Atenciones"
         lc.add_data(Reference(wm, min_col=2, max_col=3, min_row=1, max_row=13), titles_from_data=True)
         lc.set_categories(Reference(wm, min_col=1, min_row=2, max_row=13))
         wm.add_chart(lc, "I2")
-        hoja_solucion(wb, ["Minigráficos: selecciona Sucursales!N2:N4 › Insertar › Minigráficos › Línea › Rango de datos B2:M4.", "(openpyxl no crea minigráficos: agrégalos en Excel.)"])
+        hoja_solucion(wb, ["Minigráficos: selecciona Sedes!N2:N4 › Insertar › Minigráficos › Línea › Rango de datos B2:M4.", "(openpyxl no crea minigráficos: agrégalos en Excel.)"])
     return wb
 
 
-def lab08(sol):
-    wb = libro("Laboratorio 8 · Comisiones de noviembre", "Mismo cálculo de comisiones con las ventas de noviembre, y un resumen por sucursal.",
-               ["D2:D21: comisión = ventas × tasa (F2) si las ventas alcanzan la meta (F1); si no, 0.", "F4: cuántos vendedores alcanzaron la meta (CONTAR.SI).",
-                "F8:F10: comisiones de cada sucursal (SUMAR.SI).", "Nivel Experto: nombre «Meta» para F1 usado en la columna D; G8:G10 promedio de ventas por sucursal (PROMEDIO.SI)."])
-    ws = wb.create_sheet("Ventas")
-    encabezados(ws, 1, ["Vendedor", "Sucursal", "Ventas del mes", "Comisión"])
-    for i, e in enumerate(D["empleados"], 2):
-        ws.cell(row=i, column=1, value=e["nombre"])
-        ws.cell(row=i, column=2, value=e["sucursal"])
-        ws.cell(row=i, column=3, value=e["ventasMesLab"]).number_format = MONEDA0
-        ws.cell(row=i, column=4).number_format = MONEDA
-    for celda, txt in (("E1", "Meta mensual"), ("E2", "Tasa de comisión"), ("E4", "Alcanzaron la meta"), ("E7", "Sucursal"), ("F7", "Comisiones"), ("G7", "Promedio de ventas")):
+def lab_glucosa(sol):
+    wb = libro("Laboratorio 7 · Clasificación de la glucosa de la segunda jornada", "Mismo cálculo con los pacientes de otra jornada, y un resumen por sede.",
+               ["D2:D21: «Alterada» si la glucosa es mayor o igual al umbral de F1; si no, «Normal».", "F4: cuántos pacientes tienen la glucosa alterada (CONTAR.SI).",
+                "F8:F10: glucosa promedio de cada sede (PROMEDIO.SI).", "Nivel Experto: nombre «Umbral» para F1 usado en la columna D; G8:G10 pacientes con glucosa alterada por sede (CONTAR.SI.CONJUNTO)."])
+    ws = wb.create_sheet("Glucosa")
+    encabezados(ws, 1, ["Paciente", "Sede", "Glucosa (mg/dL)", "Clasificación"])
+    for i, p in enumerate(D["glucosaLab"], 2):
+        ws.cell(row=i, column=1, value=p["paciente"])
+        ws.cell(row=i, column=2, value=p["sede"])
+        ws.cell(row=i, column=3, value=p["glucosa"])
+    for celda, txt in (("E1", "Umbral de glucosa alterada"), ("E4", "Pacientes con glucosa alterada"), ("E7", "Sede"), ("F7", "Glucosa promedio"), ("G7", "Pacientes alterados")):
         ws[celda] = txt
         ws[celda].font = NEGRITA
-    ws["F1"], ws["F2"] = 10000, 0.05
-    ws["F1"].number_format, ws["F2"].number_format = MONEDA0, "0%"
+    ws["F1"] = 100
     for i, s in enumerate(["Centro", "Norte", "Sur"], 8):
         ws.cell(row=i, column=5, value=s)
-        ws.cell(row=i, column=6).number_format = MONEDA
-        ws.cell(row=i, column=7).number_format = MONEDA0
-    anchos(ws, A=20, B=10, C=15, D=12, E=20, F=13, G=18)
+        ws.cell(row=i, column=6).number_format = "0.0"
+    anchos(ws, A=22, B=9, C=16, D=14, E=30, F=17, G=18)
     if sol:
-        wb.defined_names["Meta"] = DefinedName("Meta", attr_text="Ventas!$F$1")
+        wb.defined_names["Umbral"] = DefinedName("Umbral", attr_text="Glucosa!$F$1")
         for i in range(2, 22):
-            ws.cell(row=i, column=4, value=f"=IF(C{i}>=Meta,C{i}*$F$2,0)")
+            ws.cell(row=i, column=4, value=f'=IF(C{i}>=Umbral,"Alterada","Normal")')
         ws["F4"] = '=COUNTIF(C2:C21,">="&F1)'
         for i in range(8, 11):
-            ws.cell(row=i, column=6, value=f"=SUMIF($B$2:$B$21,E{i},$D$2:$D$21)")
-            ws.cell(row=i, column=7, value=f"=AVERAGEIF($B$2:$B$21,E{i},$C$2:$C$21)")
+            ws.cell(row=i, column=6, value=f"=AVERAGEIF($B$2:$B$21,E{i},$C$2:$C$21)")
+            ws.cell(row=i, column=7, value=f'=COUNTIFS($B$2:$B$21,E{i},$C$2:$C$21,">="&$F$1)')
     return wb
 
 
-def clientes_lab():
+def padron_lab():
     rng = random.Random(909)
     usados, out = set(), []
     for i in range(30):
         while True:
-            n, a = rng.choice(LD.NOMBRES), rng.choice(LD.APELLIDOS)
+            n, a = rng.choice(SD.NOMBRES), rng.choice(SD.APELLIDOS)
             if (n, a) not in usados:
                 usados.add((n, a))
                 break
-        correo = f"{n.lower()}.{a.lower()}@correo.mx"
-        for x, y in (("á", "a"), ("é", "e"), ("í", "i"), ("ó", "o"), ("ú", "u"), ("ñ", "n")):
-            correo = correo.replace(x, y)
-        out.append({"id": f"CL-{301 + i}", "nombre": f"{n} {a}", "telefono": 5500000000 + rng.randint(10000000, 89999999), "correo": correo,
-                    "sucursal": rng.choice(["Centro", "Norte", "Sur"]), "registro": (dt.date(2024, 3, 1) + dt.timedelta(days=rng.randint(0, 500))).isoformat(), "puntos": rng.randint(0, 50) * 10})
+        correo = SD._sin_acentos(f"{n.lower()}.{a.lower()}@correo.mx")
+        out.append({"id": f"EXP-{3301 + i}", "nombre": f"{n} {a}", "telefono": f"449{rng.randint(1000000, 9999999)}", "correo": correo,
+                    "sede": rng.choice(["Norte", "Sur", "Norte", "Sur", "Centro"]), "registro": (dt.date(2024, 3, 1) + dt.timedelta(days=rng.randint(0, 500))).isoformat(),
+                    "consultas": rng.randint(1, 18)})
     sucio = list(out)
     for k, idx in enumerate([2, 8, 14, 21]):
         sucio.insert(idx + 5 + k * 2, dict(out[idx]))
     return out, sucio
 
 
-def lab09(sol):
-    wb = libro("Laboratorio 9 · Limpiar la base de clientes", "Otra exportación de clientes con registros repetidos y el nombre completo en una sola columna.",
-               ["Quita los registros duplicados.", "Separa el nombre completo: nombre en B y apellido en C (Texto en columnas).", "Ordena por Sucursal (A→Z) y luego por Apellido (A→Z).",
-                "Lista desplegable en Sucursal (F2:F60) con Centro, Norte y Sur.", "Nivel Experto: columna I «Usuario» con la parte del correo antes de @ (Relleno rápido)."])
-    ws = wb.create_sheet("Clientes")
-    encabezados(ws, 1, ["ID", "Nombre", "Apellido", "Teléfono", "Correo", "Sucursal", "Registro", "Puntos", "Usuario"])
-    limpios, sucios = clientes_lab()
-    filas = sucios
-    if sol:
-        filas = sorted(limpios, key=lambda c: (c["sucursal"], c["nombre"].split()[1].lower()))
-    for i, c in enumerate(filas, 2):
-        n, a = c["nombre"].split()
-        ws.cell(row=i, column=1, value=c["id"])
-        ws.cell(row=i, column=2, value=n if sol else c["nombre"])
-        ws.cell(row=i, column=3, value=a if sol else None)
-        ws.cell(row=i, column=4, value=c["telefono"])
-        ws.cell(row=i, column=5, value=c["correo"])
-        ws.cell(row=i, column=6, value=c["sucursal"])
-        poner_fecha(ws.cell(row=i, column=7), c["registro"])
-        ws.cell(row=i, column=8, value=c["puntos"])
-        if sol:
-            ws.cell(row=i, column=9, value=c["correo"].split("@")[0])
-    anchos(ws, A=9, B=20, C=14, D=13, E=30, F=10, G=12, H=8, I=20)
+def lab_padron(sol):
+    wb = libro("Laboratorio 8 · Depurar el padrón de Norte y Sur", "Otra exportación del padrón con expedientes repetidos y el nombre completo en una sola columna.",
+               ["Quita los registros duplicados.", "Separa el nombre completo: nombre en B y apellido en C (Texto en columnas).", "Ordena por Sede (A→Z) y luego por Apellido (A→Z).",
+                "Lista desplegable en Sede (F2:F60) con Centro, Norte y Sur.", "Nivel Experto: columna I «Usuario» con la parte del correo antes de @ (Relleno rápido)."])
+    ws = wb.create_sheet("Pacientes")
+    limpios, sucios = padron_lab()
+    filas = sorted(limpios, key=lambda c: (c["sede"], SD._sin_acentos(c["nombre"].split()[1].lower()))) if sol else sucios
+    escribir_padron(ws, filas, sol)
     if sol:
         dv = DataValidation(type="list", formula1='"Centro,Norte,Sur"', allow_blank=True)
         ws.add_data_validation(dv)
@@ -591,254 +585,258 @@ def lab09(sol):
     return wb
 
 
-def lab10(sol):
-    wb = libro("Laboratorio 10 · Tabla de pedidos", "La hoja Pedidos tiene los 40 pedidos de catering (A1:I41).",
-               ["Convierte A1:I41 en tabla y nómbrala «Pedidos».", "Agrega la columna calculada «Importe» = [@Cantidad]*[@Precio].", "Activa la fila de totales con la suma de Importe.",
-                "Inserta una segmentación por Sucursal.", "Nivel Experto: total también en Cantidad, segmentación por Estado y otro estilo de tabla."])
-    ws = wb.create_sheet("Pedidos")
-    escribir_pedidos(ws, D["pedidos"])
+def lab_requisiciones(sol):
+    wb = libro("Laboratorio 9 · Tabla de requisiciones", "La hoja Requisiciones tiene las 40 requisiciones de insumos (A1:I41).",
+               ["Convierte A1:I41 en tabla y nómbrala «Requisiciones».", "Agrega la columna calculada «Importe» = [@Cantidad]*[@Precio].", "Activa la fila de totales con la suma de Importe.",
+                "Inserta una segmentación por Sede.", "Nivel Experto: total también en Cantidad, segmentación por Estado y otro estilo de tabla."])
+    ws = wb.create_sheet("Requisiciones")
+    escribir_requisiciones(ws, D["requisiciones"])
     if sol:
         for c in ws[1]:
             c.fill = PatternFill()
         ws["J1"] = "Importe"
         for i in range(2, 42):
-            ws.cell(row=i, column=10, value="=Pedidos[[#This Row],[Cantidad]]*Pedidos[[#This Row],[Precio]]").number_format = MONEDA0
-        ws["A42"] = "Total"
-        ws["F42"] = "=SUBTOTAL(109,Pedidos[Cantidad])"
-        ws["J42"] = "=SUBTOTAL(109,Pedidos[Importe])"
-        t = Table(displayName="Pedidos", ref="A1:J42", totalsRowCount=1)
-        t.tableStyleInfo = TableStyleInfo(name="TableStyleMedium7", showRowStripes=True)
-        t._initialise_columns()
-        for col, cel in zip(t.tableColumns, ws[1]):
-            col.name = str(cel.value)
-        t.tableColumns[0].totalsRowLabel = "Total"
-        t.tableColumns[5].totalsRowFunction = "sum"
-        t.tableColumns[9].totalsRowFunction = "sum"
-        t.tableColumns[9].calculatedColumnFormula = TableFormula(attr_text="Pedidos[[#This Row],[Cantidad]]*Pedidos[[#This Row],[Precio]]")
-        ws.add_table(t)
+            ws.cell(row=i, column=10, value="=Requisiciones[[#This Row],[Cantidad]]*Requisiciones[[#This Row],[Precio]]").number_format = MONEDA0
+        ws["A42"], ws["F42"], ws["J42"] = "Total", "=SUBTOTAL(109,Requisiciones[Cantidad])", "=SUBTOTAL(109,Requisiciones[Importe])"
+        tabla_excel(ws, "Requisiciones", "A1:J42", "TableStyleMedium7", {0: "Total", 5: "sum", 9: "sum"}, {9: "Requisiciones[[#This Row],[Cantidad]]*Requisiciones[[#This Row],[Precio]]"})
         anchos(ws, J=12)
-        hoja_solucion(wb, ["Segmentación: con una celda de la tabla › Diseño de tabla › Insertar segmentación de datos › Sucursal (y Estado).", "(openpyxl no crea segmentaciones: agrégalas en Excel.)"])
+        hoja_solucion(wb, ["Segmentación: con una celda de la tabla › Diseño de tabla › Insertar segmentación de datos › Sede (y Estado).", "(openpyxl no crea segmentaciones: agrégalas en Excel.)"])
     return wb
 
 
-def inventario_norte():
+def farmacia_norte():
     rng = random.Random(1111)
-    inv = [dict(x) for x in D["inventario"]]
-    for x in inv:
+    meds = [dict(x) for x in D["medicamentos"]]
+    for x in meds:
         x["existencia"] = max(1, round(x["existencia"] * rng.uniform(0.7, 1.3)))
-    return inv
+    return meds
 
 
-def lab11(sol):
-    wb = libro("Laboratorio 11 · Semáforo del inventario de Norte", "Mismo inventario con las existencias de Norte.",
+def lab_farmacia(sol):
+    wb = libro("Laboratorio 10 · Semáforo de la farmacia de Norte", "Mismo inventario con las existencias de la farmacia de Norte.",
                ["C2:C16: relleno rojo cuando la existencia sea menor que el mínimo de su fila (regla «Es menor que» con =$D2).", "H2:H16: conjunto de iconos (semáforo).",
                 "F2:F16: barras de datos.", "A1:H1: estilo de celda Encabezado 1.", "Nivel Experto: amarillo entre el mínimo y 1.3 veces el mínimo; cambia el tema del libro."])
-    ws = wb.create_sheet("Inventario")
-    escribir_inventario(ws, inventario_norte())
+    ws = wb.create_sheet("Farmacia")
+    escribir_farmacia(ws, farmacia_norte())
     if sol:
         for c in ws[1]:
             c.style = "Headline 1"
         ws.conditional_formatting.add("C2:C16", CellIsRule(operator="lessThan", formula=["$D2"], fill=ROJO, font=Font(color="9C0006")))
         ws.conditional_formatting.add("C2:C16", CellIsRule(operator="between", formula=["$D2", "$D2*1.3"], fill=AMARILLO, font=Font(color="9C5700")))
         ws.conditional_formatting.add("H2:H16", IconSetRule("3TrafficLights1", "percent", [0, 33, 67]))
-        ws.conditional_formatting.add("F2:F16", DataBarRule(start_type="min", end_type="max", color="638EC6"))
+        ws.conditional_formatting.add("F2:F16", DataBarRule(start_type="min", end_type="max", color="2A8A80"))
+        hoja_solucion(wb, ["Tema: Disposición de página › Temas (openpyxl no cambia el tema del libro: hazlo en Excel)."])
     return wb
 
 
 def lideres():
     t = {}
-    for v in D["ventas"]:
+    for v in D["atenciones"]:
         q = (int(v["fecha"][5:7]) - 1) // 3 + 1
-        t.setdefault(q, {}).setdefault(v["sucursal"], 0)
-        t[q][v["sucursal"]] += v["total"]
+        t.setdefault(q, {}).setdefault(v["sede"], 0)
+        t[q][v["sede"]] += v["atenciones"]
     return t, [max(t[q], key=t[q].get) for q in (1, 2, 3, 4)]
 
 
-# ================================================================ versión 2
-def lab_inicio(sol):
-    wb = libro("Laboratorio 1 · Mi primer libro en Excel", "Recorre la pantalla de Excel haciendo cambios sencillos que el verificador puede revisar.",
-               ["Cambia el nombre de «Hoja1» a «Mi primera hoja» (doble clic en la pestaña).",
-                "En A1 escribe «Mi primer libro en La Taza». Con el cuadro de nombres ve a D10 y escribe tu nombre.",
-                "Ajusta el zoom de la hoja a 120 % (barra de estado o Vista › Zoom).",
-                "Archivo › Información › Propiedades: escribe el título «Mi primer libro».",
-                "Configura la Autorrecuperación cada 5 minutos (Archivo › Opciones › Guardar) y personaliza tu barra de acceso rápido.",
-                "Nivel Experto: deja la hoja en la vista Diseño de página y agrega «curso» a las palabras clave (Etiquetas)."],
-               ["Nombre de la hoja, A1 y D10.", "Zoom de la hoja y título del documento.", "Experto: vista Diseño de página y palabra clave."])
-    ws = wb.create_sheet("Mi primera hoja" if sol else "Hoja1")
-    if sol:
-        ws["A1"] = "Mi primer libro en La Taza"
-        ws["D10"] = "Ana Torres"
-        ws.sheet_view.zoomScale = 120
-        ws.sheet_view.view = "pageLayout"
-        wb.properties.title = "Mi primer libro"
-        wb.properties.keywords = "curso; La Taza"
-        hoja_solucion(wb, ["La Autorrecuperación y la barra de acceso rápido son opciones de Excel, no del libro: se revisan en el simulador (reto del módulo 1).",
-                           "Título y palabras clave: Archivo › Información › Propiedades (o Propiedades avanzadas › Resumen)."])
-    wb.active = 1
-    return wb
-
-
-def mejor_mes_norte():
-    m = [0] * 12
-    for v in D["ventas"]:
-        if v["sucursal"] == "Norte":
-            m[int(v["fecha"][5:7]) - 1] += v["total"]
-    return D["meses"][m.index(max(m))]
-
-
-def lider_anual():
-    t = {}
-    for v in D["ventas"]:
-        t[v["sucursal"]] = t.get(v["sucursal"], 0) + v["total"]
-    return max(t, key=t.get), t
-
-
 def lab_dinamicas(sol):
-    wb = libro("Laboratorio 12 · Tablas dinámicas y tablero", "La hoja Ventas tiene las 720 ventas de 2025. La hoja Respuestas es para tus conclusiones.",
-               ["Inserta una tabla dinámica: Fecha agrupada por trimestres en filas, Sucursal en columnas y suma de Total en valores.",
-                "En Respuestas escribe la sucursal que más vendió en cada trimestre (B2:B5), el mes con más ventas de Norte (B7) y la sucursal que más vendió en el año (B8).",
-                "Tablero: otra tabla dinámica por meses, un gráfico dinámico y una segmentación por Sucursal conectada.",
+    wb = libro("Laboratorio 11 · Tablas dinámicas y tablero", "La hoja Atenciones tiene los 720 registros de 2025. La hoja Respuestas es para tus conclusiones.",
+               ["Inserta una tabla dinámica: Fecha agrupada por trimestres en filas, Sede en columnas y suma de Atenciones en valores.",
+                "En Respuestas escribe la sede con más atenciones en cada trimestre (B2:B5), el mes con más atenciones de Norte (B7) y la sede con más atenciones en el año (B8).",
+                "Tablero: otra tabla dinámica por meses, un gráfico dinámico y una segmentación por Sede conectada.",
                 "Nivel Experto: valores como % del total en alguna tabla dinámica y una escala de tiempo por Fecha."],
-               ["Tabla dinámica por trimestre y sucursal.", "Respuestas B2:B5, B7 y B8.", "Gráfico dinámico y segmentación conectada."])
-    hoja_ventas(wb)
+               ["Tabla dinámica por trimestre y sede.", "Respuestas B2:B5, B7 y B8.", "Gráfico dinámico y segmentación conectada."])
+    hoja_atenciones(wb)
     ws = wb.create_sheet("Respuestas")
-    encabezados(ws, 1, ["Trimestre", "Sucursal que más vendió"])
+    encabezados(ws, 1, ["Trimestre", "Sede con más atenciones"])
     t, lid = lideres()
     for i in range(4):
         ws.cell(row=i + 2, column=1, value=f"T{i + 1}")
-    ws["A7"], ws["A8"] = "Mes con más ventas de Norte", "Sucursal que más vendió en el año"
+    ws["A7"], ws["A8"] = "Mes con más atenciones de Norte", "Sede con más atenciones en el año"
     ws["A7"].font = ws["A8"].font = NEGRITA
     for d in ("B2", "B3", "B4", "B5", "B7", "B8"):
         ws[d].fill = RELLENO_ENTRADA
-    anchos(ws, A=34, B=26)
+    anchos(ws, A=36, B=26)
     if sol:
         for i in range(4):
             ws.cell(row=i + 2, column=2, value=lid[i])
-        ws["B7"] = mejor_mes_norte()
-        lider, tot = lider_anual()
-        ws["B8"] = lider
-        s = hoja_solucion(wb, ["1. Clic en Ventas › Insertar › Tabla dinámica › Nueva hoja.", "2. Fecha a Filas; clic derecho en una fecha › Agrupar › solo Trimestres.",
-                               "3. Sucursal a Columnas; Total a Valores (Suma).", "4. Tablero: Fecha (Meses) en filas, Total en valores; Gráfico dinámico › Líneas; Insertar segmentación › Sucursal.",
+        m = [0] * 12
+        anual = {}
+        for v in D["atenciones"]:
+            anual[v["sede"]] = anual.get(v["sede"], 0) + v["atenciones"]
+            if v["sede"] == "Norte":
+                m[int(v["fecha"][5:7]) - 1] += v["atenciones"]
+        ws["B7"] = D["meses"][m.index(max(m))]
+        ws["B8"] = max(anual, key=anual.get)
+        s = hoja_solucion(wb, ["1. Clic en Atenciones › Insertar › Tabla dinámica › Nueva hoja.", "2. Fecha a Filas; clic derecho en una fecha › Agrupar › solo Trimestres.",
+                               "3. Sede a Columnas; Atenciones a Valores (Suma).", "4. Tablero: Fecha (Meses) en filas, Atenciones en valores; Gráfico dinámico › Líneas; Insertar segmentación › Sede.",
                                "5. Experto: Mostrar valores como › % del total general; Insertar escala de tiempo › Fecha.",
-                               "openpyxl no crea tablas dinámicas: estos son los resultados esperados.", "Totales por trimestre:"])
-        encabezados(s, 11, ["Trimestre", "Centro", "Norte", "Sur"])
+                               "Interpretación: " + ws["B8"].value + " gana el año aunque no encabeza todos los trimestres; revisa el Total general.",
+                               "openpyxl no crea tablas dinámicas: estos son los resultados esperados.", "Atenciones por trimestre:"])
+        encabezados(s, 12, ["Trimestre", "Centro", "Norte", "Sur"])
         for q in range(1, 5):
-            s.cell(row=11 + q, column=1, value=f"T{q}")
-            for j, su in enumerate(["Centro", "Norte", "Sur"], 2):
-                s.cell(row=11 + q, column=j, value=t[q][su]).number_format = MONEDA0
-        s.cell(row=16, column=1, value="Año").font = NEGRITA
-        for j, su in enumerate(["Centro", "Norte", "Sur"], 2):
-            s.cell(row=16, column=j, value=tot[su]).number_format = MONEDA0
+            s.cell(row=12 + q, column=1, value=f"T{q}")
+            for j, sede in enumerate(["Centro", "Norte", "Sur"], 2):
+                s.cell(row=12 + q, column=j, value=t[q][sede])
+        s.cell(row=17, column=1, value="Año").font = NEGRITA
+        for j, sede in enumerate(["Centro", "Norte", "Sur"], 2):
+            s.cell(row=17, column=j, value=anual[sede])
     return wb
 
 
-# ---------------------------------------------------- gestión de pedidos (módulo 13)
-CLIENTES = D["clientesCorp"]
-PRODUCTOS = D["productos"]
-
-
+# ---------------------------------------------------- gestión de órdenes (módulo 12)
 def hoja_catalogo(wb):
     ws = wb.create_sheet("Catálogo")
-    encabezados(ws, 1, ["Producto", "Precio", "Categoría"])
-    for i, p in enumerate(PRODUCTOS, 2):
-        ws.cell(row=i, column=1, value=p["nombre"])
-        ws.cell(row=i, column=2, value=p["precio"]).number_format = MONEDA0
-        ws.cell(row=i, column=3, value=p["categoria"])
-    anchos(ws, A=22, B=9, C=15)
+    encabezados(ws, 1, ["Estudio", "Cuota", "Preparación"])
+    for i, e in enumerate(EST, 2):
+        ws.cell(row=i, column=1, value=e["estudio"])
+        ws.cell(row=i, column=2, value=e["cuota"]).number_format = MONEDA0
+        ws.cell(row=i, column=3, value=e["preparacion"])
+    anchos(ws, A=26, B=9, C=58)
     return ws
 
 
-def hoja_clientes(wb):
-    ws = wb.create_sheet("Clientes")
-    encabezados(ws, 1, ["Cliente", "Contacto", "Correo", "Teléfono"])
-    for i, c in enumerate(CLIENTES, 2):
-        for j, k in enumerate(["cliente", "contacto", "correo", "telefono"], 1):
-            ws.cell(row=i, column=j, value=c[k])
-    anchos(ws, A=24, B=22, C=26, D=13)
+def hoja_pacientes(wb):
+    ws = wb.create_sheet("Pacientes")
+    encabezados(ws, 1, ["Paciente", "Teléfono", "Correo"])
+    for i, p in enumerate(D["pacientesOrden"], 2):
+        for j, k in enumerate(["paciente", "telefono", "correo"], 1):
+            ws.cell(row=i, column=j, value=p[k])
+    anchos(ws, A=22, B=13, C=26)
     return ws
 
 
-def validaciones_pedidos(ws, hasta):
-    dv = DataValidation(type="list", formula1="Clientes!$A$2:$A$11", allow_blank=True, showErrorMessage=True, errorTitle="Cliente", error="Elige un cliente de la lista.")
+def validaciones_ordenes(ws, hasta):
+    dv = DataValidation(type="list", formula1="Pacientes!$A$2:$A$11", allow_blank=True, showErrorMessage=True, errorTitle="Paciente", error="Elige un paciente de la lista.")
     dv.add(f"C2:C{hasta}")
-    dp = DataValidation(type="list", formula1="'Catálogo'!$A$2:$A$21", allow_blank=True, showErrorMessage=True, errorTitle="Producto", error="Elige un producto del catálogo.")
-    dp.add(f"D2:D{hasta}")
-    dc = DataValidation(type="whole", operator="between", formula1="1", formula2="200", allow_blank=True, showErrorMessage=True,
-                        showInputMessage=True, promptTitle="Cantidad", prompt="Entero de 1 a 200", errorTitle="Cantidad", error="Escribe un número entero de 1 a 200.")
-    dc.add(f"E2:E{hasta}")
-    for v in (dv, dp, dc):
+    de = DataValidation(type="list", formula1="'Catálogo'!$A$2:$A$11", allow_blank=True, showErrorMessage=True, errorTitle="Estudio", error="Elige un estudio del catálogo.")
+    de.add(f"E2:E{hasta}")
+    dd = DataValidation(type="whole", operator="between", formula1="0", formula2="110", allow_blank=True, showErrorMessage=True,
+                        showInputMessage=True, promptTitle="Edad", prompt="Entero de 0 a 110", errorTitle="Edad", error="Escribe una edad entera de 0 a 110.")
+    dd.add(f"D2:D{hasta}")
+    for v in (dv, de, dd):
         ws.add_data_validation(v)
 
 
-def hoja_pedidos_gestion(wb, sol, filas=None):
-    ws = wb.create_sheet("Pedidos")
-    encabezados(ws, 1, ["Folio", "Fecha", "Cliente", "Producto", "Cantidad", "Precio", "Importe", "Entrega"])
-    ped = filas or D["pedidos"]
-    for i, p in enumerate(ped, 2):
-        ws.cell(row=i, column=1, value=p["folio"])
-        poner_fecha(ws.cell(row=i, column=2), p["fecha"])
-        ws.cell(row=i, column=3, value=p["cliente"])
-        ws.cell(row=i, column=4, value=p["producto"])
-        ws.cell(row=i, column=5, value=p["cantidad"])
-        poner_fecha(ws.cell(row=i, column=8), p["compromiso"])
+def hoja_ordenes(wb, sol, filas=None, con_cita=True):
+    ws = wb.create_sheet("Órdenes")
+    enc = ["Folio", "Fecha", "Paciente", "Edad", "Estudio", "Cuota", "Preparación"] + (["Cita", "Hora"] if con_cita else [])
+    encabezados(ws, 1, enc)
+    ords = filas or D["ordenes"]
+    for i, o in enumerate(ords, 2):
+        ws.cell(row=i, column=1, value=o["folio"])
+        poner_fecha(ws.cell(row=i, column=2), o["fecha"])
+        ws.cell(row=i, column=3, value=o["paciente"])
+        ws.cell(row=i, column=4, value=o["edad"])
+        ws.cell(row=i, column=5, value=o["estudio"])
         ws.cell(row=i, column=6).number_format = MONEDA
-        ws.cell(row=i, column=7).number_format = MONEDA
+        if con_cita:
+            poner_fecha(ws.cell(row=i, column=8), o["cita"])
+            ws.cell(row=i, column=9, value=o["hora"])
         if sol:
-            ws.cell(row=i, column=6, value=f"=_xlfn.XLOOKUP(D{i},Catálogo!$A$2:$A$21,Catálogo!$B$2:$B$21)")
-            ws.cell(row=i, column=7, value=f"=E{i}*F{i}")
+            ws.cell(row=i, column=6, value=f"=_xlfn.XLOOKUP(E{i},Catálogo!$A$2:$A$11,Catálogo!$B$2:$B$11)")
+            ws.cell(row=i, column=7, value=f"=_xlfn.XLOOKUP(E{i},Catálogo!$A$2:$A$11,Catálogo!$C$2:$C$11)")
     ws.freeze_panes = "A2"
-    anchos(ws, A=8, B=11, C=24, D=22, E=10, F=10, G=12, H=11)
+    anchos(ws, A=8, B=11, C=20, D=6, E=26, F=10, G=52, H=11, I=8)
     if sol:
-        validaciones_pedidos(ws, 60)
+        validaciones_ordenes(ws, 60)
     return ws
 
 
-def hoja_consulta(wb, sol, cliente="Notaría 14"):
+def hoja_consulta(wb, sol, estudio):
     ws = wb.create_sheet("Consulta")
-    ws["B1"] = "Consulta de clientes"
+    ws["B1"] = "Consulta por estudio"
     ws["B1"].font = TITULO
-    ws["B2"], ws["C2"] = "Cliente:", cliente
+    ws["B2"], ws["C2"] = "Estudio:", estudio
     ws["C2"].fill = RELLENO_ENTRADA
     ws["C2"].font = NEGRITA
-    ws["B4"], ws["B5"] = "Número de pedidos", "Total comprado"
+    ws["B4"], ws["B5"] = "Número de órdenes", "Ingresos por cuotas"
     ws["B4"].font = ws["B5"].font = NEGRITA
     ws["C5"].number_format = MONEDA
-    anchos(ws, A=3, B=22, C=26)
+    anchos(ws, A=3, B=22, C=28)
     if sol:
-        ws["C4"] = "=COUNTIF(Pedidos!C2:C60,C2)"
-        ws["C5"] = "=SUMIF(Pedidos!C2:C60,C2,Pedidos!G2:G60)"
+        ws["C4"] = "=COUNTIF(Órdenes!E2:E60,C2)"
+        ws["C5"] = "=SUMIF(Órdenes!E2:E60,C2,Órdenes!F2:F60)"
     return ws
 
 
-def lab_gestion(sol):
-    wb = libro("Laboratorio 13 · Registro de pedidos y cartas de confirmación",
-               "Parte 1 en Excel: base de pedidos con captura validada, búsqueda y consulta. Parte 2 en Word: cartas con combinar correspondencia (lab13-carta.docx).",
-               ["Pedidos: lista desplegable de clientes en C2:C60 (origen =Clientes!$A$2:$A$11) y de productos en D2:D60 (origen =Catálogo!$A$2:$A$21); en E2:E60 solo enteros de 1 a 200.",
-                "Pedidos: Precio (F) con BUSCARX desde el Catálogo e Importe (G) = Cantidad × Precio, para todos los pedidos.",
-                "Consulta: C4 = número de pedidos del cliente de C2 (CONTAR.SI) y C5 = total comprado (SUMAR.SI).",
-                "Guarda y cierra el libro. En Word abre lab13-carta.docx: Correspondencia › Iniciar combinación › Cartas › Seleccionar destinatarios › Usar una lista existente (este libro, hoja Pedidos).",
-                "Inserta los campos combinados donde dice [Folio], [Cliente], [Cantidad], [Producto], [Importe] y [Entrega]. Revisa la vista previa y guarda la carta.",
+def lab_ordenes(sol):
+    wb = libro("Laboratorio 12 · Registro de órdenes y cartas de indicaciones",
+               "Parte 1 en Excel: base de órdenes con captura validada, búsqueda y consulta. Parte 2 en Word: cartas con combinar correspondencia (lab12-carta.docx).",
+               ["Órdenes: lista desplegable de pacientes en C2:C60 (origen =Pacientes!$A$2:$A$11) y de estudios en E2:E60 (origen =Catálogo!$A$2:$A$11); en D2:D60 solo enteros de 0 a 110.",
+                "Órdenes: Cuota (F) y Preparación (G) con BUSCARX desde el Catálogo, para todas las órdenes.",
+                "Consulta: C4 = número de órdenes del estudio de C2 (CONTAR.SI) y C5 = ingresos por cuotas (SUMAR.SI).",
+                "Guarda y cierra el libro. En Word abre lab12-carta.docx: Correspondencia › Iniciar combinación › Cartas › Seleccionar destinatarios › Usar una lista existente (este libro, hoja Órdenes).",
+                "Inserta los campos combinados donde dice [Paciente], [Estudio], [Folio], [Cita], [Hora], [Preparación] y [Cuota]. Revisa la vista previa y guarda la carta.",
                 "Sube el libro y la carta juntos.",
-                "Nivel Experto: macro que limpie Consulta!C2 asignada a un botón (guarda como .xlsm) y formato de moneda en el campo Importe con \\# \"$#,##0.00\"."],
-               ["Validaciones de captura.", "Precio e importe con fórmulas.", "Consulta que cambia con el cliente de C2.", "Carta con los campos combinados."])
-    hoja_pedidos_gestion(wb, sol)
+                "Nivel Experto: macro que limpie Consulta!C2 asignada a un botón (guarda como .xlsm) y formato de moneda en el campo Cuota con \\# \"$#,##0.00\"."],
+               ["Validaciones de captura.", "Cuota y preparación con fórmulas.", "Consulta que cambia con el estudio de C2.", "Carta con los campos combinados."])
+    hoja_ordenes(wb, sol)
     hoja_catalogo(wb)
-    hoja_clientes(wb)
-    hoja_consulta(wb, sol)
+    hoja_pacientes(wb)
+    hoja_consulta(wb, sol, "Perfil de lípidos")
     if sol:
-        hoja_solucion(wb, ["Validación: Datos › Validación de datos › Permitir Lista › Origen =Clientes!$A$2:$A$11 (y =Catálogo!$A$2:$A$21); Número entero entre 1 y 200.",
-                           "F2: =BUSCARX(D2,Catálogo!$A$2:$A$21,Catálogo!$B$2:$B$21) · G2: =E2*F2 (copiar hasta la última fila).",
-                           "Consulta: C4 =CONTAR.SI(Pedidos!C2:C60,C2) · C5 =SUMAR.SI(Pedidos!C2:C60,C2,Pedidos!G2:G60).",
+        hoja_solucion(wb, ["Validación: Datos › Validación de datos › Permitir Lista › Origen =Pacientes!$A$2:$A$11 (y =Catálogo!$A$2:$A$11); Número entero entre 0 y 110.",
+                           "F2: =BUSCARX(E2,Catálogo!$A$2:$A$11,Catálogo!$B$2:$B$11) · G2: igual con Catálogo!$C$2:$C$11 (copiar hasta la última fila).",
+                           "Consulta: C4 =CONTAR.SI(Órdenes!E2:E60,C2) · C5 =SUMAR.SI(Órdenes!E2:E60,C2,Órdenes!F2:F60).",
                            "Experto (macro): Programador › Grabar macro «LimpiarConsulta» › seleccionar Consulta!C2 › Supr › Detener; botón con la macro; guardar como .xlsm.",
                            "Sub LimpiarConsulta()", '    Range("C2").Select', "    Selection.ClearContents", "End Sub",
-                           "La carta resuelta (lab13-carta-solucion.docx) muestra los campos combinados y el modificador de moneda en Importe."])
+                           "La carta resuelta (lab12-carta-solucion.docx) muestra los campos combinados y los modificadores de moneda y fecha."])
+    return wb
+
+
+def lab_tablero(sol):
+    wb = libro("Laboratorio 13 · Dashboard del programa de enfermedades crónicas",
+               "La hoja Consultas tiene las 378 consultas de seguimiento de 2025. Arma el dashboard en la hoja Tablero.",
+               ["Convierte Consultas en tabla (Ctrl+T).", "Tablero: C4 = número de consultas; C5 = % de pacientes en control («Sí» entre consultas); C6 = espera promedio. Con fórmulas.",
+                "Crea al menos dos tablas dinámicas (por ejemplo, consultas por mes y % de control por sede) y un gráfico dinámico de cada una; muévelos a Tablero.",
+                "Inserta una segmentación por Programa y conéctala a las tablas dinámicas (Conexiones de informe).",
+                "Respuestas: B2 = % de control en Hipertensión; B3 = sede con menor % de control en Diabetes tipo 2.",
+                "Nivel Experto: escala de tiempo por Fecha; formato condicional en C5 contra la meta del 70 %; oculta las líneas de cuadrícula de Tablero."],
+               ["Tarjetas C4:C6 con fórmulas.", "Dos tablas y dos gráficos dinámicos.", "Segmentación de Programa conectada a dos o más tablas.", "Respuestas B2 y B3."])
+    hoja_cronicos(wb)
+    n = len(D["cronicos"]) + 1
+    wt = wb.create_sheet("Tablero")
+    wt["B1"] = "Programa de enfermedades crónicas · 2025"
+    wt["B1"].font = TITULO
+    for celda, txt in (("B4", "Consultas"), ("B5", "% de pacientes en control"), ("B6", "Espera promedio (min)"), ("B7", "Meta de control"), ("C7", 0.7)):
+        wt[celda] = txt
+        if celda.startswith("B"):
+            wt[celda].font = NEGRITA
+    wt["C7"].number_format = "0%"
+    wt["C5"].number_format = "0.0%"
+    wt["C6"].number_format = "0.0"
+    anchos(wt, A=3, B=28, C=14)
+    wr = wb.create_sheet("Respuestas")
+    wr["A1"], wr["B1"] = "Pregunta", "Respuesta"
+    wr["A1"].font = wr["B1"].font = NEGRITA
+    wr["A2"], wr["A3"] = "% de pacientes en control en Hipertensión", "Sede con menor % de control en Diabetes tipo 2"
+    wr["B2"].fill = wr["B3"].fill = RELLENO_ENTRADA
+    anchos(wr, A=48, B=18)
+    if sol:
+        wt["C4"] = f"=COUNTA(Consultas!A2:A{n})"
+        wt["C5"] = f'=COUNTIF(Consultas!G2:G{n},"Sí")/C4'
+        wt["C6"] = f"=AVERAGE(Consultas!H2:H{n})"
+        wt.conditional_formatting.add("C5", CellIsRule(operator="lessThan", formula=["$C$7"], fill=ROJO, font=Font(color="9C0006")))
+        wt.sheet_view.showGridLines = False
+        hta = [c for c in D["cronicos"] if c["programa"] == "Hipertensión"]
+        wr["B2"] = round(sum(c["controlado"] == "Sí" for c in hta) / len(hta), 4)
+        wr["B2"].number_format = "0.0%"
+        pct = {}
+        for s in ("Centro", "Norte", "Sur"):
+            dm = [c for c in D["cronicos"] if c["programa"] == "Diabetes tipo 2" and c["sede"] == s]
+            pct[s] = sum(c["controlado"] == "Sí" for c in dm) / len(dm)
+        wr["B3"] = min(pct, key=pct.get)
+        hoja_solucion(wb, ["Tablas dinámicas (hoja Cálculos): 1) Fecha (Meses) en filas, Cuenta de Folio en valores; 2) Sede en filas, Promedio de un campo 1/0 o Cuenta de Controlado con filtro.",
+                           "Tip para % de control por sede: Controlado en Columnas y Cuenta de Folio con Mostrar valores como › % del total de filas.",
+                           "Gráficos dinámicos: líneas para la evolución mensual; columnas para el % por sede. Muévelos a Tablero.",
+                           "Segmentación Programa: clic derecho › Conexiones de informe › marca las dos tablas dinámicas. Experto: escala de tiempo por Fecha.",
+                           "openpyxl no crea tablas dinámicas, segmentaciones ni escalas de tiempo: esta solución incluye las tarjetas, el semáforo y las respuestas."])
     return wb
 
 
 # ---------------------------------------------------- documento de Word mínimo
-def _p(texto="", negrita=False, tam=None, centrado=False, color=None):
+def _p(texto="", negrita=False, tam=None, color=None):
     """Párrafo; en el texto, {Campo} o {Campo|modificador} se convierte en campo combinado."""
-    ppr = '<w:pPr><w:jc w:val="center"/></w:pPr>' if centrado else ""
     rpr = ""
     if negrita or tam or color:
         rpr = "<w:rPr>" + ("<w:b/>" if negrita else "") + (f'<w:color w:val="{color}"/>' if color else "") + (f'<w:sz w:val="{tam * 2}"/>' if tam else "") + "</w:rPr>"
@@ -853,7 +851,7 @@ def _p(texto="", negrita=False, tam=None, centrado=False, color=None):
             runs.append(f'<w:fldSimple w:instr="{escape(instr, {chr(34): "&quot;"})}"><w:r>{rpr}<w:t>«{escape(campo)}»</w:t></w:r></w:fldSimple>')
         else:
             runs.append(f'<w:r>{rpr}<w:t xml:space="preserve">{escape(parte)}</w:t></w:r>')
-    return f"<w:p>{ppr}{''.join(runs)}</w:p>"
+    return f"<w:p>{''.join(runs)}</w:p>"
 
 
 def docx(ruta, parrafos, titulo):
@@ -880,7 +878,7 @@ def docx(ruta, parrafos, titulo):
                 '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/></Relationships>')
     core = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" '
             'xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
-            f'<dc:title>{escape(titulo)}</dc:title><dc:creator>Cafetería La Taza</dc:creator></cp:coreProperties>')
+            f'<dc:title>{escape(titulo)}</dc:title><dc:creator>Clínica Universitaria Vida Sana</dc:creator></cp:coreProperties>')
     ruta.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(ruta, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("[Content_Types].xml", tipos)
@@ -898,55 +896,58 @@ def carta(sol):
     else:
         c = lambda campo, mod=None: "[" + campo + "]"
     return [
-        _p("Cafetería La Taza", negrita=True, tam=20, color="5B3A29"),
-        _p("Pedidos para empresas · catering@lataza.example", color="7A6A5E"),
+        _p("Clínica Universitaria Vida Sana", negrita=True, tam=20, color="0F5E57"),
+        _p("Coordinación de Laboratorio e Imagen · citas@clinicavidasana.example", color="4A5C5A"),
         _p(""),
-        _p("Confirmación de pedido", negrita=True, tam=14),
-        _p("Pedido número: " + c("Folio")),
-        _p("Cliente: " + c("Cliente")),
+        _p("Indicaciones para su estudio", negrita=True, tam=14),
+        _p("Orden número: " + c("Folio")),
+        _p("Paciente: " + c("Paciente")),
         _p(""),
-        _p("Estimado cliente:"),
-        _p("Le confirmamos su pedido de " + c("Cantidad") + " piezas de " + c("Producto") + ", por un importe de "
-           + c("Importe", '\\# "$#,##0.00"') + ". La entrega está programada para el " + c("Entrega", '\\@ "dd/MM/yyyy"') + "."),
-        _p("Si necesita algún cambio, responda a este correo antes de la fecha de entrega."),
-        _p("¡Gracias por su preferencia!"),
+        _p("Estimado(a) paciente:"),
+        _p("Su estudio de " + c("Estudio") + " está programado para el " + c("Cita", '\\@ "dd/MM/yyyy"') + " a las " + c("Hora") + "."),
+        _p("Preparación: " + c("Preparación")),
+        _p("Cuota de recuperación: " + c("Cuota", '\\# "$#,##0.00"') + ". Presente esta carta y una identificación oficial."),
+        _p("Si no puede asistir, avísenos con un día de anticipación para reprogramar su cita."),
         _p(""),
-        _p("Marta Ríos", negrita=True),
-        _p("Gerente general · Cafetería La Taza"),
+        _p("Atentamente,"),
+        _p("Coordinación de Laboratorio e Imagen", negrita=True),
     ]
 
 
 # ================================================================ integradores
 def int_basico(sol):
-    wb = libro("Reto integrador básico · Reporte semanal de ventas", "Reporte semanal de la sucursal Sur: cálculos, formato, gráfico, logo y resumen.",
-               ["Semana: J4:J11 unidades de la semana (suma de Lun a Dom); K4:K11 ventas (precio × unidades); J12 y K12 totales; N4 promedio de ventas por producto; N5 venta mayor.",
-                "Formato: título destacado, encabezados A3:K3 en negrita con relleno, precio y ventas en moneda, bordes en A3:K12.",
-                "Gráfico de columnas o barras de las ventas por producto, con título.",
-                "Inserta el logo de La Taza (logo-la-taza.png) en la hoja Semana.",
-                "Agrega una hoja llamada «Resumen» con el total de la semana en B2 (fórmula que tome Semana!K12).",
+    wb = libro("Reto integrador · Fundamentos · Reporte semanal de atenciones", "Reporte semanal de la sede Sur: cálculos, clasificación, formato, gráfico, logo y resumen.",
+               ["J4:J11 atenciones de la semana (suma de Lun a Dom); K4:K11 ingresos (cuota × atenciones); J12 y K12 totales; N4 promedio de ingresos por servicio; N5 ingreso mayor.",
+                "L4:L11: «Alta demanda» si las atenciones de la semana son mayores o iguales al umbral de N1; si no, «Normal».",
+                "Formato: título destacado, encabezados A3:L3 en negrita con relleno, cuota e ingresos en moneda, bordes en A3:K12.",
+                "Gráfico de columnas o barras de las atenciones por servicio, con título.",
+                "Inserta el logo de la clínica (logo-vida-sana.png) en la hoja Semana.",
+                "Agrega una hoja llamada «Resumen» con los ingresos de la semana en B2 (fórmula que tome Semana!K12).",
                 "Escribe el título del documento «Reporte semanal Sur» (Archivo › Información › Propiedades)."])
     ws = wb.create_sheet("Semana")
-    ws["A1"] = "Reporte semanal · Sucursal Sur · Semana 42"
-    cab = ["Producto", "Precio"] + DIAS + ["Unidades", "Ventas"]
+    ws["A1"] = "Reporte semanal de atenciones · Sede Sur · Semana 42"
+    cab = ["Servicio", "Cuota"] + DIAS + ["Atenciones", "Ingresos", "Demanda"]
     for j, v in enumerate(cab, 1):
         ws.cell(row=3, column=j, value=v)
-    for i, p in enumerate(D["semanaSucursal"]["Sur"], 4):
-        ws.cell(row=i, column=1, value=p["producto"])
-        ws.cell(row=i, column=2, value=p["precio"])
+    for i, p in enumerate(D["semanaSede"]["Sur"], 4):
+        ws.cell(row=i, column=1, value=p["servicio"])
+        ws.cell(row=i, column=2, value=p["cuota"])
         for j, v in enumerate(p["cantidades"], 3):
             ws.cell(row=i, column=j, value=v)
     ws["A12"] = "Total"
-    ws["M4"], ws["M5"] = "Promedio por producto", "Venta mayor"
-    anchos(ws, A=22, M=22)
+    ws["M1"], ws["N1"] = "Umbral de alta demanda", 100
+    ws["M4"], ws["M5"] = "Promedio de ingresos por servicio", "Ingreso mayor"
+    anchos(ws, A=30, L=14, M=32)
     if sol:
         ws["A1"].font = TITULO
         for i in range(4, 12):
             ws.cell(row=i, column=10, value=f"=SUM(C{i}:I{i})")
             ws.cell(row=i, column=11, value=f"=B{i}*J{i}")
+            ws.cell(row=i, column=12, value=f'=IF(J{i}>=$N$1,"Alta demanda","Normal")')
         ws["J12"], ws["K12"] = "=SUM(J4:J11)", "=SUM(K4:K11)"
         ws["N4"], ws["N5"] = "=AVERAGE(K4:K11)", "=MAX(K4:K11)"
         for c in ws[3]:
-            if c.column <= 11:
+            if c.column <= 12:
                 c.font, c.fill = NEGRITA, RELLENO_ENC
         for r in range(4, 13):
             ws.cell(row=r, column=2).number_format = MONEDA
@@ -954,101 +955,89 @@ def int_basico(sol):
         ws["N4"].number_format = ws["N5"].number_format = MONEDA
         bordes(ws, "A3:K12")
         ch = BarChart()
-        ch.title = "Ventas de la semana por producto"
-        ch.add_data(Reference(ws, min_col=11, min_row=3, max_row=11), titles_from_data=True)
+        ch.title = "Atenciones de la semana por servicio"
+        ch.add_data(Reference(ws, min_col=10, min_row=3, max_row=11), titles_from_data=True)
         ch.set_categories(Reference(ws, min_col=1, min_row=4, max_row=11))
         ws.add_chart(ch, "A15")
-        img = Image(str(RAIZ / "assets" / "img" / "logo-la-taza.png"))
+        img = Image(str(LOGO))
         img.width, img.height = 60, 60
         ws.add_image(img, "P1")
         wr = wb.create_sheet("Resumen")
-        wr["A2"], wr["B2"] = "Total de la semana", "=Semana!K12"
+        wr["A2"], wr["B2"] = "Ingresos de la semana", "=Semana!K12"
         wr["B2"].number_format = MONEDA
-        anchos(wr, A=22, B=14)
+        anchos(wr, A=24, B=14)
         wb.properties.title = "Reporte semanal Sur"
     return wb
 
 
 def int_intermedio(sol):
-    wb = libro("Reto integrador intermedio · Base de pedidos confiable", "Limpia la base de pedidos y calcula las comisiones del mes.",
-               ["Pedidos: quita los duplicados.", "Convierte los pedidos en la tabla «Pedidos» con la columna calculada Importe y la fila de totales.",
-                "Formato condicional para los pedidos con Estado «Pendiente».", "Lista desplegable en la columna Estado (I2:I41) con Pendiente y Entregado.",
-                "Comisiones: D2:D21 (meta F1, tasa F2) y F4 (cuántos alcanzaron la meta)."])
-    ws = wb.create_sheet("Pedidos")
-    ped = list(D["pedidos"])
+    wb = libro("Reto integrador · Análisis de datos · Base de requisiciones confiable", "Depura la base de requisiciones, conviértela en tabla con totales y resume por área.",
+               ["Requisiciones: quita los duplicados.", "Convierte los datos en la tabla «Requisiciones» con la columna calculada Importe y la fila de totales.",
+                "Formato condicional para las requisiciones con Estado «Pendiente».", "Lista desplegable en la columna Estado (I2:I41) con Surtida y Pendiente.",
+                "Hoja nueva con una tabla dinámica: suma de Importe por Área."])
+    ws = wb.create_sheet("Requisiciones")
+    reqs = list(D["requisiciones"])
     if not sol:
         for k, idx in enumerate([4, 11, 19, 26, 33]):
-            ped.insert(idx + k, dict(D["pedidos"][idx]))
-    escribir_pedidos(ws, ped)
-    wc = wb.create_sheet("Comisiones")
-    encabezados(wc, 1, ["Vendedor", "Sucursal", "Ventas del mes", "Comisión"])
-    rng = random.Random(7070)
-    for i, e in enumerate(D["empleados"], 2):
-        wc.cell(row=i, column=1, value=e["nombre"])
-        wc.cell(row=i, column=2, value=e["sucursal"])
-        wc.cell(row=i, column=3, value=round(e["ventasMes"] * rng.uniform(0.9, 1.1))).number_format = MONEDA0
-        wc.cell(row=i, column=4).number_format = MONEDA
-    for celda, txt in (("E1", "Meta mensual"), ("E2", "Tasa de comisión"), ("E4", "Alcanzaron la meta")):
-        wc[celda] = txt
-        wc[celda].font = NEGRITA
-    wc["F1"], wc["F2"] = 10000, 0.05
-    wc["F1"].number_format, wc["F2"].number_format = MONEDA0, "0%"
-    anchos(wc, A=20, C=15, E=20)
+            reqs.insert(idx + k, dict(D["requisiciones"][idx]))
+    escribir_requisiciones(ws, reqs)
     if sol:
         for c in ws[1]:
             c.fill = PatternFill()
         ws["J1"] = "Importe"
         for i in range(2, 42):
-            ws.cell(row=i, column=10, value="=Pedidos[[#This Row],[Cantidad]]*Pedidos[[#This Row],[Precio]]").number_format = MONEDA0
-        ws["A42"], ws["J42"] = "Total", "=SUBTOTAL(109,Pedidos[Importe])"
-        t = Table(displayName="Pedidos", ref="A1:J42", totalsRowCount=1)
-        t.tableStyleInfo = TableStyleInfo(name="TableStyleMedium2", showRowStripes=True)
-        t._initialise_columns()
-        for col, cel in zip(t.tableColumns, ws[1]):
-            col.name = str(cel.value)
-        t.tableColumns[0].totalsRowLabel = "Total"
-        t.tableColumns[9].totalsRowFunction = "sum"
-        t.tableColumns[9].calculatedColumnFormula = TableFormula(attr_text="Pedidos[[#This Row],[Cantidad]]*Pedidos[[#This Row],[Precio]]")
-        ws.add_table(t)
+            ws.cell(row=i, column=10, value="=Requisiciones[[#This Row],[Cantidad]]*Requisiciones[[#This Row],[Precio]]").number_format = MONEDA0
+        ws["A42"], ws["J42"] = "Total", "=SUBTOTAL(109,Requisiciones[Importe])"
+        tabla_excel(ws, "Requisiciones", "A1:J42", "TableStyleMedium2", {0: "Total", 9: "sum"}, {9: "Requisiciones[[#This Row],[Cantidad]]*Requisiciones[[#This Row],[Precio]]"})
         ws.conditional_formatting.add("I2:I41", CellIsRule(operator="equal", formula=['"Pendiente"'], fill=AMARILLO))
-        dv = DataValidation(type="list", formula1='"Pendiente,Entregado"', allow_blank=True)
+        dv = DataValidation(type="list", formula1='"Surtida,Pendiente"', allow_blank=True)
         dv.add("I2:I41")
         ws.add_data_validation(dv)
-        for i in range(2, 22):
-            wc.cell(row=i, column=4, value=f"=IF(C{i}>=$F$1,C{i}*$F$2,0)")
-        wc["F4"] = '=COUNTIF(C2:C21,">="&F1)'
+        hoja_solucion(wb, ["Tabla dinámica: Insertar › Tabla dinámica › Nueva hoja; Área en Filas, Importe en Valores (Suma). openpyxl no la crea: hazla en Excel."])
     return wb
 
 
 def int_avanzado(sol):
-    wb = libro("Reto integrador avanzado · Tablero y gestión automatizada",
-               "Tablero de ventas con tablas dinámicas y un registro de pedidos con captura validada, búsqueda, consulta y una macro. Entrega en .xlsm.",
-               ["Hoja nueva «Tablero»: tabla dinámica con la suma de Total por mes, gráfico dinámico y segmentación por Sucursal.",
-                "Pedidos: listas desplegables de clientes (C2:C60) y productos (D2:D60) y cantidad entera de 1 a 200 (E2:E60).",
-                "Pedidos: Precio (F) con BUSCARX desde el Catálogo e Importe (G) = Cantidad × Precio.",
-                "Consulta: C4 número de pedidos y C5 total comprado del cliente de C2.",
+    wb = libro("Reto integrador · Gestión y tableros · Tablero y gestión automatizada",
+               "Dashboard del programa de crónicos y un registro de órdenes con captura validada, búsqueda, consulta y una macro. Entrega en .xlsm.",
+               ["Tablero: C4 consultas, C5 % de pacientes en control y C6 espera promedio con fórmulas; dos tablas dinámicas y dos gráficos dinámicos; segmentación por Programa conectada a dos o más tablas.",
+                "Órdenes: listas desplegables de pacientes (C2:C60) y estudios (E2:E60) y edad entera de 0 a 110 (D2:D60).",
+                "Órdenes: Cuota (F) con BUSCARX desde el Catálogo.",
+                "Consulta: C4 número de órdenes y C5 ingresos del estudio de C2.",
                 "Una macro que limpie Consulta!C2, asignada a un botón. Guarda como .xlsm."])
-    hoja_ventas(wb)
-    hoja_pedidos_gestion(wb, sol, D["pedidos"][:30])
+    hoja_cronicos(wb)
+    n = len(D["cronicos"]) + 1
+    wt = wb.create_sheet("Tablero")
+    wt["B1"] = "Programa de enfermedades crónicas · 2025"
+    wt["B1"].font = TITULO
+    for celda, txt in (("B4", "Consultas"), ("B5", "% de pacientes en control"), ("B6", "Espera promedio (min)")):
+        wt[celda] = txt
+        wt[celda].font = NEGRITA
+    wt["C5"].number_format = "0.0%"
+    anchos(wt, A=3, B=28, C=14)
+    hoja_ordenes(wb, sol, D["ordenes"][:30], con_cita=False)
     hoja_catalogo(wb)
-    hoja_clientes(wb)
-    hoja_consulta(wb, sol, "Hospital San Rafael")
+    hoja_pacientes(wb)
+    hoja_consulta(wb, sol, "Perfil de lípidos")
     if sol:
-        hoja_solucion(wb, ["Tablero: Insertar › Tabla dinámica (Fecha por meses, Suma de Total), Gráfico dinámico, Segmentación por Sucursal.",
+        wt["C4"] = f"=COUNTA(Consultas!A2:A{n})"
+        wt["C5"] = f'=COUNTIF(Consultas!G2:G{n},"Sí")/C4'
+        wt["C6"] = f"=AVERAGE(Consultas!H2:H{n})"
+        hoja_solucion(wb, ["Tablero: tablas dinámicas (consultas por mes; % de control por sede), gráficos dinámicos y segmentación por Programa con Conexiones de informe.",
                            "Macro: Programador › Grabar macro «LimpiarConsulta» (seleccionar Consulta!C2, Supr); botón con la macro; guardar como .xlsm.",
-                           "openpyxl no crea tablas dinámicas ni guarda VBA: esta solución incluye las validaciones, las fórmulas y la consulta."])
+                           "openpyxl no crea tablas dinámicas ni guarda VBA: esta solución incluye las tarjetas, las validaciones, las fórmulas y la consulta."])
     return wb
 
 
 def main():
     libro_base()
-    for nombre, f in [("lab01-mi-primer-libro", lab_inicio), ("lab02-lista-precios", lab01), ("lab03-corte-caja", lab02), ("lab04-reporte-semanal", lab03),
-                      ("lab05-menu", lab04), ("lab06-sucursales", lab05), ("lab07-graficos", lab06), ("lab08-comisiones", lab08),
-                      ("lab09-clientes", lab09), ("lab10-pedidos", lab10), ("lab11-inventario", lab11), ("lab12-tablas-dinamicas", lab_dinamicas),
-                      ("lab13-gestion-pedidos", lab_gestion)]:
+    for nombre, f in [("lab01-catalogo-servicios", lab_catalogo), ("lab02-somatometria", lab_somatometria), ("lab03-reporte-semanal", lab_reporte),
+                      ("lab04-indicaciones", lab_indicaciones), ("lab05-sedes", lab_sedes), ("lab06-graficos", lab_graficos), ("lab07-glucosa", lab_glucosa),
+                      ("lab08-padron", lab_padron), ("lab09-requisiciones", lab_requisiciones), ("lab10-farmacia", lab_farmacia),
+                      ("lab11-tablas-dinamicas", lab_dinamicas), ("lab12-ordenes", lab_ordenes), ("lab13-tablero", lab_tablero)]:
         lab(nombre, f)
-    docx(RAIZ / "laboratorios" / "lab13-carta.docx", carta(False), "Confirmación de pedido")
-    docx(PRIVADO / "soluciones" / "laboratorios" / "lab13-carta-solucion.docx", carta(True), "Confirmación de pedido (solución)")
+    docx(RAIZ / "laboratorios" / "lab12-carta.docx", carta(False), "Indicaciones para su estudio")
+    docx(PRIVADO / "soluciones" / "laboratorios" / "lab12-carta-solucion.docx", carta(True), "Indicaciones para su estudio (solución)")
     integrador("int-basico", int_basico)
     integrador("int-intermedio", int_intermedio)
     integrador("int-avanzado", int_avanzado)

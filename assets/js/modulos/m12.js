@@ -1,158 +1,197 @@
-/* Módulo 12 · Tablas dinámicas */
+/* Módulo 12 · Gestionar y automatizar información */
 (function () {
-  const { D, filasDinamica, CAMPOS_DINAMICA, lideresTrimestre, trimestre, totalesPor, mes } = LT.caso;
-  const DATOS = filasDinamica();
-  const LIDERES = lideresTrimestre();
-  const anual = Object.entries(totalesPor('sucursal')).sort((a, b) => b[1] - a[1]);
-  const LIDER_ANUAL = anual[0][0];
-  const topCat = Object.entries(totalesPor('categoria')).sort((a, b) => b[1] - a[1])[0][0];
-  const frioSuc = Object.entries(totalesPor('sucursal', (v) => v.categoria === 'Café frío')).sort((a, b) => b[1] - a[1])[0][0];
-  const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-  const mejorMes = (filtro) => { const m = new Array(12).fill(0); D.ventas.filter(filtro).forEach((v) => { m[mes(v.fecha) - 1] += v.total; }); return MESES[m.indexOf(Math.max(...m))]; };
-  const MES_NORTE = mejorMes((v) => v.sucursal === 'Norte');
-  const MES_NORTE_FRIO = mejorMes((v) => v.sucursal === 'Norte' && v.categoria === 'Café frío');
-  const norteQ = [1, 2, 3, 4].map((q) => D.ventas.filter((v) => v.sucursal === 'Norte' && trimestre(v.fecha) === q).reduce((s, v) => s + v.total, 0));
-  const MEJOR_Q_NORTE = 'Trim.' + (norteQ.indexOf(Math.max(...norteQ)) + 1);
-  const otraT3 = LIDERES[2] !== LIDER_ANUAL;
-  const INTERPRETACION = [
-    otraT3 ? LIDER_ANUAL + ' es la sucursal que más vende en el año, pero ' + LIDERES[2] + ' la supera en el 3.er trimestre' : LIDER_ANUAL + ' es la sucursal que más vende en el año',
-    anual[2][0] + ' es la sucursal que más vende en el año',
-    LIDER_ANUAL + ' vende más que las otras en todos los trimestres',
-    'Las tres sucursales venden casi lo mismo en cada trimestre',
-  ];
-  const pivote = (c, estado, extra) => LT.TablaDinamica(c, Object.assign({ datos: DATOS, campos: CAMPOS_DINAMICA, estado }, extra || {}));
+  const { D, ENC, fecha, serial } = LT.caso;
+  const F = LT.formato;
+  const EST = D.estudios;
+  const PAC = D.pacientesOrden;
+  const ords = D.ordenes.slice(0, 10).map((o) => ({ folio: o.folio, fecha: o.fecha, paciente: o.paciente, edad: o.edad, estudio: o.estudio }));
+  const edadDe = (p) => (D.ordenes.find((o) => o.paciente === p) || { edad: 47 }).edad;
+  const NUEVO = { folio: 5011, fecha: '2025-10-20', paciente: 'Camila Flores', edad: edadDe('Camila Flores'), estudio: 'Perfil de lípidos' };
+  const frec = {};
+  ords.forEach((o) => { frec[o.estudio] = (frec[o.estudio] || 0) + 1; });
+  const CONSULTA = Object.entries(frec).sort((a, b) => b[1] - a[1])[0][0];
+  const OTRO = EST.map((e) => e.estudio).find((e) => e !== CONSULTA && frec[e]) || EST[0].estudio;
 
-  function crearReto(cont, nivel) {
-    const { h } = LT.u;
-    const experto = nivel === 'experto', explorador = nivel === 'explorador';
-    let e1 = null, e2 = null, t1 = null, t2 = null;
-    const resp = {};
-    const sel = (clave, opciones) => h('select', { class: 'herr-sel', onchange: (ev) => { resp[clave] = ev.target.value; } }, h('option', { value: '' }, 'Elige…'), opciones.map((o) => h('option', { value: o }, o)));
-    const pestanas = h('div', { class: 'grupo-btn', style: { marginBottom: '10px' } });
-    const p1 = h('div'), p2 = h('div');
-    const mostrar = (i) => { p1.style.display = i === 1 ? '' : 'none'; p2.style.display = i === 2 ? '' : 'none'; pestanas.querySelectorAll('button').forEach((b, k) => b.classList.toggle('primario', k + 1 === i)); };
-    pestanas.append(h('button', { class: 'btn chico', onclick: () => mostrar(1) }, '1. Trimestres por sucursal'), h('button', { class: 'btn chico', onclick: () => mostrar(2) }, '2. Tablero mensual'));
-    const z1 = h('div'), z2 = h('div');
-    const preguntas1 = h('div', { class: 'aviso-caja info' });
-    if (experto) preguntas1.append('Con los valores como % del total de columnas: ¿en qué trimestre obtuvo Norte el mayor porcentaje de su año? ', sel('q', ['Trim.1', 'Trim.2', 'Trim.3', 'Trim.4']));
-    else {
-      preguntas1.appendChild(h('div', { style: { marginBottom: '6px' } }, '¿Qué sucursal vendió más en cada trimestre?'));
-      const fila = h('div', { class: 'grupo-btn' });
-      for (let q = 1; q <= 4; q++) fila.appendChild(h('label', null, 'T' + q + ': ', sel('t' + q, ['Centro', 'Norte', 'Sur'])));
-      preguntas1.appendChild(fila);
-    }
-    if (!explorador) preguntas1.append(h('div', { style: { marginTop: '10px' } }, 'Interpretación: ¿qué conclusión es correcta? '), sel('interp', INTERPRETACION.slice().sort()));
-    p1.append(z1, preguntas1);
-    p2.append(z2, h('div', { class: 'aviso-caja info' }, experto ? 'Con las segmentaciones en Norte y Café frío, ¿en qué mes vendió más Norte de café frío? ' : 'Con la segmentación en Norte, ¿en qué mes vendió más la sucursal Norte? ', sel('mes', MESES)));
-    cont.append(pestanas, p1, p2);
-    setTimeout(() => {
-      t1 = pivote(z1, explorador ? { filas: [{ campo: 'Fecha', agrupar: ['trimestres'] }] } : {}, { alCambiar: (e) => { e1 = e; } });
-      t2 = LT.TablaDinamica(z2, { datos: DATOS, campos: CAMPOS_DINAMICA, estado: explorador ? { filas: [{ campo: 'Fecha', agrupar: ['meses'] }], valores: ['Total'] } : {}, segmentaciones: ['Sucursal', 'Categoría'], grafico: true, alCambiar: (e) => { e2 = e; } });
-      mostrar(1);
-    }, 0);
-    return {
-      verificar: () => {
-        const r = [];
-        const add = (ok, titulo, mensaje) => r.push({ ok, titulo, mensaje: ok ? titulo : mensaje });
-        const a = e1 || { filas: [], columnas: [], valores: [] };
-        const f = a.filas[0];
-        add(a.filas.length === 1 && f.campo === 'Fecha' && (f.agrupar || []).includes('trimestres') && !(f.agrupar || []).includes('meses'), 'Tabla 1 · Filas: la fecha agrupada por trimestres', 'Tabla 1: en Filas pon solo la Fecha, agrupada por Trimestres (menú ▾ de la ficha › Agrupar…).');
-        add(a.columnas.length === 1 && a.columnas[0].campo === 'Sucursal', 'Tabla 1 · Columnas: Sucursal', 'Tabla 1: pon Sucursal en Columnas.');
-        const v = a.valores[0];
-        add(a.valores.length === 1 && v.campo === 'Total' && v.funcion === 'suma', 'Tabla 1 · Valores: Suma de Total', 'Tabla 1: en Valores pon «Suma de Total».');
-        if (experto) {
-          add(v && v.mostrarComo === 'pctColumna', 'Tabla 1 · % del total de columnas', 'Tabla 1: Configuración de campo de valor › Mostrar valores como › % del total de columnas.');
-          add(resp.q === MEJOR_Q_NORTE, 'Respuesta sobre Norte correcta', resp.q ? 'Revisa la columna Norte: el mayor porcentaje no está en ' + resp.q + '.' : 'Responde la pregunta de la tabla 1.');
-        } else for (let q = 1; q <= 4; q++) add(resp['t' + q] === LIDERES[q - 1], 'Trimestre ' + q + ': ' + LIDERES[q - 1], resp['t' + q] ? 'Trimestre ' + q + ': la sucursal con el número más alto de la fila Trim.' + q + ' no es ' + resp['t' + q] + '.' : 'Responde qué sucursal vendió más en el trimestre ' + q + '.');
-        if (!explorador) add(resp.interp === INTERPRETACION[0], 'Interpretación correcta', resp.interp ? 'Revisa la interpretación: compara la fila «Total general» con cada trimestre.' : 'Elige la conclusión correcta.');
-        const b = e2 || { filas: [], valores: [], segmentaciones: {} };
-        const g = b.filas[0];
-        add(b.filas.length === 1 && g.campo === 'Fecha' && JSON.stringify(g.agrupar) === '["meses"]' && (!b.columnas || !b.columnas.length), 'Tabla 2 · Meses en filas', 'Tabla 2: pon la Fecha en Filas agrupada solo por Meses, sin campos en Columnas.');
-        add(b.valores.length === 1 && b.valores[0].campo === 'Total' && b.valores[0].funcion === 'suma' && b.valores[0].mostrarComo === 'ninguno', 'Tabla 2 · Suma de Total', 'Tabla 2: en Valores pon «Suma de Total».');
-        add(b.tipoGrafico === 'lineas' || b.tipoGrafico === 'columnas', 'Gráfico dinámico de líneas o columnas', 'Tabla 2: elige un gráfico dinámico de líneas o columnas.');
-        const s = b.segmentaciones || {};
-        add(JSON.stringify(s.Sucursal) === '["Norte"]', 'Segmentación Sucursal en Norte', 'Tabla 2: en la segmentación Sucursal deja solo «Norte».');
-        if (experto) add(JSON.stringify(s['Categoría']) === '["Café frío"]', 'Segmentación Categoría en Café frío', 'Tabla 2: en la segmentación Categoría deja solo «Café frío».');
-        else add(!s['Categoría'], 'Sin filtro de categoría', 'Tabla 2: quita el filtro de Categoría (⨯) para ver todas.');
-        const esp = experto ? MES_NORTE_FRIO : MES_NORTE;
-        add(resp.mes === esp, 'Mes de mayor venta correcto', resp.mes ? 'Mira el punto o la barra más alta del gráfico filtrado: no es ' + resp.mes + '.' : 'Responde la pregunta del tablero.');
-        return { ok: r.every((x) => x.ok), resultados: r };
-      },
-      tablas: () => ({ t1, t2 }),
-    };
-  }
+  const libroReto = (experto) => ({
+    hojas: [
+      { nombre: 'Órdenes', datos: [['Folio', 'Fecha', 'Paciente', 'Edad', 'Estudio', 'Cuota', 'Preparación'], ...ords.map((o) => [o.folio, fecha(o.fecha), o.paciente, o.edad, o.estudio])], formatos: { 'F2:F30': '$#,##0.00', 'B2:B30': 'dd/mm/yyyy' }, estilos: { 'A1:G1': ENC }, anchos: { A: 56, B: 90, C: 150, D: 50, E: 170, F: 80, G: 300 }, objetivo: 'F2:G12,A12:E12', inmovilizar: { filas: 1 }, filasExtra: 10 },
+      { nombre: 'Catálogo', datos: [['Estudio', 'Cuota', 'Preparación'], ...EST.map((e) => [e.estudio, e.cuota, e.preparacion])], formatos: { 'B2:B11': '$#,##0' }, estilos: { 'A1:C1': ENC }, anchos: { A: 170, C: 330 } },
+      { nombre: 'Pacientes', datos: [['Paciente', 'Teléfono', 'Correo'], ...PAC.map((p) => [p.paciente, p.telefono, p.correo])], estilos: { 'A1:C1': ENC }, anchos: { A: 160, B: 110, C: 200 } },
+      { nombre: 'Consulta', celdas: Object.assign({ B1: 'Consulta por estudio', B2: 'Estudio:', C2: CONSULTA, B4: 'Número de órdenes', B5: 'Ingresos por cuotas' }, experto ? { B7: 'Pacientes con este estudio' } : {}), formatos: { C5: '$#,##0.00' }, estilos: { B1: { b: true, fs: 15 }, C2: { bg: '#fff8d6', b: true }, 'B4:B7': { b: true } }, anchos: { A: 30, B: 190, C: 180 }, objetivo: experto ? 'C4:C5,C7' : 'C4:C5', filas: 16, cols: 5 },
+    ],
+    pestanas: true, herramientas: ['captura', 'formulas', 'portapapeles'], altura: 400,
+  });
+  const solucion = {
+    'Órdenes!F2:F12': '=BUSCARX(E2,Catálogo!$A$2:$A$11,Catálogo!$B$2:$B$11)', 'Órdenes!G2:G12': '=BUSCARX(E2,Catálogo!$A$2:$A$11,Catálogo!$C$2:$C$11)',
+    'Órdenes!A12': String(NUEVO.folio), 'Órdenes!B12': fecha(NUEVO.fecha), 'Órdenes!C12': NUEVO.paciente, 'Órdenes!D12': String(NUEVO.edad), 'Órdenes!E12': NUEVO.estudio,
+    'Consulta!C4': '=CONTAR.SI(Órdenes!E2:E50,C2)', 'Consulta!C5': '=SUMAR.SI(Órdenes!E2:E50,C2,Órdenes!F2:F50)',
+  };
+  const validacion = (x, hoja, celda) => { const h = x.estado.hojas.find((y) => y.nombre === hoja); return h ? h.validaciones.find((v) => LT.refs.celdasDe(v.rango).some((c) => c.dir === celda)) : null; };
+  const cubreHasta = (v, fila) => String(v.rango).split(',').some((p) => { const g = LT.refs.parseRango(p); return g && g.r2 + 1 >= fila; });
+  const pruebaValidaciones = { tipo: 'fn', titulo: 'Listas desplegables y validación de la edad', fn: (x) => {
+    const vc = validacion(x, 'Órdenes', 'C2'), ve = validacion(x, 'Órdenes', 'E2'), vd = validacion(x, 'Órdenes', 'D2');
+    if (!vc || vc.tipo !== 'lista') return 'Falta la lista desplegable de pacientes en Órdenes!C2:C50 (Validación › Lista › Origen =Pacientes!$A$2:$A$11).';
+    const pac = x.hoja.valoresLista(vc, 0);
+    if (PAC.some((p) => !pac.includes(p.paciente))) return 'La lista de pacientes debe tomar los 10 pacientes de la hoja Pacientes (=Pacientes!$A$2:$A$11).';
+    if (!ve || ve.tipo !== 'lista') return 'Falta la lista desplegable de estudios en Órdenes!E2:E50 (Origen =Catálogo!$A$2:$A$11).';
+    const est = x.hoja.valoresLista(ve, 0);
+    if (EST.some((e) => !est.includes(e.estudio))) return 'La lista de estudios debe tomar los 10 estudios de la hoja Catálogo.';
+    if (!vd || vd.tipo !== 'entero' || +vd.min !== 0 || +vd.max !== 110) return 'En Edad (D2:D50) permite solo números enteros entre 0 y 110.';
+    return [vc, ve, vd].every((v) => cubreHasta(v, 50)) ? true : 'Las validaciones deben cubrir hasta la fila 50, para las órdenes que vienen.';
+  } };
+  const pruebasBase = [
+    pruebaValidaciones,
+    { tipo: 'valores', rango: 'Órdenes!A12:E12', esperado: [[NUEVO.folio, serial(NUEVO.fecha), NUEVO.paciente, NUEVO.edad, NUEVO.estudio]], titulo: 'Orden nueva capturada en la fila 12', mensaje: '{celda} muestra {obtenido}; la orden nueva es ' + NUEVO.folio + ' · 20/10/2025 · ' + NUEVO.paciente + ' · ' + NUEVO.edad + ' · ' + NUEVO.estudio + '.' },
+    { tipo: 'formula', rango: 'Órdenes!F2:G12', titulo: 'Cuota y preparación con fórmulas', mensaje: '{celda} tiene un valor escrito: búscalo en el catálogo con una fórmula.', mensajeVacia: '{celda} está vacía (copia las fórmulas hasta la fila 12).' },
+    { tipo: 'usa', rango: 'Órdenes!F2:G12', funciones: ['BUSCARX', 'INDICE', 'BUSCARV'], alguna: true, titulo: 'Datos buscados en el catálogo', mensaje: '{celda} debe buscar en la hoja Catálogo con BUSCARX.' },
+    { tipo: 'valores', rango: 'Órdenes!F2:G12', titulo: 'Cuotas y preparaciones correctas', mensaje: '{celda} muestra {obtenido}, pero debería ser {esperado}.' },
+    { tipo: 'usa', rango: 'Consulta!C4', funciones: ['CONTAR.SI', 'CONTAR.SI.CONJUNTO'], alguna: true, titulo: 'Número de órdenes con CONTAR.SI', mensaje: 'En Consulta!C4 cuenta las órdenes del estudio con CONTAR.SI.' },
+    { tipo: 'usa', rango: 'Consulta!C5', funciones: ['SUMAR.SI', 'SUMAR.SI.CONJUNTO'], alguna: true, titulo: 'Ingresos con SUMAR.SI', mensaje: 'En Consulta!C5 suma las cuotas del estudio con SUMAR.SI.' },
+    { tipo: 'valores', rango: 'Consulta!C4:C5', titulo: 'Consulta correcta', mensaje: '{celda} muestra {obtenido}; para ' + CONSULTA + ' debería ser {esperado}.' },
+    { tipo: 'robustez', cambios: [{ 'Consulta!C2': OTRO }, { 'Consulta!C2': NUEVO.estudio, 'Órdenes!E12': NUEVO.estudio }], rango: 'Consulta!C4:C5', titulo: 'La consulta funciona con cualquier estudio', mensaje: 'Al cambiar el estudio de C2, {celda} no se actualiza bien: usa C2 en la fórmula.' },
+  ];
+  const registrosCarta = D.ordenes.slice(0, 5).map((o) => {
+    const e = EST.find((x) => x.estudio === o.estudio);
+    return { Folio: o.folio, Paciente: o.paciente, Estudio: o.estudio, Cita: fecha(o.cita), Hora: o.hora, 'Preparación': e.preparacion, Cuota: o.cuota, Cuota_texto: F.formatear(o.cuota, '$#,##0.00').texto };
+  });
+  const HUECOS = [
+    { id: 'paciente', etiqueta: 'Paciente', correcto: 'Paciente' },
+    { id: 'estudio', etiqueta: 'Estudio', correcto: 'Estudio' },
+    { id: 'folio', etiqueta: 'Número de orden', correcto: 'Folio' },
+    { id: 'cita', etiqueta: 'Fecha de la cita', correcto: 'Cita' },
+    { id: 'hora', etiqueta: 'Hora', correcto: 'Hora' },
+    { id: 'prep', etiqueta: 'Preparación', correcto: 'Preparación' },
+    { id: 'cuota', etiqueta: 'Cuota', correcto: 'Cuota_texto', aviso: { Cuota: 'En la vista previa la cuota sale como ' + registrosCarta[0].Cuota + ' (sin formato de moneda). Usa el campo «Cuota_texto», que ya trae el formato $#,##0.00.' } },
+  ];
+  const PLANTILLA = ['Clínica Universitaria Vida Sana · Indicaciones para su estudio', 'Estimado(a) {paciente}:', 'Su estudio de {estudio} (orden {folio}) está programado para el {cita} a las {hora}.', 'Preparación: {prep}', 'Cuota de recuperación: {cuota}. Presente esta carta y una identificación oficial.', 'Atentamente, Coordinación de Laboratorio e Imagen'];
 
   LT.definirModulo({
     id: 12,
-    objetivo: 'Crear tablas dinámicas con campos de filas, columnas, valores y filtros; agrupar información; resumir con suma, promedio, conteo, máximo y mínimo; filtrar con segmentaciones; crear gráficos dinámicos e interpretar los resultados.',
-    situacion: 'Tengo las ' + D.ventas.length + ' ventas del año en una lista. Quiero saber <b>qué sucursal vende más cada trimestre</b> y un <b>tablero</b> donde vea las ventas por mes de cada sucursal con un clic. Y, sobre todo, que me digas <b>qué significan</b> esos números.',
+    objetivo: 'Diseñar una base de datos e identificar sus campos; capturar con formularios, validación y listas desplegables; buscar y consultar información con fórmulas; automatizar tareas con macros (grabadora, botones, seguridad, introducción a VBA) y generar documentos combinando correspondencia entre Excel y Word.',
+    situacion: 'Las órdenes de laboratorio e imagen se capturan cada quien a su manera: nombres distintos para el mismo estudio, edades imposibles y nadie encuentra nada. Quiero un <b>registro de órdenes</b> bien diseñado: captura con <b>listas</b>, la cuota y la <b>preparación se buscan solas</b>, una <b>consulta por estudio</b>, un <b>botón</b> que limpie la captura y las <b>cartas de indicaciones</b> para cada paciente, hechas en automático.',
     explicacion: [
-      { html: '<h3>Crear una tabla dinámica</h3><p>Una <b>tabla dinámica</b> resume una lista grande sin escribir fórmulas. Haz clic dentro de los datos y usa <b>Insertar › Tabla dinámica</b> (mejor en una hoja nueva). Los datos deben tener encabezados en la primera fila, sin filas vacías ni subtotales; si están en una <b>tabla de Excel</b>, la tabla dinámica incluye solas las filas nuevas.</p><h3>Las cuatro áreas</h3><ul><li><b>Filas:</b> una fila por cada valor distinto del campo (cada sucursal, cada producto).</li><li><b>Columnas:</b> una columna por cada valor distinto.</li><li><b>Valores:</b> lo que se calcula. Por omisión, los números se <b>suman</b> y los textos se <b>cuentan</b>; en «Configuración de campo de valor» se elige <b>Suma, Promedio, Cuenta, Máx. o Mín.</b>, y «Mostrar valores como» % del total.</li><li><b>Filtros:</b> limita todo el informe a un valor (por ejemplo, solo Café frío).</li></ul><h3>Agrupar información</h3><p>Las fechas se agrupan por <b>meses, trimestres o años</b> (clic derecho en una fecha › Agrupar). También se pueden agrupar números en rangos (de 0 a 20, de 20 a 40…). Si cambian los datos de origen, pulsa <b>Actualizar</b>.</p>' },
-      { widget: 'agrupacion', titulo: 'Qué hace por dentro: agrupar y resumir', instr: 'Estas son 12 ventas sueltas. Pulsa el botón y mira cómo la tabla dinámica las agrupa por sucursal y suma sus totales.', opts: { campo: 'sucursal', filas: D.ventas.slice(0, 12).map((v) => ({ grupo: v.sucursal, etiqueta: v.producto + ' · ' + LT.caso.fecha(v.fecha), valor: v.total })) } },
-      { html: '<h3>Segmentación de datos y gráficos dinámicos</h3><ul><li>Una <b>segmentación de datos</b> es un panel de botones para filtrar con un clic (Ctrl+clic para varios). Una <b>escala de tiempo</b> filtra fechas con una barra deslizante.</li><li>Un <b>gráfico dinámico</b> está conectado a su tabla dinámica: si cambias campos o filtros, el gráfico cambia. Con <b>Conexiones de filtro</b>, una segmentación controla varias tablas: así se arma un tablero.</li></ul><h3>Interpretar los resultados</h3><ul><li>Empieza por el <b>Total general</b>: da la escala y permite ver qué parte representa cada fila.</li><li>Compara en la misma dirección (fila contra fila, columna contra columna) y busca cambios de líder.</li><li>No confundas <b>Cuenta</b> (cuántos registros) con <b>Suma</b> (cuánto dinero): una sucursal puede tener más ventas registradas pero menos importe.</li><li>Un promedio de registros no es el promedio por cliente ni por día: revisa qué representa cada fila de la base.</li><li>Antes de concluir, verifica con una segunda vista (porcentajes, otro filtro).</li></ul>' },
-      { titulo: 'Explora un tablero', instr: 'Arrastra campos, cambia el resumen (▾ de la ficha de Valores) y usa las segmentaciones.', widget: (c) => pivote(c, { filas: ['Sucursal'], valores: ['Total'] }, { segmentaciones: ['Categoría'], grafico: true }) },
+      { html: '<h3>Diseñar una base de datos</h3><p>Una base de datos en Excel es una lista donde <b>cada fila es un registro</b> (una orden, una consulta) y <b>cada columna es un campo</b> (fecha, paciente, estudio…). Reglas de oro:</p><ul><li>Encabezados en una sola fila, únicos y sin celdas combinadas; nada encima de los datos.</li><li><b>Un dato por celda</b>: «TA 130/85, FC 78» son tres campos: sistólica, diastólica y frecuencia cardiaca.</li><li>Sin filas ni columnas vacías y sin subtotales dentro de los datos.</li><li>Cada campo con un solo tipo de dato: fechas reales, números sin unidades (la unidad va en el encabezado: «Peso (kg)»), textos escritos siempre igual.</li><li>Un campo clave que identifique cada registro (Folio, Expediente).</li><li>Lo que se repite va en su propia tabla (catálogo de estudios, pacientes) y se trae con búsquedas.</li></ul><p class="aviso-caja info">Los datos de salud son <b>datos personales sensibles</b>: registra solo lo necesario, protege el archivo y respeta la normativa del expediente clínico y de protección de datos de tu institución.</p><h3>Identificar los campos: el diccionario de datos</h3><div class="tabla-scroll"><table class="tabla-sitio"><thead><tr><th>Campo</th><th>Tipo</th><th>¿Obligatorio?</th><th>Valores permitidos</th><th>Cómo se llena</th></tr></thead><tbody><tr><td>Folio</td><td>Número entero</td><td>Sí, único</td><td>Consecutivo</td><td>Captura</td></tr><tr><td>Fecha</td><td>Fecha</td><td>Sí</td><td>Fechas del año</td><td>Captura</td></tr><tr><td>Paciente</td><td>Texto</td><td>Sí</td><td>Lista de la hoja Pacientes</td><td>Lista desplegable</td></tr><tr><td>Edad</td><td>Número entero</td><td>Sí</td><td>0 a 110</td><td>Validación</td></tr><tr><td>Estudio</td><td>Texto</td><td>Sí</td><td>Lista del catálogo</td><td>Lista desplegable</td></tr><tr><td>Cuota</td><td>Moneda</td><td>—</td><td>Del catálogo</td><td>Fórmula (BUSCARX)</td></tr><tr><td>Preparación</td><td>Texto</td><td>—</td><td>Del catálogo</td><td>Fórmula (BUSCARX)</td></tr></tbody></table></div>' },
+      { widget: 'disenoBD', titulo: '¿Qué está mal en este registro de consultas?', opts: { minimo: 5 } },
+      { html: '<h3>Capturar sin errores</h3><ul><li><b>Validación de datos</b> (Datos › Validación de datos): limita lo que se acepta: lista, número entero entre dos valores (edad de 0 a 110), decimal (peso), fecha, longitud de texto (teléfono de 10 dígitos); con mensaje de entrada y de error.</li><li><b>Listas desplegables</b>: Permitir «Lista» con un origen de celdas (<code>=Pacientes!$A$2:$A$11</code>) o valores separados por coma.</li><li><b>Formulario de datos</b>: el comando «Formulario…» (agrégalo a la barra de acceso rápido desde «Todos los comandos») muestra un registro a la vez para capturar, buscar o revisar sin moverse por la hoja.</li><li>Alternativas: una hoja de captura con celdas desbloqueadas y validadas, o Microsoft Forms conectado a Excel.</li></ul><h3>Buscar y consultar</h3><p><code>=BUSCARX(E2, Catálogo!$A$2:$A$11, Catálogo!$B$2:$B$11)</code> trae la cuota del estudio; cambiando la última columna trae la preparación. Para consultar: <code>=CONTAR.SI(Órdenes!E2:E50, C2)</code> cuenta las órdenes de un estudio y <code>=SUMAR.SI(…)</code> suma sus cuotas; <code>=FILTRAR(…)</code> lista los pacientes.</p>' },
+      { widget: 'buscarX', titulo: 'Cómo busca BUSCARX', instr: 'Escribe un estudio y mira cómo recorre el catálogo.', opts: { columnas: ['Estudio', 'Cuota', 'Preparación'], letras: ['A', 'B', 'C'], filas: EST.map((e) => [e.estudio, e.cuota, e.preparacion]), inicial: 'Perfil de lípidos' } },
+      { html: '<h3>Automatizar tareas: macros</h3><ul><li>Una <b>macro</b> es una serie de pasos guardada para repetirla con un clic. La <b>grabadora</b> (Programador › Grabar macro) traduce tus acciones a código VBA.</li><li><b>Referencias relativas</b>: la macro repite los pasos desde la celda activa; absolutas: siempre en las mismas celdas.</li><li><b>Botones</b>: inserta una forma o un botón de formulario y usa «Asignar macro…».</li><li><b>Seguridad</b>: guarda como <b>.xlsm</b>; al abrir un archivo con macros aparece «Habilitar contenido»: hazlo solo si confías en su origen. Los archivos descargados de internet llegan bloqueados (Propiedades del archivo › Desbloquear).</li></ul><h3>Introducción a VBA</h3><p>Lo que graba la grabadora es código <b>VBA</b> (Visual Basic para Aplicaciones). Se ve con <kbd>Alt+F11</kbd>. Una macro es un procedimiento <code>Sub … End Sub</code> que trabaja con <b>objetos</b> (<code>Range</code>, <code>Worksheets</code>), sus <b>propiedades</b> (<code>.Value</code>, <code>.Font.Bold</code>) y sus <b>métodos</b> (<code>.Select</code>, <code>.ClearContents</code>):</p><pre class="mono" style="background:#1e1e1e;color:#d4d4d4;padding:12px;border-radius:10px;overflow:auto">Sub LimpiarCaptura()\n    \' Borra los datos capturados\n    Range("C2:C5").Select\n    Selection.ClearContents\n    Range("C2").Select\nEnd Sub</pre><h3>Generar documentos: combinar correspondencia</h3><p>Con una base bien diseñada, Word genera una carta por registro (indicaciones, recordatorios de cita, constancias): <b>Correspondencia › Iniciar combinación de correspondencia › Cartas</b>; <b>Seleccionar destinatarios › Usar una lista existente</b> (el libro y su hoja); <b>Insertar campo combinado</b> en cada lugar; <b>Vista previa de resultados</b>; <b>Finalizar y combinar › Editar documentos individuales</b> (o imprimir o enviar por correo). Consejo: Word no respeta el formato de moneda ni de fecha de Excel; usa una columna de texto con <code>=TEXTO(F2,"$#,##0.00")</code> o el modificador <code>\\# "$#,##0.00"</code> en el campo.</p>' },
     ],
     ejemplo: {
-      tipo: 'pasos', titulo: 'Ventas por sucursal en cuatro pasos',
-      widget: (c) => pivote(c, { filas: ['Sucursal'], valores: ['Total'] }),
-      pasos: ['Haz clic en una celda de la lista de ventas.', { texto: 'Insertar › Tabla dinámica › Aceptar (en una hoja nueva).', ruta: ['Insertar', 'Tabla dinámica'] }, 'En la lista de campos, arrastra Sucursal a Filas.', 'Arrastra Total a Valores: aparece «Suma de Total» por sucursal (arriba puedes probarlo).'],
-      pregunta: { texto: 'En la tabla de arriba, si arrastras <b>Categoría</b> al área de <b>Columnas</b>, ¿cuántas columnas de datos aparecen (sin contar el Total general)?', opciones: ['3', '6', '20', '1'], correcta: 1, explicacion: 'Una columna por cada categoría distinta: hay <b>6</b> categorías.' },
+      tipo: 'pasos', titulo: 'Cartas de indicaciones desde la base de órdenes',
+      pasos: ['Guarda el libro con la base (encabezados en la fila 1) y ciérralo.', { texto: 'En Word: Correspondencia › Iniciar combinación de correspondencia › Cartas.' }, 'Seleccionar destinatarios › Usar una lista existente › elige el libro y la hoja «Órdenes».', 'Coloca el cursor en cada lugar de la carta e inserta el campo combinado (Paciente, Estudio, Cita, Preparación…).', 'Vista previa de resultados para revisar algunos registros; después Finalizar y combinar › Editar documentos individuales.'],
+      pregunta: { texto: 'En la vista previa, la cuota sale como <b>260</b> en lugar de <b>$260.00</b> y la fecha como <b>10/21/2025</b>. ¿Qué haces?', opciones: ['Agrego en Excel columnas con TEXTO (o uso modificadores de formato en los campos)', 'Escribo las cuotas y fechas a mano en cada carta', 'Cambio el formato de las celdas en Excel y listo', 'Imprimo y corrijo con pluma'], correcta: 0, explicacion: 'Word lee el valor guardado, no el formato de la celda. Un campo de texto ya formateado (=TEXTO(F2,"$#,##0.00")) o los modificadores <code>\\# "$#,##0.00"</code> y <code>\\@ "dd/MM/yyyy"</code> resuelven el problema.', retro: { 2: 'Word ignora el formato de la celda: lee el número guardado.' } },
     },
     micro: [
-      { titulo: 'Conteo', tipo: 'widget', enunciado: '¿Cuántos <b>registros de venta</b> tuvo cada sucursal? Sucursal en Filas y un campo en Valores resumido por <b>Cuenta</b>.',
-        crear: (c, listo) => { const info = LT.u.h('div', { class: 'retro' }); const z = LT.u.h('div'); c.append(z, info); pivote(z, {}, { alCambiar: (e) => { const ok = e.filas.length === 1 && e.filas[0].campo === 'Sucursal' && e.valores.length === 1 && e.valores[0].funcion === 'cuenta'; info.innerHTML = ''; if (ok) { info.appendChild(LT.u.h('div', { class: 'aviso-caja ok' }, '✓ Cada sucursal tiene 240 registros: la cuenta no suma importes, cuenta filas.')); listo(); } } }); } },
-      { titulo: 'Máximo y promedio', tipo: 'widget', enunciado: '¿Cuál fue el <b>registro de venta más alto</b> de cada sucursal? Sucursal en Filas y Total en Valores resumido por <b>Máx.</b> (prueba también Promedio y Mín.).',
-        crear: (c, listo) => { const info = LT.u.h('div', { class: 'retro' }); const z = LT.u.h('div'); c.append(z, info); pivote(z, {}, { alCambiar: (e) => { const ok = e.filas.length === 1 && e.filas[0].campo === 'Sucursal' && e.valores.length === 1 && e.valores[0].campo === 'Total' && e.valores[0].funcion === 'max'; info.innerHTML = ''; if (ok) { info.appendChild(LT.u.h('div', { class: 'aviso-caja ok' }, '✓ Máx. muestra la venta individual más alta de cada sucursal; Promedio, el importe medio por registro.')); listo(); } } }); } },
-      { titulo: 'Filtros', tipo: 'widget', enunciado: 'Pon <b>Categoría en Filtros</b> y elige solo «Café frío»; deja Sucursal en Filas y Suma de Total en Valores. ¿Qué sucursal vende más café frío?',
-        crear: (c, listo) => {
-          const { h } = LT.u; let est = null; const z = h('div'); const info = h('div', { class: 'retro' });
-          const s = h('select', { class: 'herr-sel' }, h('option', { value: '' }, 'Elige…'), ['Centro', 'Norte', 'Sur'].map((x) => h('option', { value: x }, x)));
-          const revisar = () => { const f = est && est.filtros.find((x) => x.campo === 'Categoría'); const ok = est && f && JSON.stringify(f.valores) === '["Café frío"]' && est.filas.length === 1 && est.filas[0].campo === 'Sucursal' && est.valores.length === 1 && est.valores[0].campo === 'Total' && s.value === frioSuc; info.innerHTML = ''; if (ok) { info.appendChild(h('div', { class: 'aviso-caja ok' }, '✓ ' + frioSuc + ' vende más café frío. El filtro afecta a todo el informe.')); listo(); } else if (s.value && est && f) info.appendChild(h('div', { class: 'aviso-caja alerta' }, 'Revisa la tabla filtrada: la sucursal con más café frío no es ' + s.value + '.')); };
-          s.addEventListener('change', revisar);
-          c.append(z, h('div', { class: 'aviso-caja info' }, '¿Qué sucursal vende más café frío? ', s), info);
-          pivote(z, {}, { alCambiar: (e) => { est = e; revisar(); } });
-        } },
-      { titulo: 'Datos nuevos', tipo: 'opcion', enunciado: 'Agregaste ventas nuevas a la lista de origen, pero la tabla dinámica sigue mostrando los totales anteriores. ¿Qué falta?', opciones: ['Actualizar la tabla dinámica', 'Volver a guardar el archivo', 'Borrar la tabla y hacerla de nuevo', 'Usar SUMA en lugar de la tabla dinámica'], correcta: 0, explicacion: 'Las tablas dinámicas no se recalculan solas: <b>Análisis de tabla dinámica › Actualizar</b> (o clic derecho › Actualizar). La categoría que más vende es ' + topCat + '.' },
+      { titulo: 'Detecta los problemas de diseño', tipo: 'widget', enunciado: 'Encuentra al menos 6 problemas de diseño en este registro de consultas.', crear: (c, listo) => LT.widgets.disenoBD(c, { minimo: 6, alListo: () => listo() }) },
+      {
+        titulo: 'Lista desplegable y formulario', tipo: 'hoja', enunciado: 'Agrega una <b>lista desplegable</b> en C2:C20 con Centro, Norte y Sur. Después usa el botón <b>Formulario</b> para capturar el registro: Folio 4 · Paciente Mateo García · Sede Norte · Edad 34.',
+        hoja: { hojas: [{ nombre: 'Registro', datos: [['Folio', 'Paciente', 'Sede', 'Edad'], [1, 'Lucía Hernández', 'Centro', 41], [2, 'Sofía Martínez', 'Sur', 63], [3, 'Diego Ramírez', 'Centro', 52]], estilos: { 'A1:D1': ENC }, anchos: { B: 170 }, filas: 12, cols: 6 }], herramientas: ['captura'] },
+        pruebas: [
+          { tipo: 'fn', fn: (x) => { const v = validacion(x, 'Registro', 'C2'); if (!v || v.tipo !== 'lista') return 'Falta la lista desplegable en C2:C20 (botón Validación › Lista).'; const l = x.hoja.valoresLista(v, 0).map((s) => s.toLowerCase()).sort().join(); return l === 'centro,norte,sur' && cubreHasta(v, 20) ? true : 'La lista debe cubrir C2:C20 y tener exactamente Centro, Norte y Sur.'; } },
+          { tipo: 'valores', rango: 'A5:D5', esperado: [[4, 'Mateo García', 'Norte', 34]], mensaje: '{celda} muestra {obtenido}; el registro nuevo es 4 · Mateo García · Norte · 34.' },
+        ],
+        pista: ['Selecciona C2:C20 › Validación › Permitir: Lista › Origen: Centro,Norte,Sur. Luego clic en una celda de los datos › Formulario › Agregar.'],
+      },
+      { titulo: 'Combinar correspondencia', tipo: 'widget', enunciado: 'Arma la carta de indicaciones: inicia la combinación como Cartas, conecta la lista de órdenes, coloca cada campo en su lugar, revisa la vista previa y finaliza.', crear: (c, listo) => LT.widgets.combinarCorrespondencia(c, { registros: registrosCarta, huecos: HUECOS, plantilla: PLANTILLA, archivo: 'Órdenes Vida Sana.xlsx', hoja: 'Órdenes', hojas: ['Órdenes$', 'Catálogo$', 'Pacientes$'], unidad: 'órdenes', alListo: () => listo() }) },
+      {
+        titulo: 'Macro con botón', tipo: 'hoja', enunciado: 'Graba una macro llamada <b>LimpiarCaptura</b> que seleccione C2:C5 y borre su contenido (tecla Supr). Inserta un botón y asígnale la macro (clic derecho › Asignar macro…).',
+        hoja: { hojas: [{ nombre: 'Captura', datos: [['Captura de orden'], ['Paciente', '', 'Diego Ramírez'], ['Estudio', '', 'Química sanguínea'], ['Edad', '', 52], ['Fecha', '', '21/10/2025']], inicio: 'A1', estilos: { A1: { b: true, fs: 15 }, 'C2:C5': { bg: '#fff8d6' } }, anchos: { A: 110, B: 20, C: 170 }, filas: 10, cols: 6 }], altura: 240 },
+        alCrear: (hoja) => { const p = LT.u.h('div'); hoja.raiz.parentNode.insertBefore(p, hoja.raiz); LT.widgets.grabadora(hoja, p, { textoBoton: 'Limpiar captura', nombreMacro: 'LimpiarCaptura' }); },
+        pruebas: [
+          { tipo: 'fn', fn: (x) => { const m = Object.values(x.hoja.macros || {}); if (!m.length) return 'Graba la macro con «Grabar macro» y «Detener grabación».'; return m.some((y) => y.pasos.some((p) => p.tipo === 'borrar')) ? true : 'La macro debe borrar el contenido (selecciona C2:C5 y pulsa Supr mientras grabas).'; } },
+          { tipo: 'fn', fn: (x) => (x.celdas('C2:C5').every((c) => !x.entrada(c.dir)) ? true : 'C2:C5 debe quedar vacío.') },
+          { tipo: 'fn', fn: (x) => ((x.estado.hojas[0].objetos || []).some((o) => o.macro) ? true : 'Inserta un botón y asígnale la macro (clic derecho › Asignar macro…).') },
+        ],
+        pista: ['Grabar macro › nombre LimpiarCaptura › selecciona C2:C5 › Supr › Detener. Luego «Insertar botón», clic derecho › Asignar macro.'],
+      },
     ],
     reto: {
-      titulo: 'Analizar el año: sucursales, trimestres y tablero', tipo: 'widget', crear: crearReto,
+      titulo: 'Registro de órdenes: captura y consulta', tipo: 'hoja',
+      intro: 'El libro tiene cuatro hojas: <i>Órdenes</i> (la base), <i>Catálogo</i>, <i>Pacientes</i> y <i>Consulta</i>. La macro y las cartas se practican en los micro-retos y en el laboratorio.',
       base: {
-        instrucciones: ['<b>Tabla 1:</b> trimestres en Filas (agrupa la Fecha), sucursales en Columnas y suma del Total en Valores. Responde qué sucursal vendió más cada trimestre y elige la interpretación correcta.', '<b>Tabla 2 (tablero):</b> meses en Filas y suma del Total en Valores, gráfico dinámico de líneas o columnas, y segmentación de Sucursal en Norte. Responde en qué mes vendió más Norte.'],
-        pistas: ['Cada pregunta de negocio es una combinación de áreas: lo que comparas va en filas o columnas, lo que mides en valores.', 'Al poner Fecha en Filas se agrupa por meses; en su menú ▾ elige «Agrupar…» y marca solo Trimestres (tabla 1). En la tabla 2 deja Meses.', 'Tabla 1: Fecha (Trimestres) · Sucursal · Suma de Total. Tabla 2: Fecha (Meses) · Suma de Total · Líneas · Segmentación Sucursal = Norte.'],
+        hoja: libroReto(false), solucion, pruebas: pruebasBase,
+        instrucciones: ['En <b>Órdenes</b>: lista desplegable de pacientes en C2:C50 (origen <code>=Pacientes!$A$2:$A$11</code>), de estudios en E2:E50 (<code>=Catálogo!$A$2:$A$11</code>) y edad entera entre 0 y 110 en D2:D50.', 'Cuota (F) y Preparación (G) con BUSCARX desde el catálogo, hasta la fila 12.', 'Captura en la fila 12 la orden: ' + NUEVO.folio + ' · 20/10/2025 · ' + NUEVO.paciente + ' · ' + NUEVO.edad + ' · ' + NUEVO.estudio + ' (puedes usar el botón Formulario).', 'En <b>Consulta</b>: C4 = número de órdenes del estudio de C2 (CONTAR.SI) y C5 = ingresos por cuotas (SUMAR.SI).'],
+        pistas: ['Primero valida la captura, después busca y al final consulta. Selecciona el rango antes de crear cada validación.', 'Validación › Lista › Origen <code>=Pacientes!$A$2:$A$11</code>. Cuota: <code>=BUSCARX(E2, Catálogo!$A$2:$A$11, Catálogo!$B$2:$B$11)</code>; Preparación: lo mismo con la columna C.', 'C4: <code>=CONTAR.SI(Órdenes!E2:E50, C2)</code> · C5: <code>=SUMAR.SI(Órdenes!E2:E50, C2, Órdenes!F2:F50)</code>.'],
       },
       niveles: {
-        explorador: { instrucciones: ['Tabla 1: la Fecha ya está agrupada por trimestres; arrastra <b>Sucursal</b> a Columnas y marca <b>Total</b>. Responde los cuatro trimestres.', 'Tabla 2: los meses y el total ya están; elige <b>Líneas</b> y haz clic en <b>Norte</b> en la segmentación. Responde el mes.'] },
-        experto: { instrucciones: ['Tabla 1: como en el nivel Analista, pero muestra los valores como <b>% del total de columnas</b> y responde en qué trimestre obtuvo Norte el mayor porcentaje de su año. Elige la interpretación correcta.', 'Tabla 2: tablero mensual con dos segmentaciones: Sucursal = Norte y Categoría = Café frío.'] },
+        explorador: {
+          plantilla: { celda: 'F2', texto: '=BUSCARX(E2, ___, ___)', copiar: 'F12' },
+          instrucciones: ['Selecciona Órdenes!C2:C50 › <b>Validación</b> › Lista › Origen <code>=Pacientes!$A$2:$A$11</code>. Repite en E2:E50 con <code>=Catálogo!$A$2:$A$11</code>. En D2:D50: Número entero, mínimo 0, máximo 110.', 'Completa la fórmula de la cuota: busca en <code>Catálogo!$A$2:$A$11</code> y devuelve <code>Catálogo!$B$2:$B$11</code>. Cópiala hasta F12. En G2 haz lo mismo devolviendo <code>Catálogo!$C$2:$C$11</code> y cópiala hasta G12.', 'Clic en una celda de los datos › <b>Formulario</b> › escribe la orden ' + NUEVO.folio + ' · 20/10/2025 · ' + NUEVO.paciente + ' · ' + NUEVO.edad + ' · ' + NUEVO.estudio + ' › Agregar.', 'En Consulta: C4 <code>=CONTAR.SI(Órdenes!E2:E50,C2)</code> y C5 <code>=SUMAR.SI(Órdenes!E2:E50,C2,Órdenes!F2:F50)</code>.'],
+        },
+        experto: {
+          hoja: libroReto(true),
+          solucion: Object.assign({}, solucion, { 'Consulta!C7': '=FILTRAR(Órdenes!C2:C50,Órdenes!E2:E50=C2)' }),
+          instrucciones: ['Todo lo del nivel Analista (validaciones, cuota, preparación, captura y consulta).', 'En Consulta!C2 pon una lista desplegable con los estudios del catálogo.', 'En Consulta!C7, con FILTRAR, lista los pacientes que tienen ese estudio (se desbordará hacia abajo).'],
+          pruebasExtra: [
+            { tipo: 'fn', titulo: 'Lista de estudios en la consulta', fn: (x) => { const v = validacion(x, 'Consulta', 'C2'); return v && v.tipo === 'lista' && x.hoja.valoresLista(v, 3).includes('Perfil de lípidos') ? true : 'Pon en Consulta!C2 una lista desplegable con los estudios.'; } },
+            { tipo: 'usa', rango: 'Consulta!C7', funciones: ['FILTRAR'], titulo: 'Pacientes con FILTRAR', mensaje: 'Usa FILTRAR en Consulta!C7.' },
+            { tipo: 'valores', rango: 'Consulta!C7:C10', titulo: 'Lista de pacientes del estudio', mensaje: '{celda} muestra {obtenido}; debería ser {esperado}.' },
+          ],
+        },
       },
     },
     lab: {
-      archivo: 'lab12-tablas-dinamicas.xlsx', titulo: 'Tablas dinámicas y tablero en Excel',
-      contexto: 'La hoja Ventas tiene las ' + D.ventas.length + ' ventas de 2025. La hoja Respuestas es para tus conclusiones.',
+      archivo: 'lab12-ordenes.xlsx', titulo: 'Registro de órdenes y cartas de indicaciones', docx: true, acepta: '.xlsx,.xlsm,.docx',
+      descargas: [{ ruta: 'laboratorios/lab12-carta.docx', texto: 'Carta (Word)' }],
+      contexto: 'Parte 1 en Excel (base, validación, búsqueda y consulta) y parte 2 en Word (combinar correspondencia). Sube el libro y el documento de Word juntos.',
       pasos: {
-        explorador: [{ texto: 'Clic en la lista › Insertar › Tabla dinámica › Nueva hoja.', ruta: ['Insertar', 'Tabla dinámica'] }, 'Fecha a Filas (clic derecho › Agrupar › solo Trimestres), Sucursal a Columnas y Total a Valores.', 'En Respuestas escribe la sucursal líder de cada trimestre (B2:B5), el mes con más ventas de Norte (B7) y la sucursal líder del año (B8).', { texto: 'Con otra tabla dinámica por meses, inserta un gráfico dinámico y una segmentación por Sucursal.', ruta: ['Análisis de tabla dinámica', 'Insertar segmentación de datos'] }, 'Guarda y sube el libro.'],
-        analista: ['Tabla dinámica: trimestres × sucursales con la suma de Total.', 'Respuestas: líderes por trimestre (B2:B5), mes con más ventas de Norte (B7) y líder del año (B8).', 'Tablero: tabla dinámica por meses, gráfico dinámico y segmentación por Sucursal conectada.', 'Guarda y sube el libro.'],
-        experto: ['Lo del nivel Analista.', 'Muestra en alguna tabla dinámica los valores como porcentaje del total.', 'Agrega una escala de tiempo por Fecha al tablero.', 'Guarda y sube el libro.'],
+        explorador: [{ texto: 'En Órdenes: listas desplegables en Paciente (C2:C60) y Estudio (E2:E60), y Edad entera de 0 a 110 (D2:D60).', ruta: ['Datos', 'Validación de datos'] }, 'Cuota (F) y Preparación (G) con BUSCARX desde Catálogo para todas las órdenes.', 'En Consulta: C4 número de órdenes y C5 ingresos del estudio de C2.', 'Guarda y cierra el libro. Abre lab12-carta.docx en Word: Correspondencia › Iniciar combinación › Cartas › Seleccionar destinatarios › Usar una lista existente (este libro, hoja Órdenes).', 'Inserta los campos Paciente, Estudio, Cita y Preparación donde dice [Campo]. Guarda la carta y sube los dos archivos.'],
+        analista: ['Excel: validaciones en Órdenes (paciente, estudio, edad 0–110), cuota y preparación con BUSCARX y la consulta por estudio (C4, C5).', 'Word: combina la carta con la hoja Órdenes usando al menos los campos Paciente, Estudio, Cita y Preparación. Sube el libro y la carta.'],
+        experto: ['Lo del nivel Analista.', 'Graba una macro que limpie Consulta!C2, asígnala a un botón y guarda el libro como .xlsm.', 'En Word, aplica al campo Cuota el formato de moneda con el modificador \\# "$#,##0.00" (Alt+F9 muestra los códigos de campo).'],
       },
-      notaWeb: 'Excel para la web permite crear tablas dinámicas, agrupar fechas, gráficos dinámicos y segmentaciones.',
+      notaWeb: 'Combinar correspondencia y las macros requieren Word y Excel de escritorio.',
       pruebas: [
-        { titulo: 'Tabla dinámica por trimestre y sucursal', fn: (L) => { if (!L.dinamicas.length) return 'No encontré ninguna tabla dinámica.'; return L.dinamicas.find((p) => p.columnas.some((c) => /sucursal/i.test(c.nombre)) && p.valores.some((v) => /total/i.test(v.campo) && v.funcion === 'sum') && (p.filas.some((f) => f.agruparPor === 'quarters' || /trim/i.test(f.nombre)) || p.agrupaciones.some((g) => g.por === 'quarters'))) ? true : 'La tabla dinámica debe tener los trimestres en filas, Sucursal en columnas y Suma de Total en valores.'; } },
-        { titulo: 'Líderes por trimestre', fn: (L, A) => { A.hoja('Respuestas'); for (let q = 1; q <= 4; q++) { const v = String(L.valor('Respuestas', 'B' + (q + 1)) || '').trim(); if (v.toLowerCase() !== LIDERES[q - 1].toLowerCase()) return 'Trimestre ' + q + ': ' + (v ? '«' + v + '» no es la sucursal que más vendió.' : 'falta la respuesta en B' + (q + 1) + '.'); } return true; } },
-        { titulo: 'Interpretación: mes de Norte y líder del año', fn: (L) => { const m = String(L.valor('Respuestas', 'B7') || '').trim().toLowerCase(); if (!m.startsWith(MES_NORTE)) return 'B7: el mes con más ventas de Norte no es «' + (m || 'vacío') + '».'; return String(L.valor('Respuestas', 'B8') || '').trim().toLowerCase() === LIDER_ANUAL.toLowerCase() ? true : 'B8: revisa el Total general para saber qué sucursal gana el año.'; } },
-        { titulo: 'Gráfico dinámico', fn: (L) => (L.graficos.some((g) => g.dinamico) ? true : 'Falta un gráfico dinámico (conectado a una tabla dinámica).') },
-        { titulo: 'Segmentación por Sucursal conectada', fn: (L) => { const s = L.segmentaciones.find((x) => /sucursal/i.test(x.campo || x.nombre)); if (!s) return 'Inserta una segmentación por Sucursal.'; return s.dinamicas.length ? true : 'La segmentación no está conectada a ninguna tabla dinámica.'; } },
-        { titulo: 'Valores como porcentaje', nivel: 'experto', fn: (L) => (L.dinamicas.some((p) => p.valores.some((v) => /percent/i.test(v.mostrarComo || ''))) ? true : 'Muestra en alguna tabla dinámica los valores como porcentaje (Mostrar valores como).') },
-        { titulo: 'Escala de tiempo', nivel: 'experto', fn: (L) => (L.escalasTiempo.length ? true : 'Agrega una escala de tiempo por Fecha.') },
+        { titulo: 'Validaciones de captura', fn: (L, A) => {
+          const h = A.hoja('Órdenes');
+          const v = (col) => h.validaciones.find((x) => A.rangoCubre(x.sqref, col + '2:' + col + '40'));
+          const c = v('C'), e = v('E'), d = v('D');
+          if (!c || c.tipo !== 'list' || !/pacientes|hern[aá]ndez|garc[ií]a/i.test(c.formula1)) return 'Falta la lista desplegable de pacientes en C2:C60.';
+          if (!e || e.tipo !== 'list' || !/cat[aá]logo|biometr/i.test(e.formula1)) return 'Falta la lista desplegable de estudios en E2:E60.';
+          if (!d || d.tipo !== 'whole' || +d.formula1 !== 0 || +d.formula2 !== 110) return 'En D2:D60 permite solo números enteros entre 0 y 110.';
+          return true;
+        } },
+        { titulo: 'Cuota y preparación con fórmulas', fn: (L, A) => {
+          for (let r = 2; r <= 60; r++) {
+            const est = L.valor('Órdenes', 'E' + r);
+            if (!est) break;
+            const e = EST.find((x) => x.estudio === est);
+            if (!L.usaFuncion('Órdenes', 'F' + r, ['XLOOKUP', 'INDEX', 'VLOOKUP'])) return 'F' + r + ' debe buscar la cuota con BUSCARX.';
+            if (!e || !A.cerca(A.num(L.valor('Órdenes', 'F' + r)), e.cuota)) return 'F' + r + ' debería mostrar la cuota de ' + est + '.';
+            if (!L.usaFuncion('Órdenes', 'G' + r, ['XLOOKUP', 'INDEX', 'VLOOKUP'])) return 'G' + r + ' debe buscar la preparación con BUSCARX.';
+            if (String(L.valor('Órdenes', 'G' + r) || '').trim() !== e.preparacion) return 'G' + r + ' debería mostrar la preparación de ' + est + '.';
+          }
+          return true;
+        } },
+        { titulo: 'Consulta por estudio', fn: (L, A) => {
+          A.hoja('Consulta');
+          if (!L.usaFuncion('Consulta', 'C4', ['COUNTIF', 'COUNTIFS']) || !L.usaFuncion('Consulta', 'C5', ['SUMIF', 'SUMIFS'])) return 'Usa CONTAR.SI en C4 y SUMAR.SI en C5.';
+          const v = A.conCambios({ 'Consulta!C2': 'Química sanguínea' });
+          let n = 0, t = 0;
+          for (let r = 2; r <= 60; r++) { if (v('Órdenes', 'E' + r) === 'Química sanguínea') { n++; t += A.num(v('Órdenes', 'F' + r)) || 0; } }
+          const ok = A.cerca(A.num(v('Consulta', 'C4')), n) && A.cerca(A.num(v('Consulta', 'C5')), t);
+          v.restaurar();
+          return ok ? true : 'Con otro estudio en C2 la consulta no se actualiza bien: usa C2 en las fórmulas.';
+        } },
+        { titulo: 'Carta combinada en Word', fn: (L) => {
+          if (!L.docx) return 'Sube también el documento de Word (.docx) con la combinación de correspondencia.';
+          const c = L.docx.campos.map((x) => x.toLowerCase());
+          if (c.length) { const faltan = ['paciente', 'estudio', 'cita', 'preparaci'].filter((x) => !c.some((y) => y.startsWith(x))); return faltan.length ? 'A la carta le faltan los campos: ' + faltan.join(', ').replace('preparaci', 'preparación') + '.' : true; }
+          const nombres = PAC.map((x) => x.paciente).filter((n) => L.docx.texto.includes(n));
+          return nombres.length >= 3 ? true : 'No encontré campos combinados en la carta. Inserta los campos con Correspondencia › Insertar campo combinado.';
+        } },
+        { titulo: 'Libro con macro y botón', nivel: 'experto', fn: (L) => (!L.habilitadoMacros || !L.tieneVBA ? 'Guarda el libro como .xlsm con la macro.' : L.hojas.some((x) => x.controles.some((c) => c.macro) || x.dibujo.conMacro.length) ? true : 'Asigna la macro a un botón.') },
+        { titulo: 'Cuota con formato de moneda en la carta', nivel: 'experto', fn: (L) => { if (!L.docx) return 'Sube la carta de Word.'; const i = L.docx.instrucciones.find((x) => /cuota/i.test(x.campo)); return i && /\\#/.test(i.resto) ? true : 'Agrega al campo Cuota el modificador \\# "$#,##0.00" (Alt+F9 para ver los códigos de campo).'; } },
       ],
     },
     donde: [
-      { comando: 'Tabla dinámica', ruta: ['Insertar', 'Tabla dinámica'] },
-      { comando: 'Agrupar selección (fechas)', ruta: ['Análisis de tabla dinámica', 'Agrupar selección'], nota: 'También: clic derecho sobre una fecha › Agrupar.' },
-      { comando: 'Configuración de campo de valor (Suma, Promedio, Máx.)', ruta: ['Análisis de tabla dinámica', 'Configuración de campo'] },
-      { comando: 'Insertar segmentación de datos', ruta: ['Análisis de tabla dinámica', 'Insertar segmentación de datos'] },
-      { comando: 'Gráfico dinámico', ruta: ['Análisis de tabla dinámica', 'Gráfico dinámico'] },
-      { comando: 'Actualizar', ruta: ['Análisis de tabla dinámica', 'Actualizar'] },
+      { comando: 'Validación de datos', ruta: ['Datos', 'Validación de datos'] },
+      { comando: 'Grabar macro', ruta: ['Programador', 'Grabar macro'], nota: 'También en Vista › Macros › Grabar macro…' },
+      { comando: 'Botón (control de formulario)', ruta: ['Programador', 'Insertar', 'Botón (control de formulario)'] },
+      { comando: 'Seguridad de macros', ruta: ['Programador', 'Seguridad de macros'] },
+      { comando: 'Guardar como .xlsm', ruta: ['Archivo', 'Guardar como', 'Libro de Excel habilitado para macros (*.xlsm)'] },
+      { comando: 'Funciones de búsqueda (BUSCARX)', ruta: ['Fórmulas', 'Búsqueda y referencia'] },
     ],
-    glosario: ['SUMA', 'PROMEDIO', 'CONTAR', 'MAX', 'MIN'],
-    atajos: ['Clic derecho sobre un valor › Resumir valores por › Suma, Recuento, Promedio, Máx., Mín.', 'Doble clic sobre un número de la tabla dinámica: Excel crea una hoja con los registros que lo forman.', '<kbd>Ctrl</kbd>+clic en una segmentación para elegir varios elementos.'],
+    glosario: ['BUSCARX', 'BUSCARV', 'INDICE', 'COINCIDIR', 'FILTRAR', 'CONTAR.SI', 'SUMAR.SI', 'TEXTO', 'SI.ERROR'],
+    atajos: ['<kbd>Alt+F11</kbd> editor de VBA · <kbd>Alt+F8</kbd> lista de macros', 'En Word: <kbd>Alt+F9</kbd> muestra u oculta los códigos de campo', 'Para el Formulario de datos: agrega «Formulario…» a la barra de acceso rápido (Todos los comandos).'],
   });
 })();
