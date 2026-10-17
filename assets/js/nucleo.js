@@ -288,9 +288,9 @@
   LT.ui = { toast, modal, aviso };
 
   /* ---------------------------------------------------------- Progreso */
-  const CLAVE = 'laTaza.progreso.v1';
+  const CLAVE = 'laTaza.progreso.v2';
   function vacio() {
-    return { version: 1, participante: { nombre: '', grupo: '' }, modulos: {}, ubicacion: {}, integradores: {}, creado: new Date().toISOString() };
+    return { version: 2, participante: { nombre: '', grupo: '' }, modulos: {}, ubicacion: {}, integradores: {}, creado: new Date().toISOString() };
   }
   let cache = null;
   function cargar() {
@@ -344,7 +344,7 @@
   function reporte() {
     const p = cargar();
     const datos = JSON.stringify({ ...p, exportado: new Date().toISOString() });
-    return JSON.stringify({ tipo: 'reporte-la-taza', datos, huella: huella(datos + 'la-taza') }, null, 1);
+    return JSON.stringify({ tipo: 'reporte-la-taza', version: 2, datos, huella: huella(datos + 'la-taza') }, null, 1);
   }
   function leerReporte(texto) {
     const obj = JSON.parse(texto);

@@ -487,6 +487,20 @@
         case 'ancho':
           m.pasos.push({ tipo: 'ancho', col: a.col, ancho: a.ancho, vba: 'Columns("' + a.col + ':' + a.col + '").ColumnWidth = ' + (a.ancho / 7).toFixed(2) });
           break;
+        case 'borrar':
+          m.pasos.push({ tipo: 'borrar', vba: 'Selection.ClearContents' });
+          break;
+        case 'copiar': case 'cortar':
+          m.pasos.push({ tipo: a.tipo, vba: a.tipo === 'copiar' ? 'Selection.Copy' : 'Selection.Cut' });
+          break;
+        case 'pegar': {
+          const op = a.opciones || {};
+          m.pasos.push({ tipo: 'pegar', opciones: op, vba: op.solo === 'valores' ? 'Selection.PasteSpecial Paste:=xlPasteValues' + (op.transponer ? ', Transpose:=True' : '') : op.solo === 'formatos' ? 'Selection.PasteSpecial Paste:=xlPasteFormats' : 'ActiveSheet.Paste' });
+          break;
+        }
+        case 'insertarFilas':
+          m.pasos.push({ tipo: 'insertarFilas', fila: a.fila, n: a.n, vba: 'Rows("' + a.fila + ':' + (a.fila + a.n - 1) + '").Insert Shift:=xlDown' });
+          break;
         default: return;
       }
       mostrarCodigo(m);
@@ -505,7 +519,11 @@
         else if (p.tipo === 'valor') {
           const raw = String(p.raw)[0] === '=' ? R.desplazarFormula(p.raw, hoja.sel.ar - p.r, hoja.sel.ac - p.c) : p.raw;
           hoja.establecer(R.dir(hoja.sel.ar, hoja.sel.ac), raw);
-        } else if (p.tipo === 'autoajustar') hoja.autoajustarColumna(R.colIndice(p.col));
+        } else if (p.tipo === 'borrar') hoja.borrarContenido();
+        else if (p.tipo === 'copiar' || p.tipo === 'cortar') hoja.copiarInterno(p.tipo === 'cortar');
+        else if (p.tipo === 'pegar') hoja.pegar(p.opciones || {});
+        else if (p.tipo === 'insertarFilas') hoja.insertarFilas(p.fila - 1, p.n);
+        else if (p.tipo === 'autoajustar') hoja.autoajustarColumna(R.colIndice(p.col));
         else if (p.tipo === 'ancho') { hoja.hj.anchos[R.colIndice(p.col)] = p.ancho; hoja.renderHoja(); }
       }
       grabando = prev;
@@ -525,10 +543,10 @@
       panel.appendChild(btnRel);
       panel.appendChild(h('button', { class: 'herr-btn', disabled: grabando || !Object.keys(hoja.macros).length ? true : null, onclick: elegirYEjecutar }, LT.icono('ejecutar', 16), 'Macros (ejecutar)'));
       panel.appendChild(h('button', { class: 'herr-btn', disabled: grabando || !Object.keys(hoja.macros).length ? true : null, onclick: () => { const n = Object.keys(hoja.macros).pop(); mostrarCodigo(hoja.macros[n]); } }, LT.icono('codigo', 16), 'Ver código (VBA)'));
-      panel.appendChild(h('button', { class: 'herr-btn', disabled: grabando ? true : null, onclick: () => hoja.agregarObjeto({ tipo: 'forma', forma: 'redondeado', texto: 'Dar formato', w: 130, h: 40, relleno: '#1e7145', x: hoja.area.scrollLeft + 420, y: hoja.area.scrollTop + 12 }) }, LT.icono('forma', 16), 'Insertar botón'));
+      panel.appendChild(h('button', { class: 'herr-btn', disabled: grabando ? true : null, onclick: () => hoja.agregarObjeto({ tipo: 'forma', forma: 'redondeado', texto: opts.textoBoton || 'Dar formato', w: 130, h: 40, relleno: '#1e7145', x: hoja.area.scrollLeft + 420, y: hoja.area.scrollTop + 12 }) }, LT.icono('forma', 16), 'Insertar botón'));
     };
     const iniciar = async () => {
-      const nombre = h('input', { type: 'text', value: 'FormatoReporte' });
+      const nombre = h('input', { type: 'text', value: opts.nombreMacro || 'FormatoReporte' });
       const desc = h('input', { type: 'text', value: '' , placeholder: 'Qué hace la macro'});
       const r = await LT.ui.modal({ titulo: 'Grabar macro', cuerpo: h('div', null, h('label', null, 'Nombre de la macro'), nombre, h('label', null, 'Guardar macro en'), h('select', { disabled: true }, h('option', null, 'Este libro')), h('label', null, 'Descripción'), desc, h('p', { style: { fontSize: '.85rem', color: 'var(--tinta-2)' } }, relativas ? 'Referencias relativas: activadas. La macro repetirá los pasos a partir de la celda donde esté el cursor.' : 'Referencias absolutas: la macro siempre trabajará sobre las mismas celdas.')), botones: [{ texto: 'Cancelar', valor: null }, { texto: 'Aceptar', primario: true, valor: () => nombre.value.trim() }] });
       if (!r) return;

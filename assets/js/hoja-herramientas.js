@@ -1192,6 +1192,71 @@
   };
   C.mostrarFormulas = (hj) => { hj.mostrarFormulas = !hj.mostrarFormulas; hj.pintar(); hj._refrescarHerr(); hj.emitir('accion', { tipo: 'mostrarFormulas', activo: hj.mostrarFormulas }); };
 
+  /* ------------------------------------------- formulario de captura */
+  C.formulario = async (hj) => {
+    const hjo = hj.hj;
+    const hIdx = hj.libro.activa;
+    const region = regionActual(hj, hj.sel.ar, hj.sel.ac);
+    if (region.r1 === region.r2) { LT.ui.aviso('Formulario', 'Selecciona una celda dentro de una lista que tenga encabezados en la primera fila.'); return; }
+    const hid = hj.idHoja();
+    const cols = [];
+    for (let c = region.c1; c <= region.c2; c++) cols.push(c);
+    const enc = cols.map((c) => String(hj.hf.getCellValue({ sheet: hid, row: region.r1, col: c }) || R.colLetra(c)));
+    let ultima = region.r2;
+    let actual = null; // null = registro nuevo
+    const esFormula = (c) => String(hjo.celdas.get(k(ultima, c)) || '')[0] === '=';
+    const estado = h('div', { style: { fontSize: '.85rem', color: 'var(--tinta-2)', marginBottom: '6px' } });
+    const msj = h('div', { class: 'retro' });
+    const campos = cols.map((c, i) => {
+      const val = hj._validacionDe(ultima, c);
+      let ctl;
+      if (val && val.tipo === 'lista') { ctl = h('select', null, h('option', { value: '' }, '—'), hj.valoresLista(val).map((v) => h('option', { value: v }, v))); }
+      else ctl = h('input', { type: 'text' });
+      return { c, ctl, etiqueta: h('label', null, enc[i]) };
+    });
+    const llenar = () => {
+      msj.textContent = '';
+      campos.forEach(({ c, ctl }) => {
+        if (esFormula(c)) { ctl.disabled = true; ctl.value = actual == null ? '(se calcula con fórmula)' : hj.textoCelda(hIdx, actual, c).texto; return; }
+        ctl.disabled = actual != null;
+        ctl.value = actual == null ? '' : hj.textoCelda(hIdx, actual, c).texto;
+      });
+      estado.textContent = actual == null ? 'Registro nuevo (escribe los datos y pulsa «Agregar»)' : 'Registro ' + (actual - region.r1) + ' de ' + (ultima - region.r1);
+    };
+    const agregar = () => {
+      const r = ultima + 1;
+      const lista = [];
+      for (const { c, ctl } of campos) {
+        if (esFormula(c)) { lista.push({ r, c, raw: R.desplazarFormula(hjo.celdas.get(k(ultima, c)), 1, 0) }); continue; }
+        const v = ctl.value.trim();
+        const val = hj._validacionDe(r, c) || hj._validacionDe(ultima, c);
+        if (v && val && !hj._cumpleValidacion(val, v, hIdx)) { msj.innerHTML = ''; msj.appendChild(h('div', { class: 'aviso-caja error' }, '«' + v + '» no es válido para «' + enc[cols.indexOf(c)] + '». ' + (val.mensajeError || 'Revisa la validación de datos de esa columna.'))); return; }
+        lista.push({ r, c, raw: v || null });
+      }
+      if (lista.every((x) => x.raw == null || String(x.raw)[0] === '=')) { msj.textContent = 'Escribe al menos un dato.'; return; }
+      hj.guardarDeshacer();
+      for (const { c } of campos) { const e = hjo.estilos.get(k(ultima, c)); if (e) hjo.estilos.set(k(r, c), JSON.parse(JSON.stringify(e))); }
+      hj._ponerVarios(lista);
+      ultima = r;
+      hj.pintar();
+      hj.emitir('accion', { tipo: 'formulario', fila: r + 1 });
+      hj.emitir('cambio', { tipo: 'formulario' });
+      actual = null;
+      llenar();
+      msj.appendChild(h('div', { class: 'aviso-caja ok' }, '✓ Registro agregado en la fila ' + (r + 1) + '.'));
+    };
+    const cuerpo = h('div', null, estado, h('div', { class: 'fila2' }, campos.map(({ ctl, etiqueta }) => h('div', null, etiqueta, ctl))),
+      h('div', { class: 'grupo-btn', style: { marginTop: '12px' } },
+        h('button', { class: 'btn chico', onclick: () => { actual = null; llenar(); } }, 'Nuevo'),
+        h('button', { class: 'btn chico', onclick: () => { actual = actual == null ? ultima : Math.max(region.r1 + 1, actual - 1); llenar(); } }, 'Buscar anterior'),
+        h('button', { class: 'btn chico', onclick: () => { if (actual == null) return; actual = actual + 1 > ultima ? null : actual + 1; llenar(); } }, 'Buscar siguiente'),
+        h('button', { class: 'btn chico primario', onclick: () => { if (actual != null) { actual = null; llenar(); return; } agregar(); } }, 'Agregar')),
+      msj);
+    llenar();
+    await LT.ui.modal({ titulo: hjo.nombre, cuerpo, enterAcepta: false, botones: [{ texto: 'Cerrar', valor: null, primario: true }] });
+    hj.enfocar();
+  };
+
   /* ============================================================ BARRA */
   const GRUPOS = {
     portapapeles: [
@@ -1278,6 +1343,10 @@
     ],
     vista: [
       { ic: 'inmovilizar', txt: 'Inmovilizar', t: 'Inmovilizar paneles', c: 'inmovilizar', conEvento: true },
+    ],
+    captura: [
+      { ic: 'tablaDatos', txt: 'Formulario', t: 'Formulario de datos: captura o consulta registros de la lista', c: 'formulario' },
+      { ic: 'validacion', txt: 'Validación', t: 'Validación de datos', c: 'validacion' },
     ],
     insertar: [
       { ic: 'imagen', txt: 'Imágenes', t: 'Insertar imagen', c: 'imagen' },

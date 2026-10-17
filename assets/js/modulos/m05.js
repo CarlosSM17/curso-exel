@@ -1,122 +1,92 @@
-/* Módulo 5 · Ver y administrar hojas de cálculo */
+/* Módulo 5 · Insertar objetos */
 (function () {
-  const { D, ENC, semana } = LT.caso;
-  const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-  const hojaSucursal = (suc, nombre) => {
-    const filas = semana(suc);
-    return {
-      nombre,
-      datos: [
-        ['Sucursal ' + suc + ' · Semana 42 (unidades vendidas)'],
-        ['Producto', ...DIAS, 'Total'],
-        ...filas.map((p, i) => [p.producto, ...p.cantidades, '=SUMA(B' + (i + 3) + ':H' + (i + 3) + ')']),
-        ['Total', ...'BCDEFGHI'.split('').map((c) => '=SUMA(' + c + '3:' + c + '10)')],
-      ],
-      estilos: { A1: { b: true, fs: 15 }, 'A2:I2': ENC, 'A11:I11': { b: true } }, anchos: { A: 120 }, cols: 10, filas: 14,
-    };
-  };
-  const libroReto = () => ({
-    hojas: [hojaSucursal('Centro', 'Hoja1'), hojaSucursal('Norte', 'Hoja2'), hojaSucursal('Sur', 'Hoja3'),
-      { nombre: 'Hoja4', datos: [['Sucursal', 'Total semana'], ['Centro'], ['Norte'], ['Sur'], ['Total']], estilos: { 'A1:B1': ENC, 'A5:B5': { b: true } }, anchos: { A: 110, B: 110 }, objetivo: 'B2:B5', filas: 10, cols: 5 }],
-    editarHojas: true, pestanas: true, herramientas: ['portapapeles', 'vista'], altura: 360,
-  });
-  const nombreHoja = (x, n) => x.estado.hojas.find((h) => h.nombre.toLowerCase() === n.toLowerCase());
+  const { D, ENC } = LT.caso;
+  const URL_MENU = 'https://lataza.mx/menu';
+  const menu = D.productos.filter((p) => /^(CAF|FRI|TE)/.test(p.codigo)).map((p) => [p.nombre, p.categoria, p.precio]);
+  const hojaMenu = () => ({ hojas: [{ nombre: 'Menú', datos: [[], [], [], [], [], [], ['Bebida', 'Categoría', 'Precio'], ...menu], formatos: { 'C8:C20': '$#,##0' }, estilos: { 'A7:C7': ENC }, anchos: { A: 170, B: 130, C: 80, D: 90, E: 90, F: 90 }, filas: 22, cols: 8 }], herramientas: ['insertar', 'portapapeles'], altura: 420 });
+  const objetos = (x) => (x.estado.hojas[0].objetos || []);
   const pruebasBase = [
-    { tipo: 'fn', titulo: 'Hojas de sucursal con su nombre', detener: true, fn: (x) => {
-      for (const suc of ['Centro', 'Norte', 'Sur']) {
-        const h = nombreHoja(x, suc);
-        if (!h) return 'No hay ninguna hoja llamada «' + suc + '». Doble clic en la pestaña para cambiar el nombre (revisa la celda A1 de cada hoja).';
-        if (!String(h.celdas.A1 || '').includes(suc)) return 'La hoja «' + suc + '» tiene los datos de otra sucursal: revisa el título en A1 antes de cambiar el nombre.';
-      }
-      return true;
+    { tipo: 'fn', titulo: 'Logo de La Taza insertado', fn: (x) => (objetos(x).some((o) => o.tipo === 'imagen' && o.galeria === 'logo') ? true : 'Falta el logo: Insertar › Imágenes › Logo de La Taza.') },
+    { tipo: 'fn', titulo: 'Forma con el texto «Menú de temporada»', fn: (x) => {
+      const f = objetos(x).filter((o) => o.tipo === 'forma');
+      if (!f.length) return 'Falta una forma: Insertar › Formas.';
+      return f.some((o) => /men[uú] de temporada/i.test(o.texto || '')) ? true : 'La forma debe decir «Menú de temporada» (doble clic en la forma para escribir).';
     } },
-    { tipo: 'fn', titulo: 'Hoja «Resumen» al inicio', detener: true, fn: (x) => (!nombreHoja(x, 'Resumen') ? 'Cambia el nombre de Hoja4 a «Resumen».' : x.estado.hojas[0].nombre.toLowerCase() !== 'resumen' ? 'Mueve «Resumen» a la primera posición (clic derecho en la pestaña › Mover a la izquierda).' : true) },
-    { tipo: 'fn', titulo: 'Pestañas de sucursal con color', fn: (x) => { const sin = ['Centro', 'Norte', 'Sur'].find((s) => !nombreHoja(x, s).color); return sin ? 'Ponle color a la pestaña «' + sin + '» (clic derecho › Color de pestaña).' : true; } },
-    { tipo: 'formula', rango: 'Resumen!B2:B5', titulo: 'Totales con fórmulas', mensaje: '{celda} tiene un número escrito: trae el total con una referencia a la otra hoja.', mensajeVacia: '{celda} está vacía.' },
-    { tipo: 'contiene', rango: 'Resumen!B2:B4', texto: '!', titulo: 'Referencias a otras hojas', mensaje: '{celda} debe apuntar a la hoja de la sucursal, por ejemplo =Centro!I11.' },
-    { tipo: 'valores', rango: 'Resumen!B2:B5', titulo: 'Totales correctos', mensaje: '{celda} muestra {obtenido}, pero el total es {esperado}: el total de cada sucursal está en I11 de su hoja.' },
-    { tipo: 'robustez', cambios: { 'Centro!B3': 99, 'Sur!H10': 50 }, rango: 'Resumen!B2:B5', titulo: 'El resumen se actualiza solo', mensaje: 'Si cambia una venta en otra hoja, {celda} no se actualiza.' },
+    { tipo: 'fn', titulo: 'Icono de taza de café', fn: (x) => (objetos(x).some((o) => o.tipo === 'icono' && o.galeria === 'taza') ? true : 'Falta el icono de la taza de café: Insertar › Iconos.') },
+    { tipo: 'fn', titulo: 'Vínculo al menú en línea en A5', fn: (x) => {
+      const e = x.estilo('A5');
+      if (!e.link) return 'A5 todavía no tiene vínculo: selecciona A5 › Insertar › Vínculo.';
+      if (e.link.replace(/\/$/, '') !== URL_MENU) return 'El vínculo de A5 debe ir a ' + URL_MENU + '.';
+      return /ver men[uú] en l[ií]nea/i.test(String(x.valor('A5') || '')) ? true : 'El texto de A5 debe ser «Ver menú en línea».';
+    } },
   ];
 
   LT.definirModulo({
     id: 5,
-    objetivo: 'Crear, renombrar y mover hojas; inmovilizar paneles y usar datos de otra hoja.',
-    situacion: 'Cada sucursal me manda su semana en el mismo libro, pero las hojas se llaman Hoja1, Hoja2, Hoja3… <b>Organiza el libro</b>: una hoja por sucursal con su nombre y una hoja <b>Resumen</b> al inicio con el total de cada una.',
+    objetivo: 'Agregar imágenes, formas, iconos, cuadros de texto e hipervínculos.',
+    situacion: 'Vamos a mandar el menú por correo a las empresas clientes. Necesito un <b>encabezado con nuestro logo</b>, un letrero llamativo y un <b>enlace al menú en línea</b>.',
     explicacion: [
-      { html: '<h3>Las hojas del libro</h3><ul><li><b>Insertar:</b> botón <b>+</b> junto a las pestañas.</li><li><b>Cambiar nombre:</b> doble clic en la pestaña (máximo 31 caracteres, sin <code>/ \\ ? * [ ] :</code>).</li><li><b>Mover:</b> arrastra la pestaña o usa clic derecho.</li><li><b>Color de pestaña, ocultar y mostrar:</b> clic derecho en la pestaña.</li></ul><h3>Inmovilizar paneles</h3><p>En una lista larga, <b>Vista › Inmovilizar</b> deja fijos los encabezados mientras te desplazas. «Inmovilizar paneles» fija lo que está arriba y a la izquierda de la celda activa.</p><h3>Datos de otra hoja</h3><p>Para usar una celda de otra hoja se escribe el nombre de la hoja, un signo de admiración y la celda: <code>=Centro!I11</code>. Si el nombre tiene espacios va entre apóstrofos: <code>=\'Semana 42\'!I11</code>. Lo más fácil: escribe <kbd>=</kbd>, haz clic en la pestaña de la otra hoja, haz clic en la celda y pulsa <kbd>Enter</kbd>.</p>' },
+      { html: '<h3>Objetos que flotan sobre la hoja</h3><p>Las imágenes, formas, iconos y cuadros de texto no viven dentro de una celda: <b>flotan</b> encima de la cuadrícula y se pueden mover y cambiar de tamaño con el ratón. Están en la pestaña <b>Insertar</b>.</p><ul><li><b>Imágenes:</b> fotos o el logo, desde tu equipo.</li><li><b>Iconos:</b> dibujos sencillos que se pueden agrandar sin perder calidad.</li><li><b>Formas:</b> rectángulos, flechas o cintas; pueden llevar texto.</li><li><b>Cuadro de texto:</b> texto libre que puedes colocar donde quieras.</li><li><b>Vínculo</b> (hipervínculo): se pone en una celda y abre una página web o lleva a otra hoja. Para seguirlo dentro de Excel: <kbd>Ctrl</kbd>+clic.</li></ul><p><b>Texto alternativo:</b> describe la imagen para quien usa lector de pantalla. Clic derecho sobre el objeto › Editar texto alternativo.</p>' },
+      { titulo: 'Zona de práctica', instr: 'Inserta objetos y muévelos. Clic derecho sobre un objeto para ver sus opciones; Supr lo elimina.', hoja: { altura: 260, hojas: [{ nombre: 'Práctica', datos: [], filas: 10, cols: 8 }], herramientas: ['insertar'] } },
     ],
     ejemplo: {
-      titulo: 'Traer el total de otra hoja', intro: 'La fórmula de B2 trae un dato de la hoja Centro. Puedes ver esa hoja con su pestaña, abajo. Predice el resultado.',
-      hoja: { hojas: [{ nombre: 'Resumen', datos: [['Sucursal', 'Total semana'], ['Centro']], estilos: { 'A1:B1': ENC }, filas: 6, cols: 4 }, hojaSucursal('Centro', 'Centro')], pestanas: true, altura: 230 },
-      celda: 'B2', formula: '=Centro!I11',
-      respuesta: semana('Centro').reduce((s, p) => s + p.unidades, 0),
-      explicacion: ['<code>Centro!</code> indica la hoja; <code>I11</code> la celda de esa hoja.', 'En la hoja Centro, I11 es el total de la semana: <b>' + semana('Centro').reduce((s, p) => s + p.unidades, 0) + '</b> unidades.', 'Si cambia una venta en Centro, el Resumen se actualiza solo.'],
+      tipo: 'pasos', titulo: 'Insertar el logo con texto alternativo',
+      pasos: [{ texto: 'Haz clic cerca de donde quieres el logo.' }, { texto: 'Insertar › Imágenes › Este dispositivo… y elige el archivo del logo.', ruta: ['Insertar', 'Imágenes'] }, 'Arrastra la imagen a su lugar y ajústala desde una esquina (así conserva la proporción).', 'Clic derecho › Editar texto alternativo: «Logo de Cafetería La Taza».'],
+      pregunta: { texto: '¿Para qué sirve el <b>texto alternativo</b> de una imagen?', opciones: ['Describe la imagen para personas que usan lector de pantalla', 'Aparece como título al imprimir', 'Cambia el nombre del archivo de la imagen', 'Reduce el tamaño del archivo'], correcta: 0, explicacion: 'El texto alternativo hace accesible el documento: los lectores de pantalla lo leen en voz alta.' },
     },
     micro: [
+      { titulo: '¿Qué objeto usarías?', tipo: 'opcion', enunciado: 'Quieres un letrero con <b>fondo de color y esquinas redondeadas</b> que diga «¡Nuevo!» encima de la tabla.', opciones: ['Una forma (rectángulo redondeado) con texto', 'Una imagen', 'Un comentario', 'Una celda con relleno'], correcta: 0, explicacion: 'Las formas pueden llevar texto, color de relleno y se colocan donde quieras.' },
       {
-        titulo: 'Nombre y color de la pestaña', tipo: 'hoja', enunciado: 'Cambia el nombre de «Hoja1» a <b>Centro</b> y ponle color a su pestaña.',
-        hoja: { hojas: [hojaSucursal('Centro', 'Hoja1')], editarHojas: true, pestanas: true, altura: 220 },
-        pruebas: [{ tipo: 'fn', fn: (x) => { const h = x.estado.hojas[0]; if (h.nombre !== 'Centro') return 'La hoja todavía se llama «' + h.nombre + '»: haz doble clic en la pestaña.'; return h.color ? true : 'Ahora ponle color: clic derecho en la pestaña › Color de pestaña.'; } }],
-        pista: ['Doble clic en la pestaña «Hoja1» (abajo), escribe Centro y pulsa Aceptar. Luego clic derecho › Color de pestaña.'],
-      },
-      {
-        titulo: 'Encabezados siempre visibles', tipo: 'hoja', enunciado: 'Esta lista tiene 60 ventas. Inmoviliza la fila de encabezados para que no desaparezca al bajar.',
-        hoja: { hojas: [{ nombre: 'Ventas', datos: [['Folio', 'Fecha', 'Sucursal', 'Producto', 'Total'], ...D.ventas.slice(0, 60).map((v) => [v.folio, LT.caso.fecha(v.fecha), v.sucursal, v.producto, v.total])], formatos: { 'E2:E61': '$#,##0' }, estilos: { 'A1:E1': ENC }, anchos: { D: 150 } }], herramientas: ['vista'], altura: 240 },
-        pruebas: [{ tipo: 'fn', fn: (x) => (x.estado.hojas[0].inmov.f === 1 ? true : 'Usa Inmovilizar › Inmovilizar fila superior.') }],
-        pista: ['Botón «Inmovilizar» de la barra › «Inmovilizar fila superior».'],
+        titulo: 'Un vínculo en una celda', tipo: 'hoja', enunciado: 'En B3 crea un vínculo con el texto «Pedidos en línea» que vaya a <code>https://lataza.mx/pedidos</code>.',
+        hoja: { hojas: [{ nombre: 'Hoja1', datos: [['Cafetería La Taza'], [], ['Haz tu pedido:']], anchos: { A: 130, B: 160 }, filas: 8, cols: 5, objetivo: 'B3' }], herramientas: ['insertar'] },
+        pruebas: [{ tipo: 'fn', fn: (x) => { const e = x.estilo('B3'); if (!e.link) return 'B3 no tiene vínculo: selecciona B3 y usa el botón Vínculo.'; if (e.link.replace(/\/$/, '') !== 'https://lataza.mx/pedidos') return 'La dirección debe ser https://lataza.mx/pedidos'; return /pedidos en l[ií]nea/i.test(String(x.valor('B3'))) ? true : 'El texto debe ser «Pedidos en línea».'; } }],
+        pista: ['Selecciona B3 › botón «Vínculo» de la barra; escribe el texto que se mostrará y la dirección.'],
       },
     ],
     reto: {
-      titulo: 'Una hoja por sucursal y una de resumen', tipo: 'hoja',
-      intro: 'El libro tiene cuatro hojas. Cada una de las tres primeras tiene en A1 el nombre de su sucursal; Hoja4 es el resumen.',
+      titulo: 'Encabezado del menú con logo y enlace', tipo: 'hoja',
+      intro: 'La hoja <i>Menú</i> tiene libres las filas 1 a 6 para el encabezado.',
       base: {
-        hoja: libroReto(), pruebas: pruebasBase,
-        solucion: { 'Resumen!B2': '=Centro!I11', 'Resumen!B3': '=Norte!I11', 'Resumen!B4': '=Sur!I11', 'Resumen!B5': '=SUMA(B2:B4)' },
-        instrucciones: ['Cambia el nombre de Hoja1, Hoja2 y Hoja3 por el de su sucursal (lee el título en A1 de cada una).', 'Cambia el nombre de Hoja4 a <b>Resumen</b> y muévela al inicio.', 'Pon color a las pestañas de las tres sucursales.', 'En Resumen, B2:B4: trae el total de la semana de cada sucursal (está en <b>I11</b> de su hoja). En B5 súmalos.'],
-        pistas: ['Las pestañas se manejan con doble clic (nombre) y clic derecho (mover, color).', 'Una referencia a otra hoja se escribe <code>=Hoja!Celda</code>; también puedes escribir = y hacer clic en la otra pestaña y en la celda.', 'B2: <code>=Centro!I11</code>, B3: <code>=Norte!I11</code>, B4: <code>=Sur!I11</code>, B5: <code>=SUMA(B2:B4)</code>.'],
+        hoja: hojaMenu(), pruebas: pruebasBase,
+        instrucciones: ['Inserta el <b>logo</b> de La Taza en la parte superior.', 'Inserta una <b>forma</b> con el texto «Menú de temporada».', 'Inserta un <b>icono</b> de taza de café.', 'En <b>A5</b> crea un vínculo con el texto «Ver menú en línea» a <code>' + URL_MENU + '</code>.', 'Acomoda los objetos para que no tapen la tabla.'],
+        pistas: ['Todo está en la sección «Insertar» de la barra del simulador.', 'Para escribir en una forma, haz doble clic sobre ella. El vínculo se crea con la celda A5 seleccionada.', 'Imágenes › Logo de La Taza; Formas › Cinta (doble clic para escribir); Iconos › Taza de café; A5 › Vínculo.'],
       },
       niveles: {
-        explorador: { instrucciones: ['Doble clic en la pestaña <b>Hoja1</b>, escribe <b>Centro</b>. Repite: Hoja2 → <b>Norte</b>, Hoja3 → <b>Sur</b>, Hoja4 → <b>Resumen</b>.', 'Clic derecho en «Resumen» › Mover a la izquierda (tres veces) hasta que quede primera.', 'Clic derecho en cada sucursal › Color de pestaña.', 'En Resumen, haz clic en B2, escribe <kbd>=</kbd>, haz clic en la pestaña Centro, haz clic en I11 y pulsa Enter. Repite para Norte (B3) y Sur (B4).', 'En B5 escribe <code>=SUMA(B2:B4)</code>.'] },
+        explorador: { instrucciones: ['Botón <b>Imágenes</b> › «Logo de La Taza». Arrástralo a la esquina superior izquierda.', 'Botón <b>Formas</b> › «Cinta». Haz doble clic sobre ella y escribe «Menú de temporada».', 'Botón <b>Iconos</b> › «Taza de café».', 'Haz clic en <b>A5</b> › botón <b>Vínculo</b>: texto «Ver menú en línea», dirección <code>' + URL_MENU + '</code>.'] },
         experto: {
-          instrucciones: ['Organiza el libro como en el nivel Analista (nombres, Resumen al inicio, colores y totales con referencias).', 'En la hoja <b>Centro</b>, inmoviliza las filas 1–2 y la columna A (celda activa B3 › Inmovilizar paneles).'],
-          pruebasExtra: [{ tipo: 'fn', titulo: 'Paneles inmovilizados en Centro', fn: (x) => { const h = nombreHoja(x, 'Centro'); return h && h.inmov.f === 2 && h.inmov.c === 1 ? true : 'En Centro, selecciona B3 y usa Inmovilizar › Inmovilizar paneles.'; } }],
+          instrucciones: ['Arma el encabezado: logo, forma «Menú de temporada», icono de taza de café y vínculo «Ver menú en línea» en A5 a ' + URL_MENU + '.', 'Agrega <b>texto alternativo</b> al logo y al icono.', 'Agrega un <b>cuadro de texto</b> con el horario «Abierto de 7:00 a 21:00».'],
+          pruebasExtra: [
+            { tipo: 'fn', titulo: 'Texto alternativo en logo e icono', fn: (x) => { const o = objetos(x).filter((y) => y.tipo === 'imagen' || y.tipo === 'icono'); const sin = o.find((y) => !y.alt || y.alt.length < 4); return sin ? 'Agrega texto alternativo a «' + (sin.nombre || sin.tipo) + '» (clic derecho › Editar texto alternativo).' : true; } },
+            { tipo: 'fn', titulo: 'Cuadro de texto con el horario', fn: (x) => (objetos(x).some((o) => o.tipo === 'texto' && /7:00/.test(o.texto || '') && /21:00/.test(o.texto || '')) ? true : 'Falta un cuadro de texto con «Abierto de 7:00 a 21:00».') },
+          ],
         },
       },
     },
     lab: {
-      archivo: 'lab05-sucursales.xlsx', titulo: 'Organizar el libro de la semana 43',
-      contexto: 'Mismo libro, otra semana: Hoja1 a Hoja3 son las sucursales (lee A1) y Hoja4 el resumen.',
+      archivo: 'lab05-menu.xlsx', titulo: 'Encabezado del menú en Excel',
+      contexto: 'Descarga también el logo en PNG para insertarlo.',
+      descargas: [{ ruta: 'assets/img/logo-la-taza.png', texto: 'Logo (PNG)' }],
       pasos: {
-        explorador: [{ texto: 'Cambia el nombre de cada hoja según su sucursal (doble clic en la pestaña).', ruta: ['Inicio', 'Formato', 'Cambiar el nombre de la hoja'] }, 'Cambia Hoja4 a Resumen y arrástrala al inicio.', { texto: 'Pon color a las pestañas de sucursal.', ruta: ['Inicio', 'Formato', 'Color de pestaña'] }, 'En Resumen B2:B4 escribe =Centro!I11, =Norte!I11, =Sur!I11 y en B5 =SUMA(B2:B4).', 'Guarda y sube el libro.'],
-        analista: ['Nombres de hoja por sucursal y «Resumen» al inicio.', 'Color en las pestañas de sucursal.', 'Resumen!B2:B5 con referencias a las otras hojas y su suma.', 'Guarda y sube el libro.'],
-        experto: ['Lo del nivel Analista.', 'En Centro, inmoviliza las filas 1–2 y la columna A.', 'Guarda y sube el libro.'],
+        explorador: [{ texto: 'Inserta el logo (archivo logo-la-taza.png).', ruta: ['Insertar', 'Imágenes'] }, { texto: 'Inserta una forma y escribe «Menú de temporada».', ruta: ['Insertar', 'Formas'] }, { texto: 'Inserta un icono de café.', ruta: ['Insertar', 'Iconos'] }, { texto: 'En A5 inserta un vínculo «Ver menú en línea» a ' + URL_MENU + '.', ruta: ['Insertar', 'Vínculo'] }, 'Guarda y sube el libro.'],
+        analista: ['Arma el encabezado con logo, forma «Menú de temporada», icono y el vínculo «Ver menú en línea» (A5 → ' + URL_MENU + ').', 'Guarda y sube el libro.'],
+        experto: ['Encabezado del nivel Analista.', 'Texto alternativo en el logo y en el icono.', 'Cuadro de texto con el horario «Abierto de 7:00 a 21:00».', 'Guarda y sube el libro.'],
       },
+      notaWeb: 'En Excel para la web: Insertar › Imagen › Este dispositivo, e Insertar › Formas e Iconos.',
       pruebas: [
-        { titulo: 'Hojas con nombre de sucursal', fn: (L) => { for (const s of ['Centro', 'Norte', 'Sur', 'Resumen']) if (!L.hoja(s)) return 'No hay una hoja llamada «' + s + '».'; for (const s of ['Centro', 'Norte', 'Sur']) if (!String(L.valor(s, 'A1') || '').includes(s)) return 'La hoja «' + s + '» tiene los datos de otra sucursal (revisa A1).'; return true; } },
-        { titulo: '«Resumen» antes de las sucursales', fn: (L) => { const i = (n) => L.hojas.findIndex((x) => x.nombre.toLowerCase() === n); return i('resumen') < Math.min(i('centro'), i('norte'), i('sur')) ? true : 'Mueve la hoja Resumen antes de las hojas de sucursal.'; } },
-        { titulo: 'Pestañas con color', fn: (L) => { const s = ['Centro', 'Norte', 'Sur'].find((x) => !L.hoja(x) || !L.hoja(x).colorPestana); return s ? (L.hoja(s) ? 'La pestaña «' + s + '» no tiene color.' : 'No hay una hoja llamada «' + s + '».') : true; } },
-        { titulo: 'Totales con referencias a otras hojas', fn: (L, A) => {
-          const sucs = ['Centro', 'Norte', 'Sur'];
-          let suma = 0;
-          for (let i = 0; i < 3; i++) {
-            const d = 'B' + (i + 2);
-            const f = L.formula('Resumen', d);
-            if (!f || !f.includes('!')) return d + ' debe tener una referencia a la hoja ' + sucs[i] + ' (por ejemplo =' + sucs[i] + '!I11).';
-            const esp = A.num(L.valor(sucs[i], 'I11'));
-            if (!A.cerca(A.num(L.valor('Resumen', d)), esp)) return d + ' debería mostrar el total de ' + sucs[i] + ': ' + esp + '.';
-            suma += esp;
-          }
-          return L.tieneFormula('Resumen', 'B5') && A.cerca(A.num(L.valor('Resumen', 'B5')), suma) ? true : 'B5 debe sumar B2:B4 con una fórmula.';
-        } },
-        { titulo: 'Paneles inmovilizados en Centro', nivel: 'experto', fn: (L) => { const h = L.hoja('Centro'); if (!h) return 'No hay una hoja llamada «Centro».'; return h.inmovilizada && h.panel.y >= 2 && h.panel.x >= 1 ? true : 'En Centro, inmoviliza las filas 1–2 y la columna A (celda activa B3).'; } },
+        { titulo: 'Logo insertado (imagen)', fn: (L, A) => { const h = A.hoja('Menú'); return h.dibujo.imagenes.length ? true : 'No encontré ninguna imagen: inserta el logo.'; } },
+        { titulo: 'Forma con «Menú de temporada»', fn: (L) => { const d = L.hoja('Menú').dibujo; const f = d.formas.concat(d.cuadrosTexto); return f.some((o) => /men[uú] de temporada/i.test(o.texto)) ? true : 'Falta una forma con el texto «Menú de temporada».'; } },
+        { titulo: 'Icono insertado', fn: (L) => { const d = L.hoja('Menú').dibujo; return d.iconos.length || d.imagenes.length >= 2 ? true : 'Falta el icono: Insertar › Iconos.'; } },
+        { titulo: 'Vínculo al menú en línea', fn: (L) => { const v = L.hoja('Menú').hipervinculos.find((x) => /lataza\.mx\/menu/i.test(x.destino || '')); return v ? true : 'No encontré un vínculo a ' + URL_MENU + '.'; } },
+        { titulo: 'Texto alternativo', nivel: 'experto', fn: (L) => { const d = L.hoja('Menú').dibujo; const o = d.imagenes.concat(d.iconos); const sin = o.find((x) => !x.alt || x.alt.length < 4); return o.length && !sin ? true : 'Agrega texto alternativo a todas las imágenes e iconos.'; } },
+        { titulo: 'Cuadro de texto con el horario', nivel: 'experto', fn: (L) => { const d = L.hoja('Menú').dibujo; return d.cuadrosTexto.concat(d.formas).some((o) => /7:00/.test(o.texto) && /21:00/.test(o.texto)) ? true : 'Falta el cuadro de texto con el horario.'; } },
       ],
     },
     donde: [
-      { comando: 'Inmovilizar paneles', ruta: ['Vista', 'Inmovilizar', 'Inmovilizar paneles'] },
-      { comando: 'Inmovilizar fila superior', ruta: ['Vista', 'Inmovilizar', 'Inmovilizar fila superior'] },
-      { comando: 'Cambiar el nombre de la hoja', ruta: ['Inicio', 'Formato', 'Cambiar el nombre de la hoja'], nota: 'Lo más rápido: doble clic en la pestaña.' },
-      { comando: 'Color de pestaña', ruta: ['Inicio', 'Formato', 'Color de pestaña'], nota: 'También con clic derecho en la pestaña.' },
+      { comando: 'Imágenes', ruta: ['Insertar', 'Imágenes'] },
+      { comando: 'Iconos', ruta: ['Insertar', 'Iconos'], nota: 'En Mac y en la web también está en Insertar.' },
+      { comando: 'Cuadro de texto', ruta: ['Insertar', 'Cuadro de texto'] },
+      { comando: 'Vínculo', ruta: ['Insertar', 'Vínculo'], nota: 'Atajo: Ctrl+Alt+K.' },
     ],
-    atajos: ['<kbd>Ctrl+AvPág</kbd> / <kbd>Ctrl+RePág</kbd> para pasar a la hoja siguiente o anterior (en Excel).', 'Escribe <kbd>=</kbd> y haz clic en otra pestaña para referirte a otra hoja.'],
+    atajos: ['<kbd>Ctrl</kbd>+clic sobre una celda con vínculo para abrirlo.', 'Arrastra una esquina del objeto con <kbd>Mayús</kbd> para conservar la proporción.'],
   });
 })();

@@ -1,145 +1,153 @@
-/* Módulo 2 · Fórmulas básicas */
+/* Módulo 2 · Editar un libro de trabajo */
 (function () {
   const { D, ENC } = LT.caso;
-  const corte = D.corte;
-  const total = corte.reduce((s, t) => s + t.cantidad * t.precio, 0);
-  const contado = 1500 + total - 20;
-  const filasCorte = corte.map((t) => [t.ticket, t.hora, t.producto, t.cantidad, t.precio]);
-  const hojaCorte = (extra) => ({
-    nombre: 'Corte',
-    datos: [['Ticket', 'Hora', 'Producto', 'Cantidad', 'Precio', 'Importe', '', 'Resumen del día'], ...filasCorte],
-    celdas: Object.assign({ H2: 'Total vendido', H3: 'Ticket promedio', H4: 'Venta mayor', H5: 'Venta menor', H6: 'Número de tickets', H8: 'Fondo inicial', I8: '1500', H9: 'Dinero contado al cierre', I9: String(contado), H10: 'Diferencia de caja' }, extra || {}),
-    formatos: { 'E2:F15': '$#,##0.00', 'I2:I5': '$#,##0.00', 'I8:I11': '$#,##0.00' },
-    estilos: { 'A1:F1': ENC, H1: { b: true, fs: 15 }, 'H2:H11': { b: true } },
-    anchos: { A: 64, B: 60, C: 150, D: 74, E: 80, F: 92, G: 24, H: 180, I: 110 },
-    objetivo: 'F2:F15,I2:I6,I10', inmovilizar: { filas: 1 },
-  });
-  const solucion = { 'F2:F15': '=D2*E2', I2: '=SUMA(F2:F15)', I3: '=PROMEDIO(F2:F15)', I4: '=MAX(F2:F15)', I5: '=MIN(F2:F15)', I6: '=CONTAR(F2:F15)', I10: '=I9-(I8+I2)' };
-  const pruebas = [
-    { tipo: 'formula', rango: 'F2:F15', titulo: 'Importes con fórmula', mensaje: '{celda} tiene un número escrito: calcula el importe con =cantidad*precio.', mensajeVacia: '{celda} está vacía: copia la fórmula del importe hasta F15.' },
-    { tipo: 'valores', rango: 'F2:F15', titulo: 'Importes correctos', mensaje: '{celda} muestra {obtenido}, pero cantidad × precio da {esperado}.' },
-    { tipo: 'usa', rango: 'I2', funciones: ['SUMA'], titulo: 'Total con SUMA', mensaje: 'En I2 usa SUMA para sumar los importes.' },
-    { tipo: 'usa', rango: 'I3', funciones: ['PROMEDIO'], titulo: 'Ticket promedio con PROMEDIO', mensaje: 'En I3 usa PROMEDIO.' },
-    { tipo: 'usa', rango: 'I4', funciones: ['MAX'], titulo: 'Venta mayor con MAX', mensaje: 'En I4 usa MAX.' },
-    { tipo: 'usa', rango: 'I5', funciones: ['MIN'], titulo: 'Venta menor con MIN', mensaje: 'En I5 usa MIN.' },
-    { tipo: 'usa', rango: 'I6', funciones: ['CONTAR', 'CONTARA'], alguna: true, titulo: 'Número de tickets con CONTAR', mensaje: 'En I6 usa CONTAR.' },
-    { tipo: 'valores', rango: 'I2:I6', titulo: 'Resumen correcto', mensaje: '{celda} muestra {obtenido}, pero debería ser {esperado}: revisa el rango (F2:F15).' },
-    { tipo: 'formula', rango: 'I10', titulo: 'Diferencia calculada con fórmula', mensaje: 'I10 debe calcularse con una fórmula.' },
-    { tipo: 'valores', rango: 'I10', titulo: 'La diferencia de caja es correcta', mensaje: 'I10 muestra {obtenido}, pero la diferencia es {esperado}: dinero contado − (fondo + ventas). ¿Usaste paréntesis?' },
-    { tipo: 'robustez', cambios: { D3: 10, E5: 99, I8: 2000 }, rango: 'F2:F15,I2:I6,I10', titulo: 'Se recalcula si cambian los datos', mensaje: 'Al cambiar una cantidad, un precio y el fondo, {celda} no se actualizó: usa referencias a celdas, no números escritos.' },
+  const sucio = [
+    ['Código', 'Producto', 'Categoría', 'Precio'],
+    ['CAF-001', 'Espresso', 'Cafe caliente', 35],
+    ['', 'Americano', 'Cafe caliente', 40],
+    ['', 'Capuchno', 'Cafe caliente', 52],
+    ['', 'Latte', 'Cafe caliente', 5.5],
+    ['', 'Café de olla', 'Cafe caliente', 38],
+    ['FRI-001', 'Frappé moka', 'Cafe frío', 68],
+    ['', 'Cold brew', 'Cafe frío', 58],
+    ['', 'Latte helado', 'Cafe frío', 58],
+    ['PAN-001', 'Croissant', 'Panadería', 38],
+    ['', 'Concha', 'Panadería', 22],
+  ];
+  const codigos = ['CAF-001', 'CAF-002', 'CAF-003', 'CAF-004', 'CAF-005', 'CAF-006', 'FRI-001', 'FRI-002', 'FRI-003', 'PAN-001', 'PAN-002'];
+  const nombres = ['Espresso', 'Americano', 'Capuchino', 'Latte', 'Moka', 'Café de olla', 'Frappé moka', 'Cold brew', 'Latte helado', 'Croissant', 'Concha'];
+  const cats = ['Café caliente', 'Café caliente', 'Café caliente', 'Café caliente', 'Café caliente', 'Café caliente', 'Café frío', 'Café frío', 'Café frío', 'Panadería', 'Panadería'];
+  const precios = [35, 40, 52, 55, 60, 38, 68, 58, 58, 38, 22];
+  const hojaPrecios = () => ({ hojas: [{ nombre: 'Precios', datos: sucio, formatos: { 'D2:D14': '$#,##0.00' }, estilos: { 'A1:D1': ENC }, anchos: { A: 90, B: 150, C: 130, D: 90 }, filas: 18 }], herramientas: ['portapapeles', 'edicion', 'celdas'] });
+  const pruebas = (preciosEsp) => [
+    { tipo: 'valores', rango: 'B2:B12', esperado: nombres, titulo: 'Productos completos y bien escritos', mensaje: '{celda} muestra {obtenido}, pero debería decir {esperado}. ¿Insertaste la fila del Moka entre el Latte y el Café de olla? ¿Corregiste «Capuchno»?', detener: true },
+    { tipo: 'valores', rango: 'A2:A12', esperado: codigos, titulo: 'Todos los productos tienen código', mensaje: '{celda} debería tener {esperado}: arrastra el controlador de relleno desde el primer código de cada familia.' },
+    { tipo: 'valores', rango: 'C2:C12', esperado: cats, titulo: 'Categorías con acento', mensaje: '{celda} dice {obtenido}: usa Buscar y reemplazar (Ctrl+L) para cambiar «Cafe» por «Café».' },
+    { tipo: 'valores', rango: 'D2:D12', esperado: preciosEsp, titulo: 'Precios correctos', mensaje: '{celda} muestra {obtenido}, pero el precio es {esperado}.' },
   ];
 
   LT.definirModulo({
     id: 2,
-    objetivo: 'Construir fórmulas con operadores y con SUMA, PROMEDIO, MAX, MIN y CONTAR, y copiarlas a otras celdas.',
-    situacion: 'Cerramos el día en la sucursal Centro. Necesito el <b>corte de caja</b>: cuánto vendimos, el ticket promedio, la venta mayor y la menor, cuántos tickets hubo y si la caja cuadra.',
+    objetivo: 'Capturar, corregir, copiar y rellenar datos; buscar y reemplazar.',
+    situacion: 'Bienvenido(a) al equipo. Antes de imprimir el menú nuevo necesito que <b>pases a limpio la lista de precios</b>: le faltan códigos, hay errores de captura, falta un producto y alguien escribió «Cafe» sin acento en todos lados.',
     explicacion: [
-      { html: '<h3>Las fórmulas empiezan con =</h3><p>Una fórmula calcula a partir de otras celdas: <code>=D2*E2</code> multiplica la cantidad por el precio. Si cambia D2, el resultado se actualiza solo. Por eso conviene usar <b>referencias</b> (D2) y no números escritos (3*52).</p><p><b>Operadores:</b> <code>+</code> suma, <code>-</code> resta, <code>*</code> multiplica, <code>/</code> divide, <code>^</code> potencia. <b>Prioridad:</b> primero paréntesis, luego potencias, luego multiplicación y división, y al final suma y resta. <code>=2+3*4</code> da 14; <code>=(2+3)*4</code> da 20.</p><h3>Funciones básicas</h3><ul><li><code>=SUMA(F2:F15)</code> suma el rango F2 a F15 (los dos puntos significan «hasta»).</li><li><code>=PROMEDIO(…)</code>, <code>=MAX(…)</code>, <code>=MIN(…)</code> y <code>=CONTAR(…)</code> (cuenta las celdas con números).</li><li><b>Autosuma</b> (<kbd>Alt+=</kbd>) escribe la SUMA por ti y propone el rango.</li></ul>' },
-      { widget: 'copiarReferencias', titulo: 'Cómo se copian las referencias', instr: 'La fórmula del importe en F2 es <code>=D2*E2</code>. Al copiarla hacia abajo, Excel ajusta las filas: en F3 será =D3*E3. Pasa el cursor sobre cada fila.', opts: { datos: [['Ticket', 'Hora', 'Producto', 'Cantidad', 'Precio', 'Importe'], ...filasCorte.slice(0, 5)], formula: '=D2*E2', celda: 'F2', hasta: 'F6', formatos: { 4: '$#,##0' }, valorCorrecto: (r) => corte[r - 1].cantidad * corte[r - 1].precio, formatoResultado: '$#,##0', instruccion: '' } },
+      { html: '<h3>Libro, hoja y celda</h3><p>Un <b>libro</b> es el archivo; tiene <b>hojas</b> (pestañas abajo) y cada hoja es una cuadrícula de <b>celdas</b>. Cada celda se nombra con su columna y su fila: <b>B3</b> es la columna B, fila 3. El <b>cuadro de nombres</b> (arriba a la izquierda) muestra la celda activa y la <b>barra de fórmulas</b> muestra lo que contiene.</p><ul><li><b>Capturar:</b> escribe y pulsa <kbd>Enter</kbd> (baja) o <kbd>Tab</kbd> (derecha).</li><li><b>Corregir:</b> doble clic o <kbd>F2</kbd> para editar sin borrar; <kbd>Supr</kbd> borra el contenido; <kbd>Esc</kbd> cancela.</li><li><b>Copiar y pegar:</b> <kbd>Ctrl+C</kbd> y <kbd>Ctrl+V</kbd>; <b>Pegado especial</b> (<kbd>Ctrl+Alt+V</kbd>) pega solo valores, solo formatos o hace operaciones.</li><li><b>Autorrelleno:</b> arrastra el cuadrito verde de la esquina (controlador de relleno) para copiar o continuar una serie.</li><li><b>Buscar y reemplazar:</b> <kbd>Ctrl+B</kbd> busca y <kbd>Ctrl+L</kbd> reemplaza.</li><li><b>Insertar filas o columnas:</b> clic derecho sobre el número de fila o la letra de columna.</li></ul>' },
+      { titulo: 'Zona de práctica libre', instr: 'Escribe, muévete con las flechas, edita con F2, arrastra el controlador de relleno y prueba clic derecho. Aquí nada se califica.', hoja: { altura: 230, hojas: [{ nombre: 'Práctica', datos: [['Día', 'Ventas'], ['Lunes', 3200]], filas: 14, cols: 8 }], herramientas: ['portapapeles', 'edicion', 'celdas'] } },
     ],
     ejemplo: {
-      titulo: 'Total de los primeros tickets',
-      hoja: { hojas: [{ nombre: 'Corte', datos: [['Ticket', 'Producto', 'Cantidad', 'Precio', 'Importe', '', 'Total'], ...corte.slice(0, 4).map((t, i) => [t.ticket, t.producto, t.cantidad, t.precio, '=C' + (i + 2) + '*D' + (i + 2)])], formatos: { 'D2:E5': '$#,##0', G2: '$#,##0' }, estilos: { 'A1:G1': ENC }, anchos: { B: 130 }, filas: 7 }] },
-      celda: 'G2', formula: '=SUMA(E2:E5)',
-      respuesta: corte.slice(0, 4).reduce((s, t) => s + t.cantidad * t.precio, 0), formato: '$#,##0',
-      explicacion: ['<code>E2:E5</code> es el rango de E2 a E5: cuatro celdas.', 'SUMA las suma: ' + corte.slice(0, 4).map((t) => t.cantidad * t.precio).join(' + ') + ' = <b>' + corte.slice(0, 4).reduce((s, t) => s + t.cantidad * t.precio, 0) + '</b>.', 'Si cambias una cantidad, E y el total se recalculan solos.'],
+      tipo: 'pasos', titulo: 'Así continúa Excel una serie',
+      intro: 'Antes de arrastrar, predice qué escribirá Excel. Después compara con lo que hace de verdad.',
+      widget: 'autorrelleno', opts: { ejemplos: [['Lunes'], ['CAF-001'], ['ene'], ['5'], ['5', '10'], ['15/10/2025']] },
+      pasos: ['Escribe el valor inicial (por ejemplo <b>CAF-001</b>) y selecciónalo.', 'Coloca el puntero en el cuadrito verde de la esquina inferior derecha: cambia a una cruz delgada.', 'Arrastra hacia abajo (o a la derecha) y suelta. Excel continúa la serie: CAF-002, CAF-003…', 'Si solo quieres copiar el mismo valor, usa el botón de opciones de autorrelleno que aparece al soltar (Copiar celdas).'],
+      pregunta: { texto: 'Escribes <b>Lun</b> en A1 y arrastras el controlador hasta A4. ¿Qué aparece en A4?', opciones: ['Lun', 'Jue', 'Mar', 'Lun4'], correcta: 1, explicacion: 'Excel reconoce los días abreviados: Lun, Mar, Mié, <b>Jue</b>.' },
     },
     micro: [
-      { titulo: 'Prioridad de operadores', tipo: 'opcion', enunciado: '¿Qué resultado muestra <code>=2+3*4</code>?', opciones: ['20', '14', '24', '9'], correcta: 1, explicacion: 'Primero se multiplica (3×4 = 12) y luego se suma 2: <b>14</b>. Para sumar primero: <code>=(2+3)*4</code>.', retro: { 0: '20 sería el resultado de =(2+3)*4. Sin paréntesis, la multiplicación va primero.' } },
       {
-        titulo: 'Importe de cada ticket', tipo: 'hoja',
-        enunciado: 'En E2 calcula el importe (cantidad × precio) y cópialo hasta E8 con el controlador de relleno.',
-        hoja: { hojas: [{ nombre: 'Tickets', datos: [['Ticket', 'Producto', 'Cantidad', 'Precio', 'Importe'], ...corte.slice(0, 7).map((t) => [t.ticket, t.producto, t.cantidad, t.precio])], formatos: { 'D2:E8': '$#,##0' }, estilos: { 'A1:E1': ENC }, anchos: { B: 130 }, objetivo: 'E2:E8', filas: 11, cols: 7 }], herramientas: ['portapapeles'] },
-        solucion: { 'E2:E8': '=C2*D2' },
-        pruebas: [{ tipo: 'formula', rango: 'E2:E8' }, { tipo: 'valores', rango: 'E2:E8' }, { tipo: 'robustez', cambios: { C4: 9 }, rango: 'E4', mensaje: 'Si cambia la cantidad, el importe no cambia: usa referencias (C2*D2), no números.' }],
-        pista: ['En E2 escribe <code>=C2*D2</code> y pulsa Enter. Luego selecciona E2 y arrastra el cuadrito verde hasta E8.'],
+        titulo: 'Rellena los días', tipo: 'hoja',
+        enunciado: 'En B1 dice «Lunes». Usa el controlador de relleno para completar los días hasta H1 (Domingo).',
+        hoja: { hojas: [{ nombre: 'Semana', datos: [['Producto', 'Lunes'], ['Espresso'], ['Latte'], ['Concha']], estilos: { 'A1:H1': ENC }, objetivo: 'C1:H1', cols: 9, filas: 8 }], herramientas: ['portapapeles'] },
+        pruebas: [{ tipo: 'valores', rango: 'C1:H1', esperado: ['Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'], mensaje: '{celda} debería decir {esperado}: selecciona B1 y arrastra el cuadrito verde hacia la derecha.' }],
+        pista: ['Selecciona B1; en su esquina inferior derecha está el cuadrito verde. Arrástralo hasta H1.'],
       },
       {
-        titulo: 'Autosuma', tipo: 'hoja',
-        enunciado: 'Selecciona E9 y usa <b>Autosuma</b> (botón Σ o <kbd>Alt+=</kbd>) para sumar los importes.',
-        hoja: { hojas: [{ nombre: 'Tickets', datos: [['Ticket', 'Producto', 'Cantidad', 'Precio', 'Importe'], ...corte.slice(0, 7).map((t, i) => [t.ticket, t.producto, t.cantidad, t.precio, '=C' + (i + 2) + '*D' + (i + 2)]), ['', '', '', 'Total']], formatos: { 'D2:E9': '$#,##0' }, estilos: { 'A1:E1': ENC, 'D9:E9': { b: true } }, anchos: { B: 130 }, objetivo: 'E9', filas: 11, cols: 7 }], herramientas: ['edicion'] },
-        solucion: { E9: '=SUMA(E2:E8)' },
-        pruebas: [{ tipo: 'usa', rango: 'E9', funciones: ['SUMA'] }, { tipo: 'valores', rango: 'E9', mensaje: 'E9 muestra {obtenido}; la suma de E2:E8 es {esperado}.' }],
-        pista: ['Haz clic en E9 y pulsa el botón «Autosuma» (Σ); revisa que proponga E2:E8 y pulsa Enter.'],
+        titulo: 'Buscar y reemplazar', tipo: 'hoja',
+        enunciado: 'En el menú escribieron «Expreso». Cámbialo por «Espresso» en <b>todas</b> las celdas con un solo comando (Ctrl+L).',
+        hoja: { hojas: [{ nombre: 'Menú', datos: [['Bebida', 'Precio'], ['Expreso', 35], ['Expreso doble', 45], ['Americano', 40], ['Expreso cortado', 40], ['Capuchino', 52], ['Latte con expreso extra', 62]], formatos: { 'B2:B7': '$#,##0' }, estilos: { 'A1:B1': ENC }, anchos: { A: 190 }, filas: 10, cols: 5 }], herramientas: ['edicion'] },
+        pruebas: [{ tipo: 'fn', fn: (x) => {
+          const t = Object.values(x.estado.hojas[0].celdas).join(' | ');
+          if (/expreso/i.test(t)) return 'Todavía hay celdas con «Expreso». Abre Buscar y reemplazar y usa «Reemplazar todos».';
+          return (t.match(/Espresso/g) || []).length >= 4 ? true : 'Revisa que las cuatro bebidas digan «Espresso».';
+        } }],
+        pista: ['Pulsa Ctrl+L (o el botón de reemplazar de la barra). En «Buscar» escribe Expreso y en «Reemplazar con» Espresso.'],
+      },
+      {
+        titulo: 'Pegar solo valores', tipo: 'hoja',
+        enunciado: 'La columna C calcula el precio con IVA con fórmulas. Copia C2:C6 y pégalos en D2:D6 <b>como valores</b> (Pegado especial › Valores), para que no dependan de las fórmulas.',
+        hoja: { hojas: [{ nombre: 'IVA', datos: [['Producto', 'Precio', 'Con IVA', 'Con IVA (valores)'], ...D.productos.slice(0, 5).map((p, i) => [p.nombre, p.precio, '=B' + (i + 2) + '*1.16'])], formatos: { 'B2:D6': '$#,##0.00' }, estilos: { 'A1:D1': ENC }, anchos: { A: 130, D: 130 }, objetivo: 'D2:D6', filas: 9, cols: 6 }], herramientas: ['portapapeles'] },
+        pruebas: [
+          { tipo: 'valores', rango: 'D2:D6', esperado: D.productos.slice(0, 5).map((p) => Math.round(p.precio * 1.16 * 100) / 100), mensaje: '{celda} muestra {obtenido}; debería tener el precio con IVA {esperado}.' },
+          { tipo: 'fn', fn: (x) => { const c = x.celdas('D2:D6').find((y) => String(x.entrada(y.dir)).startsWith('=')); return c ? c.dir + ' tiene una fórmula: usa Pegado especial › Valores.' : true; } },
+        ],
+        pista: ['Selecciona C2:C6 y copia (Ctrl+C). Selecciona D2 y abre Pegado especial con Ctrl+Alt+V (o el botón «Especial»). Elige «Valores».'],
       },
     ],
     reto: {
-      titulo: 'Corte de caja del día', tipo: 'hoja',
-      intro: 'La hoja <i>Corte</i> tiene los 14 tickets del día (filas 2 a 15). A la derecha está el resumen que pidió Marta.',
+      titulo: 'Pasar a limpio la lista de precios', tipo: 'hoja',
+      intro: 'La hoja <i>Precios</i> tiene la lista que pasó Marta. Déjala lista para imprimir el menú.',
       base: {
-        hoja: { hojas: [hojaCorte()], herramientas: ['portapapeles', 'edicion'] },
-        solucion, pruebas,
-        instrucciones: ['En <b>F2:F15</b> calcula el importe de cada ticket (cantidad × precio).', 'En <b>I2:I6</b> calcula el total vendido, el ticket promedio, la venta mayor, la venta menor y el número de tickets, con SUMA, PROMEDIO, MAX, MIN y CONTAR.', 'En <b>I10</b> calcula la diferencia de caja: dinero contado − (fondo inicial + total vendido). Si es negativa, falta dinero.'],
-        pistas: ['Cada resultado debe venir de una fórmula que use celdas, para que se actualice si cambia un ticket.', 'Importe: <code>=D2*E2</code>. Funciones: <code>=SUMA(F2:F15)</code>, <code>=PROMEDIO(F2:F15)</code>… Para la diferencia, los paréntesis hacen que la suma se calcule primero.', 'I10: <code>=I9-(I8+I2)</code>. Sin paréntesis, <code>=I9-I8+I2</code> restaría el fondo pero sumaría las ventas.'],
+        hoja: hojaPrecios(),
+        pruebas: pruebas(precios),
+        instrucciones: [
+          'Faltan los códigos de casi todos los productos: cada familia (CAF, FRI, PAN) tiene solo el primero.',
+          'Falta el <b>Moka</b> (Café caliente, $60) entre el Latte y el Café de olla: debe quedar como CAF-005.',
+          '«Capuchno» está mal escrito.',
+          'El Latte cuesta $55, no $5.5.',
+          'En las categorías, «Cafe» va con acento: «Café».',
+        ],
+        pistas: ['Hay cinco herramientas en juego: insertar fila, autorrelleno, editar celda, buscar y reemplazar… y atención al orden: inserta la fila del Moka antes de rellenar los códigos.', 'Clic derecho en el número de fila 6 › «Insertar fila arriba». Para los códigos, selecciona el primer código de cada familia y arrastra el cuadrito verde. Ctrl+L abre Buscar y reemplazar.', 'Pasos exactos: inserta la fila 6 y escribe Moka, Cafe caliente, 60; arrastra A2 hasta A7, A8 hasta A10 y A11 hasta A12; corrige B4 y D5; reemplaza «Cafe» por «Café».'],
       },
       niveles: {
         explorador: {
-          plantilla: { celda: 'F2', texto: '=___*___', copiar: 'F15' },
-          instrucciones: ['Completa la fórmula del importe con las celdas de cantidad (D2) y precio (E2), escríbela en F2 y cópiala hasta F15.', 'En I2 a I6 escribe: <code>=SUMA(F2:F15)</code>, <code>=PROMEDIO(F2:F15)</code>, <code>=MAX(F2:F15)</code>, <code>=MIN(F2:F15)</code>, <code>=CONTAR(F2:F15)</code>.', 'En I10 escribe <code>=I9-(I8+I2)</code>.'],
+          instrucciones: [
+            'Clic derecho en el <b>número de fila 6</b> › «Insertar fila arriba». En la fila nueva escribe <b>Moka</b> (B6), <b>Cafe caliente</b> (C6) y <b>60</b> (D6).',
+            'Selecciona <b>A2</b> y arrastra el cuadrito verde hasta <b>A7</b>: aparecen CAF-002 a CAF-006. Haz lo mismo desde <b>A8</b> hasta A10 y desde <b>A11</b> hasta A12.',
+            'Haz doble clic en <b>B4</b> y corrige «Capuchino».',
+            'En <b>D5</b> escribe 55.',
+            'Pulsa <kbd>Ctrl+L</kbd>: busca <b>Cafe</b>, reemplaza con <b>Café</b> y elige «Reemplazar todos».',
+          ],
         },
         experto: {
-          hoja: { hojas: [hojaCorte({ H11: 'IVA incluido en las ventas' })], herramientas: ['portapapeles', 'edicion'] },
-          solucion: Object.assign({}, solucion, { I11: '=I2-I2/1.16' }),
-          pruebasExtra: [
-            { tipo: 'formula', rango: 'I11', titulo: 'IVA incluido calculado', mensaje: 'Falta I11: calcula el IVA incluido en las ventas.' },
-            { tipo: 'valores', rango: 'I11', titulo: 'IVA incluido correcto', mensaje: 'I11 muestra {obtenido}; el IVA incluido es {esperado}. Los precios ya traen 16 % de IVA: ventas − ventas/1.16.' },
-            { tipo: 'robustez', cambios: { D3: 10 }, rango: 'I11', titulo: 'El IVA se recalcula', mensaje: 'Si cambian las ventas, I11 no se actualiza: usa I2 en tu fórmula.' },
-          ],
-          instrucciones: ['Resuelve F2:F15, I2:I6 e I10 como en el nivel Analista.', 'En <b>I11</b>, en una sola fórmula, calcula cuánto de lo vendido es IVA. Los precios ya incluyen 16 % de IVA.'],
-          pistas: ['Si un precio con IVA es P, el precio sin IVA es P/1.16.', 'IVA = total − total sin IVA.', '<code>=I2-I2/1.16</code> (la división se hace antes que la resta).'],
+          instrucciones: ['La lista tiene <b>cinco problemas</b> (códigos, un nombre, un precio, acentos y un producto faltante: el Moka, CAF-005, Café caliente, $60). Encuéntralos y corrígelos.', 'Además, sube <b>10 %</b> los precios de Panadería sin escribirlos a mano y sin fórmulas: escribe 1.1 en una celda auxiliar, cópiala y usa <b>Pegado especial › Multiplicar</b> sobre los precios; después borra la celda auxiliar.'],
+          pruebas: pruebas(precios.slice(0, 9).concat([41.8, 24.2])).concat([
+            { tipo: 'fn', titulo: 'Los precios de Panadería son valores, no fórmulas', fn: (x) => (x.celdas('D11:D12').some((c) => String(x.entrada(c.dir)).startsWith('=')) ? 'Los precios de Panadería deben quedar como valores: usa Pegado especial › Multiplicar.' : true) },
+          ]),
+          pistas: ['Revisa columna por columna: códigos, nombres, categorías y precios.', 'Pegado especial (Ctrl+Alt+V) tiene la sección «Operación».', 'Escribe 1.1 en F1, cópiala, selecciona D11:D12 y en Pegado especial elige Valores + Multiplicar. Luego borra F1.'],
         },
       },
     },
     lab: {
-      archivo: 'lab02-corte-caja.xlsx', titulo: 'Corte de caja de la sucursal Norte',
-      contexto: 'El libro tiene el corte de otro día, en la sucursal Norte, con la misma estructura.',
+      archivo: 'lab02-lista-precios.xlsx', titulo: 'Lista de precios de té, postres y alimentos',
+      contexto: 'La segunda parte de la lista de precios tiene problemas parecidos. Resuélvela en Excel.',
       pasos: {
-        explorador: [{ texto: 'En F2 escribe <code>=D2*E2</code> y cópiala hasta la última fila de tickets.' }, { texto: 'En I2 a I6 usa SUMA, PROMEDIO, MAX, MIN y CONTAR sobre la columna F.', ruta: ['Inicio', 'Autosuma', 'Suma'] }, 'En I10 calcula <code>=I9-(I8+I2)</code>.', 'Guarda y sube el libro.'],
-        analista: ['Calcula los importes en la columna F.', 'Completa el resumen I2:I6 con funciones.', 'Calcula la diferencia de caja en I10.', 'Guarda y sube el libro.'],
-        experto: ['Resuelve el corte como en el nivel Analista.', 'En I11 calcula el IVA incluido en las ventas (precios con 16 % de IVA) en una sola fórmula.', 'Guarda y sube el libro.'],
+        explorador: [
+          { texto: 'Inserta una fila antes de «Galleta de avna» (clic derecho en el número de fila 5 › Insertar) y escribe: Brownie, Postre, 40.', ruta: ['Inicio', 'Insertar', 'Insertar filas de hoja'] },
+          { texto: 'Rellena los códigos que faltan arrastrando el controlador de relleno desde TE-001, POS-001 y ALI-001.', ruta: ['Inicio', 'Rellenar', 'Hacia abajo'] },
+          'Corrige «Galleta de avna» → «Galleta de avena» y el precio del Panini caprese: 85.',
+          { texto: 'Reemplaza la categoría «Postre» por «Postres».', ruta: ['Inicio', 'Buscar y seleccionar', 'Reemplazar…'] },
+          'Guarda y sube el libro.',
+        ],
+        analista: ['Inserta el <b>Brownie</b> (Postres, $40) entre el Pay de queso y la Galleta de avena.', 'Completa los códigos que faltan con autorrelleno.', 'Corrige el nombre mal escrito y el precio del Panini caprese ($85).', 'Cambia la categoría «Postre» por «Postres» en toda la lista.', 'Guarda y sube el libro.'],
+        experto: ['Corrige los cinco problemas de la lista (incluye el Brownie, POS-002, Postres, $40, que falta antes de la Galleta).', 'Sube 10 % los precios de Alimentos con Pegado especial › Multiplicar (deben quedar como números, sin fórmulas).', 'Guarda y sube el libro.'],
       },
       pruebas: [
-        { titulo: 'Importes con fórmula y correctos', fn: (L, A) => {
-          A.hoja('Corte');
-          let n = 0;
-          for (let r = 2; r <= 40; r++) {
-            const cant = A.num(L.valor('Corte', 'D' + r)), precio = A.num(L.valor('Corte', 'E' + r));
-            if (cant == null || precio == null) break;
-            n++;
-            if (!L.tieneFormula('Corte', 'F' + r)) return 'F' + r + ' no tiene fórmula.';
-            if (!A.cerca(A.num(L.valor('Corte', 'F' + r)), cant * precio)) return 'F' + r + ' debería ser ' + A.fmtEs(cant * precio) + '.';
-          }
-          return n ? true : 'No encontré los tickets en la hoja Corte.';
-        } },
-        { titulo: 'Resumen con SUMA, PROMEDIO, MAX, MIN y CONTAR', fn: (L, A) => {
-          const imp = [];
-          for (let r = 2; r <= 40; r++) { const v = A.num(L.valor('Corte', 'F' + r)); if (v == null) break; imp.push(v); }
-          const esp = { I2: ['SUM', imp.reduce((a, b) => a + b, 0)], I3: ['AVERAGE', imp.reduce((a, b) => a + b, 0) / imp.length], I4: ['MAX', Math.max(...imp)], I5: ['MIN', Math.min(...imp)], I6: ['COUNT', imp.length] };
-          const es = { SUM: 'SUMA', AVERAGE: 'PROMEDIO', MAX: 'MAX', MIN: 'MIN', COUNT: 'CONTAR' };
-          for (const [d, [fn, v]] of Object.entries(esp)) {
-            if (!L.usaFuncion('Corte', d, fn === 'COUNT' ? ['COUNT', 'COUNTA'] : fn)) return d + ' debe usar ' + es[fn] + '.';
-            if (!A.cerca(A.num(L.valor('Corte', d)), v)) return d + ' muestra ' + A.fmtEs(L.valor('Corte', d)) + '; debería ser ' + A.fmtEs(v) + '.';
+        { titulo: 'Lista completa y bien escrita', fn: (L, A) => {
+          A.hoja('Precios');
+          const esp = [['TE-001', 'Chai latte', 'Té'], ['TE-002', 'Té verde', 'Té'], ['POS-001', 'Pay de queso', 'Postres'], ['POS-002', 'Brownie', 'Postres'], ['POS-003', 'Galleta de avena', 'Postres'], ['ALI-001', 'Sándwich de pavo', 'Alimentos'], ['ALI-002', 'Panini caprese', 'Alimentos']];
+          for (let i = 0; i < esp.length; i++) for (let j = 0; j < 3; j++) {
+            const d = 'ABC'[j] + (i + 2);
+            const v = String(L.valor('Precios', d) == null ? '' : L.valor('Precios', d)).trim();
+            if (v.toLowerCase() !== esp[i][j].toLowerCase()) return d + ' dice «' + v + '», pero debería decir «' + esp[i][j] + '».';
           }
           return true;
         } },
-        { titulo: 'Diferencia de caja (I10)', fn: (L, A) => {
-          if (!L.tieneFormula('Corte', 'I10')) return 'I10 debe tener una fórmula.';
-          const e = A.num(L.valor('Corte', 'I9')) - (A.num(L.valor('Corte', 'I8')) + A.num(L.valor('Corte', 'I2')));
-          return A.cerca(A.num(L.valor('Corte', 'I10')), e) ? true : 'I10 muestra ' + A.fmtEs(L.valor('Corte', 'I10')) + '; la diferencia es ' + A.fmtEs(e) + '. ¿Usaste paréntesis?';
+        { titulo: 'Precios correctos', fn: (L, A, nivel) => {
+          const esp = [54, 38, 55, 40, 25, 78, 85].map((p, i) => (nivel === 'experto' && i >= 5 ? Math.round(p * 1.1 * 100) / 100 : p));
+          for (let i = 0; i < esp.length; i++) {
+            const v = L.valor('Precios', 'D' + (i + 2));
+            if (typeof v !== 'number') return 'D' + (i + 2) + ' no es un número (¿quedó como texto?).';
+            if (!A.cerca(v, esp[i])) return 'D' + (i + 2) + ' muestra ' + A.fmtEs(v) + '; el precio es ' + A.fmtEs(esp[i]) + '.';
+          }
+          return true;
         } },
-        { titulo: 'IVA incluido (I11)', nivel: 'experto', fn: (L, A) => {
-          if (!L.tieneFormula('Corte', 'I11')) return 'I11 debe tener una fórmula.';
-          const t = A.num(L.valor('Corte', 'I2'));
-          return A.cerca(A.num(L.valor('Corte', 'I11')), t - t / 1.16) ? true : 'I11 debería ser ' + A.fmtEs(t - t / 1.16) + ' (total − total/1.16).';
-        } },
+        { titulo: 'Los precios de Alimentos son valores (Pegado especial)', nivel: 'experto', fn: (L) => (L.tieneFormula('Precios', 'D7') || L.tieneFormula('Precios', 'D8') ? 'D7 y D8 deben ser valores: usa Pegado especial › Multiplicar en lugar de fórmulas.' : true) },
       ],
     },
     donde: [
-      { comando: 'Autosuma', ruta: ['Inicio', 'Autosuma', 'Suma'], nota: 'Atajo: Alt+=. También está en Fórmulas › Autosuma.' },
-      { comando: 'Promedio (desde Autosuma)', ruta: ['Inicio', 'Autosuma', 'Promedio'] },
-      { comando: 'Insertar función', ruta: ['Fórmulas', 'Insertar función'] },
+      { comando: 'Reemplazar', ruta: ['Inicio', 'Buscar y seleccionar', 'Reemplazar…'], nota: 'Atajo: Ctrl+L. En Mac: ⌃H.' },
+      { comando: 'Pegado especial', ruta: ['Inicio', 'Pegar', 'Pegado especial…'], nota: 'Atajo: Ctrl+Alt+V.' },
+      { comando: 'Insertar filas', ruta: ['Inicio', 'Insertar', 'Insertar filas de hoja'], nota: 'También con clic derecho sobre el número de fila.' },
+      { comando: 'Rellenar series', ruta: ['Inicio', 'Rellenar', 'Series…'] },
     ],
-    glosario: ['SUMA', 'PROMEDIO', 'MAX', 'MIN', 'CONTAR', 'CONTARA'],
-    atajos: ['<kbd>Alt+=</kbd> Autosuma', 'Escribe <kbd>=</kbd> y haz clic en una celda para insertar su referencia (modo Señalar).', 'Doble clic en el controlador de relleno: copia la fórmula hasta el final de los datos.'],
+    atajos: ['<kbd>F2</kbd> editar la celda · <kbd>Esc</kbd> cancelar · <kbd>Supr</kbd> borrar contenido', '<kbd>Ctrl+C</kbd>, <kbd>Ctrl+X</kbd>, <kbd>Ctrl+V</kbd>, <kbd>Ctrl+Alt+V</kbd> (pegado especial)', '<kbd>Ctrl+Z</kbd> deshacer · <kbd>Ctrl+Y</kbd> rehacer', '<kbd>Ctrl+B</kbd> buscar · <kbd>Ctrl+L</kbd> reemplazar', '<kbd>Ctrl+J</kbd> rellenar hacia abajo (Excel en español)'],
   });
 })();

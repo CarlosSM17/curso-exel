@@ -8,7 +8,7 @@
   // pestaña -> [[grupo, [comando | [comando, [submenú…]], …]], …]
   const CINTA = {
     'Archivo': [
-      ['Archivo', ['Nuevo', 'Abrir', ['Información', ['Proteger libro', 'Historial de versiones', 'Inspeccionar libro']], ['Guardar como', ['Libro de Excel (*.xlsx)', 'Libro de Excel habilitado para macros (*.xlsm)', 'PDF (*.pdf)']], 'Imprimir', 'Compartir', ['Exportar', ['Crear documento PDF/XPS', 'Cambiar el tipo de archivo']], 'Opciones']],
+      ['Archivo', ['Nuevo', 'Abrir', ['Información', ['Proteger libro', 'Administrar libro', 'Historial de versiones', 'Inspeccionar libro', 'Propiedades']], ['Guardar como', ['Libro de Excel (*.xlsx)', 'Libro de Excel habilitado para macros (*.xlsm)', 'PDF (*.pdf)']], 'Imprimir', 'Compartir', ['Exportar', ['Crear documento PDF/XPS', 'Cambiar el tipo de archivo']], 'Opciones']],
     ],
     'Inicio': [
       ['Portapapeles', [['Pegar', ['Pegar', 'Valores', 'Pegado especial…']], 'Cortar', 'Copiar', 'Copiar formato']],

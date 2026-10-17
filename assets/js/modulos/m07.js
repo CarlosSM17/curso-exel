@@ -1,40 +1,73 @@
-/* Módulo 7 · Imprimir y distribuir */
+/* Módulo 7 · Gráficos */
 (function () {
-  const { D, mes } = LT.caso;
+  const { D, totalesPor, mensualPorCategoria, mensualPorSucursal } = LT.caso;
   const MESES = D.mesesCortos;
-  const mensual = {};
-  const mensualSuc = {};
-  for (const v of D.ventas) {
-    (mensual[v.producto] = mensual[v.producto] || new Array(12).fill(0))[mes(v.fecha) - 1] += v.total;
-    const k = v.producto + ' · ' + v.sucursal;
-    (mensualSuc[k] = mensualSuc[k] || new Array(12).fill(0))[mes(v.fecha) - 1] += v.total;
+  const porProducto = totalesPor('producto');
+  const productos = D.productos.map((p) => p.nombre);
+  const porCat = mensualPorCategoria();
+  const porSuc = mensualPorSucursal();
+  const lider = Object.entries(porProducto).sort((a, b) => b[1] - a[1])[0][0];
+  const top5 = Object.entries(porProducto).sort((a, b) => b[1] - a[1]).slice(0, 5).map((x) => x[0]);
+  const mesFrio = MESES[porCat['Café frío'].indexOf(Math.max(...porCat['Café frío']))];
+  const CONJ = [
+    { id: 'sucursales', nombre: 'Ventas mensuales por sucursal', categorias: MESES, series: Object.entries(porSuc).map(([n, v]) => ({ nombre: n, valores: v })), formato: '$#,##0' },
+    { id: 'productos', nombre: 'Ventas anuales por producto (2025)', categorias: productos, series: [{ nombre: 'Ventas 2025', valores: productos.map((p) => porProducto[p] || 0) }], formato: '$#,##0' },
+    { id: 'meses', nombre: 'Ventas mensuales por categoría', categorias: MESES, series: D.categorias.map((c) => ({ nombre: c, valores: porCat[c] })), formato: '$#,##0' },
+  ];
+
+  function galeria(c) {
+    const fila = LT.u.h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' } });
+    const casos = [
+      ['Comparar categorías → columnas o barras', { tipo: 'columnas', categorias: ['Centro', 'Norte', 'Sur'], series: [{ nombre: 'Ventas', valores: Object.values(totalesPor('sucursal')) }], titulo: 'Ventas por sucursal', formato: '$#,##0' }],
+      ['Cambio en el tiempo → líneas', { tipo: 'lineas', categorias: MESES, series: [{ nombre: 'Café frío', valores: porCat['Café frío'] }], titulo: 'Café frío por mes', formato: '$#,##0' }],
+      ['Partes de un todo (pocas) → circular', { tipo: 'circular', categorias: ['Centro', 'Norte', 'Sur'], series: [{ nombre: 'Ventas', valores: Object.values(totalesPor('sucursal')) }], titulo: 'Participación por sucursal', formato: '$#,##0' }],
+    ];
+    for (const [t, o] of casos) {
+      const g = LT.u.h('div', { class: 'graf-cont' });
+      const lienzo = LT.u.h('div');
+      g.append(LT.u.h('div', { style: { fontWeight: 600, fontSize: '.88rem', marginBottom: '4px' } }, t), lienzo);
+      fila.appendChild(g);
+      setTimeout(() => LT.graficos.dibujar(lienzo, Object.assign({ ancho: 420, alto: 260 }, o)), 0);
+    }
+    c.appendChild(fila);
   }
-  const filasRes = D.productos.map((p) => { const m = mensual[p.nombre] || new Array(12).fill(0); return [p.nombre, ...m, m.reduce((a, b) => a + b, 0)]; });
-  const filasDet = [];
-  for (const p of D.productos) for (const s of ['Centro', 'Norte', 'Sur']) { const m = mensualSuc[p.nombre + ' · ' + s] || new Array(12).fill(0); filasDet.push([p.nombre + ' · ' + s, ...m, m.reduce((a, b) => a + b, 0)]); }
-  const DATOS = { encabezados: ['Producto', ...MESES, 'Total'], filas: filasRes.concat(filasDet), anchos: [150, ...new Array(12).fill(64), 80] };
 
   function crearReto(cont, nivel) {
-    let est = null;
-    const w = LT.widgets.impresion(cont, { datos: DATOS, areas: [['todo', 'Resumen por producto (A1:N21)'], ['detalle', 'Detalle por sucursal (A23:N83)']], areaFilas: { todo: [0, 20], detalle: [20, 80] }, alCambiar: (e) => { est = e; } });
+    const { h } = LT.u;
+    const estado = { g1: null, g2: null, r1: '', r2: '' };
+    const experto = nivel === 'experto', explorador = nivel === 'explorador';
+    const pestanas = h('div', { class: 'grupo-btn', style: { marginBottom: '10px' } });
+    const p1 = h('div'), p2 = h('div');
+    const mostrar = (i) => { p1.style.display = i === 1 ? '' : 'none'; p2.style.display = i === 2 ? '' : 'none'; pestanas.querySelectorAll('button').forEach((b, k) => b.classList.toggle('primario', k + 1 === i)); };
+    pestanas.append(h('button', { class: 'btn chico primario', onclick: () => mostrar(1) }, 'Gráfico 1: ¿qué producto vende más?'), h('button', { class: 'btn chico', onclick: () => mostrar(2) }, 'Gráfico 2: café caliente vs. frío por mes'));
+    const preg1 = h('select', { class: 'herr-sel', onchange: (e) => { estado.r1 = e.target.value; } }, h('option', { value: '' }, 'Elige…'), top5.slice().sort().map((p) => h('option', { value: p }, p)));
+    const preg2 = h('select', { class: 'herr-sel', onchange: (e) => { estado.r2 = e.target.value; } }, h('option', { value: '' }, 'Elige…'), MESES.map((m) => h('option', { value: m }, m)));
+    const g1 = h('div'), g2 = h('div');
+    p1.append(h('p', { class: 'instr' }, explorador ? 'Los datos ya están elegidos. Escoge el tipo de gráfico para comparar productos y escribe un título.' : 'Elige los datos, el tipo de gráfico y escribe un título.'), g1, h('div', { class: 'aviso-caja info' }, 'Según tu gráfico, ¿qué producto vendió más en 2025? ', preg1));
+    p2.append(h('p', { class: 'instr' }, explorador ? 'Elige el conjunto «Ventas mensuales por categoría», deja solo Café caliente y Café frío, y escoge el tipo de gráfico para ver el cambio en el tiempo.' : 'Muestra solo el café caliente y el café frío a lo largo del año.'), g2, h('div', { class: 'aviso-caja info' }, 'Según tu gráfico, ¿en qué mes se vendió más café frío? ', preg2));
+    cont.append(pestanas, p1, p2);
+    setTimeout(() => {
+      LT.graficos.Constructor(g1, { conjuntos: CONJ, estadoInicial: explorador ? { conjunto: 'productos' } : {}, alCambiar: (e) => { estado.g1 = e; } });
+      LT.graficos.Constructor(g2, { conjuntos: CONJ, estadoInicial: explorador ? { conjunto: 'meses' } : {}, alCambiar: (e) => { estado.g2 = e; } });
+      mostrar(1);
+    }, 0);
     return {
       verificar: () => {
-        const e = est || w.estado();
         const r = [];
+        const a = estado.g1 || {}, b = estado.g2 || {};
         const add = (ok, titulo, mensaje) => r.push({ ok, titulo, mensaje: ok ? titulo : mensaje });
-        if (nivel === 'experto') {
-          add(e.area === 'detalle', 'Área de impresión: el detalle por sucursal', 'Elige como área de impresión el «Detalle por sucursal».');
-          add(e.orientacion === 'horizontal', 'Orientación horizontal', 'Cambia la orientación a horizontal.');
-          add(e.paginasAncho === 1, 'Todas las columnas caben a lo ancho', 'Las columnas no caben a lo ancho: usa «Ajustar todas las columnas en una página».');
-          add(e.ajuste !== 'hoja', 'Sin encoger todo a una sola hoja', 'Con 60 filas, «Ajustar hoja en una página» deja la letra ilegible: ajusta solo las columnas.');
-          add(!!e.titulos, 'Encabezados repetidos en cada página', 'Activa «Imprimir títulos» para repetir los encabezados en cada página.');
-          add(e.pie === 'paginaDe', 'Pie de página «Página X de Y»', 'Elige el pie «Página 1 de ?».');
-        } else {
-          add(e.area === 'todo', 'Área de impresión: el resumen por producto', 'Elige como área de impresión el «Resumen por producto».');
-          add(e.orientacion === 'horizontal', 'Orientación horizontal', 'Marta lo quiere en orientación horizontal.');
-          add(e.paginas === 1, 'El reporte cabe en una sola página', 'Todavía ocupa ' + e.paginas + ' páginas: ajusta la escala o los márgenes.');
-          add(e.pie === 'pagina' || e.pie === 'paginaDe', 'Pie de página con número de página', 'Agrega un pie de página con el número de página.');
-        }
+        add(a.conjunto === 'productos', 'Gráfico 1 usa las ventas por producto', 'Gráfico 1: elige los datos «Ventas anuales por producto».');
+        add(experto ? a.tipo === 'barras' : ['columnas', 'barras'].includes(a.tipo), 'Gráfico 1: tipo adecuado para comparar', experto ? 'Gráfico 1: con 20 nombres largos, las barras horizontales se leen mejor.' : 'Gráfico 1: para comparar productos usa columnas o barras.');
+        add(!!(a.titulo || '').trim(), 'Gráfico 1 tiene título', 'Gráfico 1: escribe un título que diga qué muestra.');
+        if (experto) add(!!(a.ejeX || '').trim() && !!(a.ejeY || '').trim() && a.etiquetas, 'Gráfico 1 con títulos de ejes y etiquetas de datos', 'Gráfico 1: agrega títulos a los dos ejes y etiquetas de datos.');
+        add(estado.r1 === lider, 'Respuesta 1 correcta', estado.r1 ? 'Revisa tu gráfico: el producto que más vendió no es ' + estado.r1 + '. Activa las etiquetas de datos o pasa el cursor sobre las barras.' : 'Responde qué producto vendió más.');
+        add(b.conjunto === 'meses', 'Gráfico 2 usa las ventas mensuales por categoría', 'Gráfico 2: elige «Ventas mensuales por categoría».');
+        const s = (b.series || []).slice().sort().join('|');
+        add(s === 'Café caliente|Café frío', 'Gráfico 2 compara solo café caliente y frío', 'Gráfico 2: deja marcadas solo las series Café caliente y Café frío.');
+        add(b.tipo === 'lineas', 'Gráfico 2: líneas para ver el cambio en el tiempo', 'Gráfico 2: para mostrar cómo cambian por mes, usa líneas.');
+        add(!!(b.titulo || '').trim(), 'Gráfico 2 tiene título', 'Gráfico 2: escribe un título.');
+        if (experto) add(!!(b.ejeY || '').trim(), 'Gráfico 2 con título del eje vertical', 'Gráfico 2: agrega el título del eje vertical (por ejemplo «Ventas ($)»).');
+        add(estado.r2 === mesFrio, 'Respuesta 2 correcta', estado.r2 ? 'Revisa la línea del café frío: su punto más alto no está en ' + estado.r2 + '.' : 'Responde en qué mes se vendió más café frío.');
         return { ok: r.every((x) => x.ok), resultados: r };
       },
     };
@@ -42,48 +75,72 @@
 
   LT.definirModulo({
     id: 7,
-    objetivo: 'Configurar la página, el área de impresión y los títulos; exportar a PDF.',
-    situacion: 'Imprimí el reporte anual y salió en varias hojas, con columnas cortadas. Lo necesito <b>en una sola hoja horizontal, con número de página</b>, y en <b>PDF</b> para mandarlo por correo.',
+    objetivo: 'Elegir el tipo de gráfico adecuado, crearlo y personalizarlo; agregar minigráficos.',
+    situacion: 'En la junta del lunes quiero responder con imágenes dos preguntas: <b>¿qué producto nos deja más dinero en el año?</b> y <b>¿cómo cambian las ventas de café caliente y café frío mes a mes?</b>',
     explicacion: [
-      { html: '<h3>Antes de imprimir, la vista previa</h3><p><b>Archivo › Imprimir</b> muestra cómo saldrá cada página. Si algo no cabe, se ajusta en <b>Disposición de página</b>:</p><ul><li><b>Orientación:</b> vertical u horizontal (más columnas por hoja).</li><li><b>Márgenes:</b> normales, estrechos o anchos.</li><li><b>Escalado:</b> «Ajustar hoja en una página» o «Ajustar todas las columnas en una página».</li><li><b>Área de impresión:</b> imprime solo el rango que eliges.</li><li><b>Imprimir títulos:</b> repite la fila de encabezados en cada página.</li><li><b>Encabezado y pie de página:</b> número de página, fecha, nombre del archivo.</li></ul><p>Para mandar el reporte, expórtalo como <b>PDF</b> (Archivo › Exportar › Crear PDF/XPS, o Guardar como › PDF): se ve igual en cualquier equipo.</p>' },
-      { titulo: 'Explora la vista de impresión', instr: 'Cambia las opciones y observa cuántas páginas ocupa el reporte anual.', widget: (c) => LT.widgets.impresion(c, { datos: DATOS, areas: [['todo', 'Resumen por producto (A1:N21)'], ['detalle', 'Detalle por sucursal (A23:N83)']], areaFilas: { todo: [0, 20], detalle: [20, 80] } }) },
+      { html: '<h3>Primero la pregunta, después el gráfico</h3><ul><li><b>Comparar</b> categorías (productos, sucursales): <b>columnas</b>; si los nombres son largos o son muchos, <b>barras</b> horizontales.</li><li><b>Cambio en el tiempo</b> (meses, días): <b>líneas</b>.</li><li><b>Partes de un todo</b> con pocas partes (2 a 5): <b>circular</b>. Con muchas partes, mejor barras.</li></ul><p>Un buen gráfico tiene <b>título</b> que dice qué muestra, ejes claros y, cuando hay varias series, una <b>leyenda</b>. Las <b>etiquetas de datos</b> ayudan cuando el número exacto importa.</p><p>Los <b>minigráficos</b> (Insertar › Minigráficos) son gráficos pequeñitos dentro de una celda: muestran la tendencia de cada fila de un vistazo.</p>' },
+      { titulo: 'Cada pregunta, su gráfico', instr: 'Pasa el cursor sobre las marcas para ver los valores.', widget: galeria },
     ],
     ejemplo: {
-      tipo: 'pasos', titulo: 'Que el reporte quepa en una hoja',
-      pasos: [{ texto: 'Disposición de página › Orientación › Horizontal.', ruta: ['Disposición de página', 'Orientación'] }, { texto: 'Archivo › Imprimir › Configuración › «Ajustar hoja en una página» (o Disposición de página › Ancho: 1 página, Alto: 1 página).', ruta: ['Disposición de página', 'Ancho'] }, { texto: 'Insertar › Encabezado y pie de página › Pie de página › «Página 1».', ruta: ['Insertar', 'Encabezado y pie de página'] }, { texto: 'Archivo › Exportar › Crear documento PDF/XPS.', ruta: ['Archivo', 'Exportar', 'Crear documento PDF/XPS'] }],
-      pregunta: { texto: 'Tu reporte tiene 14 columnas y 21 filas. Al imprimir, las últimas columnas salen en otra hoja. ¿Qué haces primero?', opciones: ['Cambiar a horizontal y ajustar las columnas en una página', 'Borrar las últimas columnas', 'Reducir el tamaño de la fuente celda por celda', 'Imprimir en dos hojas y pegarlas'], correcta: 0, explicacion: 'La orientación horizontal y el escalado resuelven el problema sin tocar los datos.' },
+      tipo: 'pasos', titulo: 'Crear un gráfico de columnas',
+      pasos: ['Selecciona los datos con sus encabezados (por ejemplo, Producto y Ventas).', { texto: 'Insertar › Gráficos › Columnas (o «Gráficos recomendados»).', ruta: ['Insertar', 'Insertar gráfico de columnas o de barras'] }, { texto: 'Con el gráfico seleccionado, en Diseño de gráfico › Agregar elemento de gráfico agrega título, títulos de ejes o etiquetas.', ruta: ['Diseño de gráfico', 'Agregar elemento de gráfico'] }, 'Haz clic en el título para cambiar su texto.'],
+      pregunta: { texto: 'Quieres mostrar cómo cambiaron las ventas <b>mes a mes</b> durante 2025. ¿Qué gráfico eliges?', opciones: ['Circular', 'Líneas', 'Barras apiladas', 'Dispersión'], correcta: 1, explicacion: 'Para ver cambios en el tiempo, las <b>líneas</b> muestran la tendencia de un vistazo.' },
     },
     micro: [
-      { titulo: 'Encabezados en cada página', tipo: 'opcion', enunciado: 'Imprimes una lista de 300 ventas y solo la primera página tiene los encabezados. ¿Qué usas?', opciones: ['Imprimir títulos (filas que se repiten)', 'Inmovilizar paneles', 'Área de impresión', 'Saltos de página'], correcta: 0, explicacion: '<b>Disposición de página › Imprimir títulos</b> › «Repetir filas en extremo superior». Inmovilizar paneles solo afecta la pantalla.', retro: { 1: 'Inmovilizar paneles fija los encabezados en pantalla, pero no al imprimir.' } },
-      { titulo: 'Solo una parte de la hoja', tipo: 'opcion', enunciado: 'En la hoja hay notas internas debajo del reporte que no deben salir impresas. ¿Qué configuras?', opciones: ['El área de impresión (solo el reporte)', 'La orientación', 'Los márgenes', 'El ancho de las columnas'], correcta: 0, explicacion: 'Selecciona el reporte › Disposición de página › Área de impresión › Establecer área de impresión.' },
+      { titulo: 'Partes de un todo', tipo: 'opcion', enunciado: 'Quieres mostrar qué parte de las ventas totales aporta cada una de las <b>3 sucursales</b>.', opciones: ['Circular', 'Líneas', 'Dispersión', 'Área'], correcta: 0, explicacion: 'Con pocas partes de un total, el gráfico <b>circular</b> funciona bien.' },
+      { titulo: 'Nombres largos', tipo: 'opcion', enunciado: 'Vas a comparar las ventas de los 20 productos; algunos nombres son largos, como «Bagel con queso crema». ¿Qué tipo se lee mejor?', opciones: ['Columnas', 'Barras horizontales', 'Circular', 'Líneas'], correcta: 1, explicacion: 'Las <b>barras horizontales</b> dejan espacio para leer los nombres largos sin girarlos.' },
+      {
+        titulo: 'Minigráficos de tendencia', tipo: 'widget', enunciado: 'Elige el tipo de minigráfico que muestra mejor la <b>tendencia</b> mensual de cada sucursal.',
+        crear: (c, listo) => {
+          const { h } = LT.u;
+          const tabla = h('table', { class: 'tabla-sitio', style: { maxWidth: '620px' } });
+          const retro = h('div');
+          const dibujar = (tipo) => {
+            tabla.innerHTML = '';
+            tabla.appendChild(h('thead', null, h('tr', null, h('th', null, 'Sucursal'), h('th', null, 'Ene'), h('th', null, '…'), h('th', null, 'Dic'), h('th', null, 'Minigráfico'))));
+            const tb = h('tbody');
+            for (const [suc, v] of Object.entries(porSuc)) {
+              const td = h('td');
+              if (tipo) td.appendChild(LT.graficos.minigrafico(v, tipo, { ancho: 120, alto: 26 }));
+              tb.appendChild(h('tr', null, h('td', null, suc), h('td', null, LT.formato.formatear(v[0], '$#,##0').texto), h('td', null, '…'), h('td', null, LT.formato.formatear(v[11], '$#,##0').texto), td));
+            }
+            tabla.appendChild(tb);
+          };
+          const botones = h('div', { class: 'grupo-btn', style: { margin: '8px 0' } });
+          [['linea', 'Línea'], ['columna', 'Columna'], ['ganancia', 'Ganancia o pérdida']].forEach(([t, n]) => botones.appendChild(h('button', { class: 'btn chico', onclick: () => {
+            dibujar(t);
+            retro.innerHTML = '';
+            if (t === 'linea') { retro.appendChild(h('div', { class: 'aviso-caja ok' }, '✓ La línea muestra la tendencia: sube en verano para Norte y baja en otoño. El punto naranja marca el mes más alto.')); listo(); }
+            else retro.appendChild(h('div', { class: 'aviso-caja alerta' }, t === 'ganancia' ? 'Ganancia o pérdida solo distingue positivos y negativos: aquí todos son positivos.' : 'Las columnas sirven para comparar meses, pero la tendencia se ve mejor con una línea continua.'));
+          } }, n)));
+          c.append(botones, tabla, retro);
+          dibujar(null);
+        },
+      },
     ],
-    reto: { titulo: 'El reporte cabe en una hoja y sale en PDF', tipo: 'widget', crear: crearReto,
-      base: { instrucciones: ['Área de impresión: el <b>resumen por producto</b>.', 'Orientación <b>horizontal</b>.', 'Que todo quepa en <b>una sola página</b>.', 'Pie de página con el <b>número de página</b>.'], pistas: ['Revisa cuántas páginas indica la vista previa y por qué: ¿no caben columnas o filas?', 'La orientación horizontal da más ancho; el escalado encoge lo necesario.', 'Horizontal + «Ajustar hoja en una página» (o «Ajustar todas las columnas») + pie «Página 1».'] },
-      niveles: { explorador: { instrucciones: ['En «Orientación» elige <b>Orientación horizontal</b>.', 'En «Escalado» elige <b>Ajustar hoja en una página</b>.', 'En «Pie de página» elige <b>Página 1</b>.', 'Comprueba que diga «El reporte cabe en una sola página».'] }, experto: { instrucciones: ['Imprime el <b>detalle por sucursal</b> (60 filas): orientación horizontal, todas las columnas a lo ancho de una página (sin encoger las filas), encabezados repetidos en cada página y pie «Página X de Y».'] } } },
+    reto: { titulo: '¿Qué producto vende más y cómo cambia por mes?', tipo: 'widget', crear: crearReto, base: { instrucciones: ['<b>Gráfico 1:</b> compara las ventas anuales de los 20 productos con el tipo de gráfico adecuado y un título. Responde qué producto vendió más.', '<b>Gráfico 2:</b> muestra cómo cambian por mes las ventas de <b>Café caliente</b> y <b>Café frío</b> (solo esas dos series), con un título. Responde en qué mes se vendió más café frío.'], pistas: ['Primero piensa qué pregunta responde cada gráfico: comparar o ver un cambio en el tiempo.', 'Comparar → columnas o barras; tiempo → líneas. Desmarca las series que no necesitas.', 'Gráfico 1: «Ventas anuales por producto» + Barras. Gráfico 2: «Ventas mensuales por categoría», solo Café caliente y Café frío, + Líneas.'] },
+      niveles: { explorador: { instrucciones: ['Gráfico 1: los datos ya están elegidos; elige <b>Columnas</b> o <b>Barras</b> y escribe un título.', 'Gráfico 2: deja solo Café caliente y Café frío, elige <b>Líneas</b> y escribe un título.', 'Responde las dos preguntas usando tus gráficos (pasa el cursor para ver los valores).'] }, experto: { instrucciones: ['Gráfico 1: barras horizontales con título, títulos de ambos ejes y etiquetas de datos.', 'Gráfico 2: líneas de Café caliente y Café frío con título y título del eje vertical.', 'Responde las dos preguntas.'] } } },
     lab: {
-      archivo: 'lab07-impresion.xlsx', titulo: 'Reporte anual listo para enviar', pdf: true, acepta: '.xlsx,.pdf',
-      contexto: 'Configura la impresión en Excel y exporta el PDF. Sube <b>los dos archivos</b> (libro y PDF) a la vez.',
+      archivo: 'lab07-graficos.xlsx', titulo: 'Gráficos para la junta',
+      contexto: 'El libro tiene tres hojas: Productos (ventas anuales), Meses (ventas mensuales por categoría) y Sucursales (ventas mensuales).',
       pasos: {
-        explorador: [{ texto: 'Selecciona A1:N23 › Área de impresión › Establecer área de impresión.', ruta: ['Disposición de página', 'Área de impresión', 'Establecer área de impresión'] }, { texto: 'Orientación horizontal.', ruta: ['Disposición de página', 'Orientación'] }, { texto: 'Ajustar: Ancho 1 página y Alto 1 página.', ruta: ['Disposición de página', 'Ancho'] }, { texto: 'Pie de página con «Página 1».', ruta: ['Insertar', 'Encabezado y pie de página'] }, { texto: 'Exporta la hoja «Reporte anual» como PDF.', ruta: ['Archivo', 'Exportar', 'Crear documento PDF/XPS'] }, 'Guarda el libro y sube el .xlsx y el .pdf juntos.'],
-        analista: ['En la hoja «Reporte anual»: área de impresión A1:N23 (sin las notas internas), horizontal, en una sola página y con número de página en el pie.', 'Exporta esa hoja a PDF.', 'Sube el libro y el PDF juntos.'],
-        experto: ['Configura «Reporte anual» como en el nivel Analista y expórtala a PDF.', 'En la hoja «Detalle»: todas las columnas a lo ancho de una página (alto automático), fila 1 repetida en cada página y pie «Página X de Y».', 'Sube el libro y el PDF juntos.'],
+        explorador: [{ texto: 'En Productos, selecciona A1:B21 e inserta un gráfico de columnas o barras con título.', ruta: ['Insertar', 'Insertar gráfico de columnas o de barras'] }, { texto: 'En Meses, selecciona Mes, Café caliente y Café frío (A1:C13) e inserta un gráfico de líneas con título.', ruta: ['Insertar', 'Insertar gráfico de líneas o de áreas'] }, { texto: 'En Sucursales, selecciona N2:N4 e inserta minigráficos de línea con datos B2:M4.', ruta: ['Insertar', 'Línea'] }, 'Guarda y sube el libro.'],
+        analista: ['Gráfico de columnas o barras de las ventas por producto, con título.', 'Gráfico de líneas de Café caliente y Café frío por mes, con título.', 'Minigráficos de línea en Sucursales!N2:N4.', 'Guarda y sube el libro.'],
+        experto: ['Los dos gráficos y los minigráficos del nivel Analista.', 'Agrega títulos de ejes a ambos gráficos.', 'Guarda y sube el libro.'],
       },
       pruebas: [
-        { titulo: 'Área de impresión sin las notas internas', fn: (L, A) => { A.hoja('Reporte anual'); const a = L.areaImpresion('Reporte anual'); if (!a) return 'Establece el área de impresión (A1:N23).'; const rg = LT.refs.parseRango(a.replace(/\$/g, '').split(',')[0]); return rg && rg.r1 === 0 && rg.c1 === 0 && rg.c2 >= 13 && rg.r2 >= 22 && rg.r2 <= 23 ? true : 'El área de impresión debe ser A1:N23 (es ' + a + ').'; } },
-        { titulo: 'Orientación horizontal', fn: (L) => (L.hoja('Reporte anual').pagina.orientacion === 'landscape' ? true : 'Cambia la orientación a horizontal.') },
-        { titulo: 'Ajustado a una página', fn: (L) => { const h = L.hoja('Reporte anual'); return h.ajustarAPagina && h.pagina.ancho === 1 && h.pagina.alto <= 1 ? true : 'Ajusta la hoja a 1 página de ancho por 1 de alto.'; } },
-        { titulo: 'Pie de página con número de página', fn: (L) => (/&P/.test(L.hoja('Reporte anual').pie) ? true : 'Agrega un pie de página con el número de página.') },
-        { titulo: 'PDF de una sola página', fn: (L, A, nivel) => { if (!L.pdf) return 'Sube también el PDF (selecciona el .xlsx y el .pdf a la vez).'; if (!L.pdf.valido) return 'El archivo PDF no es válido.'; if (nivel === 'experto') return true; return L.pdf.paginas === 1 ? true : 'El PDF tiene ' + (L.pdf.paginas || '?') + ' páginas: exporta solo la hoja «Reporte anual» ya ajustada.'; } },
-        { titulo: 'Detalle: columnas a lo ancho de una página', nivel: 'experto', fn: (L) => { const h = L.hoja('Detalle'); return h && h.ajustarAPagina && h.pagina.ancho === 1 && h.pagina.alto === 0 ? true : 'En «Detalle», ajusta Ancho: 1 página y Alto: Automático.'; } },
-        { titulo: 'Detalle: títulos y «Página X de Y»', nivel: 'experto', fn: (L) => { const t = L.titulosImpresion('Detalle'); if (!t || !/\$1(:|$)/.test(t)) return 'En «Detalle», repite la fila 1 en cada página (Imprimir títulos).'; return /&P/.test(L.hoja('Detalle').pie) && /&N/.test(L.hoja('Detalle').pie) ? true : 'El pie de «Detalle» debe decir «Página &[Página] de &[Páginas]».'; } },
+        { titulo: 'Gráfico de columnas o barras con título', fn: (L) => { const g = L.graficos.find((x) => x.tipos.some((t) => t === 'columnas' || t === 'barras')); if (!g) return 'No encontré un gráfico de columnas o barras.'; return g.tieneTitulo ? true : 'El gráfico de columnas o barras no tiene título.'; } },
+        { titulo: 'Gráfico de líneas con dos series y título', fn: (L) => { const g = L.graficos.find((x) => x.tipos.includes('lineas')); if (!g) return 'No encontré un gráfico de líneas.'; if (g.series < 2) return 'El gráfico de líneas debe mostrar Café caliente y Café frío (2 series).'; return g.tieneTitulo ? true : 'El gráfico de líneas no tiene título.'; } },
+        { titulo: 'Minigráficos en Sucursales', fn: (L) => { const h = L.hoja('Sucursales'); const n = h ? h.minigraficos.reduce((s, g) => s + g.cantidad, 0) : 0; return n >= 3 ? true : 'Inserta minigráficos para las tres sucursales (N2:N4).'; } },
+        { titulo: 'Títulos de ejes', nivel: 'experto', fn: (L) => { const sin = L.graficos.filter((g) => !g.tipos.includes('circular')).find((g) => g.ejes.filter((e) => e.conTitulo).length < 2); return sin ? 'Agrega títulos a los dos ejes del gráfico de ' + sin.tipos[0] + '.' : true; } },
       ],
     },
     donde: [
-      { comando: 'Orientación', ruta: ['Disposición de página', 'Orientación'] },
-      { comando: 'Establecer área de impresión', ruta: ['Disposición de página', 'Área de impresión', 'Establecer área de impresión'] },
-      { comando: 'Imprimir títulos', ruta: ['Disposición de página', 'Imprimir títulos'] },
-      { comando: 'Exportar a PDF', ruta: ['Archivo', 'Exportar', 'Crear documento PDF/XPS'], nota: 'En Mac: Archivo › Guardar como › Formato PDF. En la web: Archivo › Imprimir › Imprimir.' },
+      { comando: 'Gráficos recomendados', ruta: ['Insertar', 'Gráficos recomendados'] },
+      { comando: 'Minigráficos de línea', ruta: ['Insertar', 'Línea'], nota: 'Grupo Minigráficos.' },
+      { comando: 'Agregar elemento de gráfico (títulos de ejes)', ruta: ['Diseño de gráfico', 'Agregar elemento de gráfico', 'Títulos de ejes'], nota: 'La pestaña Diseño de gráfico aparece al seleccionar un gráfico.' },
+      { comando: 'Cambiar tipo de gráfico', ruta: ['Diseño de gráfico', 'Cambiar tipo de gráfico'] },
     ],
-    atajos: ['<kbd>Ctrl+P</kbd> abre la vista previa de impresión.', 'Vista › Ver salt. Pág. muestra dónde corta cada página; puedes arrastrar los saltos.'],
+    atajos: ['<kbd>Alt+F1</kbd> inserta un gráfico con los datos seleccionados (en Excel).', 'Selecciona columnas no contiguas manteniendo <kbd>Ctrl</kbd>.'],
   });
 })();

@@ -129,7 +129,7 @@
       for (const n of def.glosario) {
         const f = LT.FUNCIONES[n];
         if (!f) continue;
-        tb.appendChild(h('tr', null, h('td', null, h('b', null, f.es)), h('td', null, h('code', null, f.sintaxis)), h('td', null, h('code', null, f.archivo)), h('td', null, f.ejemplo)));
+        tb.appendChild(h('tr', null, h('td', null, h('a', { href: LT.pagina.url('funciones.html#f-' + f.es.replace(/\./g, '-')), title: 'Ver en la guía gráfica de funciones' }, h('b', null, f.es))), h('td', null, h('code', null, f.sintaxis)), h('td', null, h('code', null, f.archivo)), h('td', null, f.ejemplo)));
       }
       t.appendChild(tb);
       secD.append(h('h3', { style: { marginTop: '24px' } }, 'Glosario de funciones del módulo'), h('div', { class: 'tabla-scroll' }, t));
@@ -316,7 +316,7 @@
     const trabajo = h('div', { class: 'panel-trabajo' });
     cont.append(instr, trabajo);
     let hoja = null, widget = null, intentos = 0;
-    const claveBorrador = (n) => 'laTaza.borrador.m' + id + '.' + n;
+    const claveBorrador = (n) => 'laTaza2.borrador.m' + id + '.' + n;
     const especDe = (n) => {
       const base = reto.base || {};
       const niv = (reto.niveles || {})[n] || {};
@@ -382,7 +382,7 @@
       if (reto.tipo === 'widget') {
         const c = h('div');
         trabajo.appendChild(c);
-        setTimeout(() => { widget = reto.crear(c, n, { id }); }, 0);
+        setTimeout(() => { widget = reto.crear(c, n, { id }); c.__reto = widget; }, 0); // __reto: acceso para pruebas automáticas
         return;
       }
       const hc = contenedorHoja();
@@ -449,26 +449,28 @@
     // zona de subida
     const res = h('div');
     const info = h('div', { class: 'archivo-info' });
-    const inp = h('input', { type: 'file', accept: lab.acepta || '.xlsx,.xlsm', class: 'sr', multiple: lab.pdf ? true : null });
-    const zona = h('label', { class: 'zona-subir', tabindex: '0' }, inp, LT.icono('subir', 30), h('div', null, h('b', null, 'Sube tu libro resuelto')), h('p', null, 'Arrastra aquí tu archivo ' + (lab.acepta || '.xlsx') + ' o haz clic para elegirlo.' + (lab.pdf ? ' Puedes subir también el PDF (selecciona ambos archivos).' : '')));
+    const inp = h('input', { type: 'file', accept: lab.acepta || '.xlsx,.xlsm', class: 'sr', multiple: lab.pdf || lab.docx ? true : null });
+    const zona = h('label', { class: 'zona-subir', tabindex: '0' }, inp, LT.icono('subir', 30), h('div', null, h('b', null, 'Sube tu libro resuelto')), h('p', null, 'Arrastra aquí tu archivo ' + (lab.acepta || '.xlsx') + ' o haz clic para elegirlo.' + (lab.pdf ? ' Puedes subir también el PDF (selecciona ambos archivos).' : '') + (lab.docx ? ' Sube también el documento de Word (.docx): selecciona los archivos a la vez.' : '')));
     zona.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inp.click(); } });
     const procesar = async (archivos) => {
       res.innerHTML = '';
       info.textContent = '';
       const libroArchivo = Array.from(archivos).find((f) => /\.xls[xm]$/i.test(f.name));
       const pdf = Array.from(archivos).find((f) => /\.pdf$/i.test(f.name));
+      const docx = Array.from(archivos).find((f) => /\.docx$/i.test(f.name));
       if (!libroArchivo) { res.appendChild(h('div', { class: 'aviso-caja error' }, 'Sube un archivo de Excel (.xlsx' + (lab.acepta && lab.acepta.includes('xlsm') ? ' o .xlsm' : '') + ').' + (/\.xls$/i.test((archivos[0] || {}).name || '') ? ' El formato .xls (Excel 97-2003) no se puede revisar: guárdalo como Libro de Excel.' : ''))); return; }
       info.textContent = 'Revisando «' + libroArchivo.name + '» (' + Math.round(libroArchivo.size / 1024) + ' KB)…';
       try {
         const L = await LT.xlsx.leer(libroArchivo, libroArchivo.name);
         L.pdf = pdf ? await LT.xlsx.paginasPDF(pdf) : null;
+        L.docx = docx ? await LT.xlsx.leerDocx(docx) : null;
         L.nombreArchivo = libroArchivo.name;
         const n = getNivel();
         const orden = { explorador: 1, analista: 2, experto: 3 };
         const pruebas = lab.pruebas.filter((p) => !p.nivel || orden[n] >= orden[p.nivel]);
         const r = LT.xlsx.revisar(L, pruebas, n);
         const ok = r.every((x) => x.ok);
-        info.textContent = 'Archivo revisado: ' + libroArchivo.name + (pdf ? ' + ' + pdf.name : '') + ' · ' + r.filter((x) => x.ok).length + ' de ' + r.length + ' pruebas superadas.';
+        info.textContent = 'Archivo revisado: ' + libroArchivo.name + (pdf ? ' + ' + pdf.name : '') + (docx ? ' + ' + docx.name : '') + ' · ' + r.filter((x) => x.ok).length + ' de ' + r.length + ' pruebas superadas.';
         res.appendChild(resultadosLista(r, true));
         if (ok) {
           LT.progreso.actualizarModulo(id, (m) => { m.lab = { ok: true, nivel: n, fecha: new Date().toISOString(), archivo: libroArchivo.name }; });

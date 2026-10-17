@@ -1,153 +1,106 @@
-/* Módulo 1 · Editar un libro de trabajo */
+/* Módulo 1 · Inicio: la pantalla de Excel, Autorrecuperación y barra de acceso rápido */
 (function () {
-  const { D, ENC } = LT.caso;
-  const sucio = [
-    ['Código', 'Producto', 'Categoría', 'Precio'],
-    ['CAF-001', 'Espresso', 'Cafe caliente', 35],
-    ['', 'Americano', 'Cafe caliente', 40],
-    ['', 'Capuchno', 'Cafe caliente', 52],
-    ['', 'Latte', 'Cafe caliente', 5.5],
-    ['', 'Café de olla', 'Cafe caliente', 38],
-    ['FRI-001', 'Frappé moka', 'Cafe frío', 68],
-    ['', 'Cold brew', 'Cafe frío', 58],
-    ['', 'Latte helado', 'Cafe frío', 58],
-    ['PAN-001', 'Croissant', 'Panadería', 38],
-    ['', 'Concha', 'Panadería', 22],
-  ];
-  const codigos = ['CAF-001', 'CAF-002', 'CAF-003', 'CAF-004', 'CAF-005', 'CAF-006', 'FRI-001', 'FRI-002', 'FRI-003', 'PAN-001', 'PAN-002'];
-  const nombres = ['Espresso', 'Americano', 'Capuchino', 'Latte', 'Moka', 'Café de olla', 'Frappé moka', 'Cold brew', 'Latte helado', 'Croissant', 'Concha'];
-  const cats = ['Café caliente', 'Café caliente', 'Café caliente', 'Café caliente', 'Café caliente', 'Café caliente', 'Café frío', 'Café frío', 'Café frío', 'Panadería', 'Panadería'];
-  const precios = [35, 40, 52, 55, 60, 38, 68, 58, 58, 38, 22];
-  const hojaPrecios = () => ({ hojas: [{ nombre: 'Precios', datos: sucio, formatos: { 'D2:D14': '$#,##0.00' }, estilos: { 'A1:D1': ENC }, anchos: { A: 90, B: 150, C: 130, D: 90 }, filas: 18 }], herramientas: ['portapapeles', 'edicion', 'celdas'] });
-  const pruebas = (preciosEsp) => [
-    { tipo: 'valores', rango: 'B2:B12', esperado: nombres, titulo: 'Productos completos y bien escritos', mensaje: '{celda} muestra {obtenido}, pero debería decir {esperado}. ¿Insertaste la fila del Moka entre el Latte y el Café de olla? ¿Corregiste «Capuchno»?', detener: true },
-    { tipo: 'valores', rango: 'A2:A12', esperado: codigos, titulo: 'Todos los productos tienen código', mensaje: '{celda} debería tener {esperado}: arrastra el controlador de relleno desde el primer código de cada familia.' },
-    { tipo: 'valores', rango: 'C2:C12', esperado: cats, titulo: 'Categorías con acento', mensaje: '{celda} dice {obtenido}: usa Buscar y reemplazar (Ctrl+L) para cambiar «Cafe» por «Café».' },
-    { tipo: 'valores', rango: 'D2:D12', esperado: preciosEsp, titulo: 'Precios correctos', mensaje: '{celda} muestra {obtenido}, pero el precio es {esperado}.' },
-  ];
+  const PEDIDOS_QAT = ['Guardar', 'Deshacer', 'Rehacer', 'Vista previa de impresión e Imprimir', 'Orden ascendente'];
+  const PARTES_RETO = ['barraTitulo', 'accesoRapido', 'archivo', 'cinta', 'grupo', 'cuadroNombres', 'barraFormulas', 'celdaActiva', 'pestanasHojas', 'barraEstado'];
+  const PARTES_MICRO = ['cinta', 'cuadroNombres', 'barraFormulas', 'encabezadoColumna', 'pestanasHojas', 'zoom'];
+
+  function crearReto(cont, nivel) {
+    const { h } = LT.u;
+    const explorador = nivel === 'explorador', experto = nivel === 'experto';
+    const est = { pantalla: null, auto: null, qat: null };
+    const pestanas = h('div', { class: 'grupo-btn', style: { marginBottom: '10px' } });
+    const paneles = [h('div'), h('div'), h('div')];
+    const titulos = ['1. Partes de la pantalla', '2. Autorrecuperación', '3. Barra de acceso rápido'];
+    const mostrar = (i) => { paneles.forEach((p, k) => { p.style.display = k === i ? '' : 'none'; }); pestanas.querySelectorAll('button').forEach((b, k) => b.classList.toggle('primario', k === i)); };
+    titulos.forEach((t, i) => pestanas.appendChild(h('button', { class: 'btn chico', onclick: () => mostrar(i) }, t)));
+    paneles[0].appendChild(h('p', { class: 'instr' }, 'Identifica las ' + PARTES_RETO.length + ' partes que te pide la ventana.' + (explorador ? ' Verás una pista de cada una.' : '')));
+    const c0 = h('div'); paneles[0].appendChild(c0);
+    paneles[1].appendChild(h('p', { class: 'instr' }, explorador ? 'Haz clic en la categoría «Guardar». Marca «Guardar información de Autorrecuperación cada» con 5 minutos y marca «Conservar la última versión autorrecuperada si cierro sin guardar».' : 'Configura Excel para que guarde la información de Autorrecuperación cada 5 minutos y conserve la última versión si cierras sin guardar.'));
+    const c1 = h('div'); paneles[1].appendChild(c1);
+    paneles[2].appendChild(h('p', { class: 'instr' }, 'Marta quiere estos botones en la barra de acceso rápido: ' + PEDIDOS_QAT.join(', ') + '.' + (experto ? ' Además agrega «Formulario…» (lo usarás en el módulo 13), pon «Guardar» al principio y muestra la barra debajo de la cinta.' : '') + (explorador ? ' Elige el comando a la izquierda y pulsa «Agregar»; los que no están en «Comandos más utilizados» están en «Todos los comandos».' : '')));
+    const c2 = h('div'); paneles[2].appendChild(c2);
+    cont.append(pestanas, ...paneles);
+    setTimeout(() => {
+      const p = LT.widgets.pantallaExcel(c0, { modo: 'quiz', preguntas: PARTES_RETO, conPistas: explorador });
+      est.pantallaW = p;
+      est.autoW = LT.widgets.autorrecuperacion(c1, {});
+      est.qatW = LT.widgets.accesoRapido(c2, {});
+      mostrar(0);
+    }, 0);
+    return {
+      verificar: () => {
+        const r = [];
+        const add = (ok, titulo, mensaje) => r.push({ ok, titulo, mensaje: ok ? titulo : mensaje });
+        const p = est.pantallaW.estado(), a = est.autoW.estado(), q = est.qatW.estado();
+        add(p.completado, 'Identificaste las partes de la pantalla', 'Termina de identificar las partes de la pantalla (pestaña 1 del reto).');
+        add(a.autorrecuperacion && a.minutos === 5, 'Autorrecuperación cada 5 minutos', 'En Opciones › Guardar, activa la Autorrecuperación cada 5 minutos.');
+        add(a.conservar, 'Conservar la última versión autorrecuperada', 'Marca «Conservar la última versión autorrecuperada si cierro sin guardar».');
+        const faltan = PEDIDOS_QAT.filter((x) => !q.comandos.includes(x));
+        add(!faltan.length, 'Barra de acceso rápido con los comandos pedidos', 'Faltan en la barra de acceso rápido: ' + faltan.join(', ') + '.');
+        if (experto) {
+          add(q.comandos.includes('Formulario…'), 'Comando «Formulario…» agregado', 'Agrega «Formulario…» (está en «Todos los comandos»).');
+          add(q.comandos[0] === 'Guardar', '«Guardar» es el primer botón', 'Mueve «Guardar» al principio con ▲.');
+          add(q.debajo, 'Barra debajo de la cinta', 'Marca «Mostrar la barra de herramientas de acceso rápido debajo de la cinta de opciones».');
+        }
+        return { ok: r.every((x) => x.ok), resultados: r };
+      },
+    };
+  }
 
   LT.definirModulo({
     id: 1,
-    objetivo: 'Capturar, corregir, copiar y rellenar datos; buscar y reemplazar.',
-    situacion: 'Bienvenido(a) al equipo. Antes de imprimir el menú nuevo necesito que <b>pases a limpio la lista de precios</b>: le faltan códigos, hay errores de captura, falta un producto y alguien escribió «Cafe» sin acento en todos lados.',
+    objetivo: 'Reconocer las partes de la pantalla de Excel, configurar la Autorrecuperación y personalizar la barra de herramientas de acceso rápido.',
+    situacion: 'Bienvenido(a) a La Taza. Antes de tocar los datos quiero que conozcas tu herramienta: <b>dónde está cada cosa</b>, cómo <b>no perder trabajo</b> si se va la luz y cómo tener <b>a la mano los comandos</b> que más usarás.',
     explicacion: [
-      { html: '<h3>Libro, hoja y celda</h3><p>Un <b>libro</b> es el archivo; tiene <b>hojas</b> (pestañas abajo) y cada hoja es una cuadrícula de <b>celdas</b>. Cada celda se nombra con su columna y su fila: <b>B3</b> es la columna B, fila 3. El <b>cuadro de nombres</b> (arriba a la izquierda) muestra la celda activa y la <b>barra de fórmulas</b> muestra lo que contiene.</p><ul><li><b>Capturar:</b> escribe y pulsa <kbd>Enter</kbd> (baja) o <kbd>Tab</kbd> (derecha).</li><li><b>Corregir:</b> doble clic o <kbd>F2</kbd> para editar sin borrar; <kbd>Supr</kbd> borra el contenido; <kbd>Esc</kbd> cancela.</li><li><b>Copiar y pegar:</b> <kbd>Ctrl+C</kbd> y <kbd>Ctrl+V</kbd>; <b>Pegado especial</b> (<kbd>Ctrl+Alt+V</kbd>) pega solo valores, solo formatos o hace operaciones.</li><li><b>Autorrelleno:</b> arrastra el cuadrito verde de la esquina (controlador de relleno) para copiar o continuar una serie.</li><li><b>Buscar y reemplazar:</b> <kbd>Ctrl+B</kbd> busca y <kbd>Ctrl+L</kbd> reemplaza.</li><li><b>Insertar filas o columnas:</b> clic derecho sobre el número de fila o la letra de columna.</li></ul>' },
-      { titulo: 'Zona de práctica libre', instr: 'Escribe, muévete con las flechas, edita con F2, arrastra el controlador de relleno y prueba clic derecho. Aquí nada se califica.', hoja: { altura: 230, hojas: [{ nombre: 'Práctica', datos: [['Día', 'Ventas'], ['Lunes', 3200]], filas: 14, cols: 8 }], herramientas: ['portapapeles', 'edicion', 'celdas'] } },
+      { html: '<h3>Las partes de la ventana</h3><p>Excel organiza todo en la misma ventana. Arriba están la <b>barra de título</b> (nombre del libro) y la <b>barra de herramientas de acceso rápido</b>; debajo, la <b>cinta de opciones</b> con sus <b>pestañas</b> (Inicio, Insertar, Fórmulas…) y <b>grupos</b> de comandos. Luego vienen el <b>cuadro de nombres</b> (la celda activa) y la <b>barra de fórmulas</b> (lo que la celda contiene de verdad). Al centro, la cuadrícula: columnas con letras, filas con números y la <b>celda activa</b> con borde verde. Abajo, las <b>pestañas de las hojas</b> y la <b>barra de estado</b> con las vistas y el zoom.</p>' },
+      { widget: 'pantallaExcel', titulo: 'Explora la ventana', instr: 'Pasa el cursor (o toca) cada zona para ver su nombre y para qué sirve.', opts: { modo: 'explorar' } },
+      { html: '<h3>No perder el trabajo: Autoguardado y Autorrecuperación</h3><ul><li><b>Autoguardado</b> (interruptor arriba a la izquierda): guarda los cambios cada pocos segundos, pero solo si el archivo está en <b>OneDrive o SharePoint</b>.</li><li><b>Autorrecuperación</b>: para archivos en tu equipo. Cada cierto tiempo Excel guarda una copia de recuperación. Se configura en <b>Archivo › Opciones › Guardar</b>: «Guardar información de Autorrecuperación cada <i>n</i> minutos» y «Conservar la última versión autorrecuperada si cierro sin guardar».</li><li>Si Excel se cierra de golpe, al abrirlo de nuevo aparece el panel <b>Recuperación de documentos</b>. Si cerraste sin guardar: <b>Archivo › Información › Administrar libro › Recuperar libros no guardados</b>.</li><li>Ninguno sustituye a guardar: <kbd>Ctrl+G</kbd> (Excel en español) o el botón Guardar.</li></ul><h3>Tus comandos favoritos a un clic</h3><p>La <b>barra de herramientas de acceso rápido</b> está siempre visible. Su flecha ▾ permite marcar comandos comunes; «Más comandos…» abre <b>Archivo › Opciones › Barra de herramientas de acceso rápido</b> para agregar cualquiera. Atajo: clic derecho sobre un botón de la cinta › «Agregar a la barra de herramientas de acceso rápido». Puede mostrarse arriba o debajo de la cinta, y sus botones se activan con <kbd>Alt</kbd> + número.</p>' },
     ],
     ejemplo: {
-      tipo: 'pasos', titulo: 'Así continúa Excel una serie',
-      intro: 'Antes de arrastrar, predice qué escribirá Excel. Después compara con lo que hace de verdad.',
-      widget: 'autorrelleno', opts: { ejemplos: [['Lunes'], ['CAF-001'], ['ene'], ['5'], ['5', '10'], ['15/10/2025']] },
-      pasos: ['Escribe el valor inicial (por ejemplo <b>CAF-001</b>) y selecciónalo.', 'Coloca el puntero en el cuadrito verde de la esquina inferior derecha: cambia a una cruz delgada.', 'Arrastra hacia abajo (o a la derecha) y suelta. Excel continúa la serie: CAF-002, CAF-003…', 'Si solo quieres copiar el mismo valor, usa el botón de opciones de autorrelleno que aparece al soltar (Copiar celdas).'],
-      pregunta: { texto: 'Escribes <b>Lun</b> en A1 y arrastras el controlador hasta A4. ¿Qué aparece en A4?', opciones: ['Lun', 'Jue', 'Mar', 'Lun4'], correcta: 1, explicacion: 'Excel reconoce los días abreviados: Lun, Mar, Mié, <b>Jue</b>.' },
+      tipo: 'pasos', titulo: 'Configurar la Autorrecuperación cada 5 minutos',
+      pasos: [{ texto: 'Haz clic en la pestaña Archivo y, abajo a la izquierda, en Opciones.', ruta: ['Archivo', 'Opciones'] }, 'En la ventana Opciones de Excel, elige la categoría «Guardar».', 'Marca «Guardar información de Autorrecuperación cada» y escribe 5 minutos.', 'Marca «Conservar la última versión autorrecuperada si cierro sin guardar» y pulsa Aceptar.'],
+      pregunta: { texto: 'Trabajas en un archivo guardado en el <b>escritorio</b> (no en OneDrive) y se va la luz. ¿Qué te ayuda a recuperar el trabajo?', opciones: ['La Autorrecuperación', 'El Autoguardado', 'La barra de acceso rápido', 'El historial del navegador'], correcta: 0, explicacion: 'El Autoguardado solo funciona con archivos en OneDrive o SharePoint. Para archivos en el equipo, la <b>Autorrecuperación</b> guarda copias de recuperación cada pocos minutos.', retro: { 1: 'El Autoguardado solo está activo para archivos guardados en OneDrive o SharePoint.' } },
     },
     micro: [
-      {
-        titulo: 'Rellena los días', tipo: 'hoja',
-        enunciado: 'En B1 dice «Lunes». Usa el controlador de relleno para completar los días hasta H1 (Domingo).',
-        hoja: { hojas: [{ nombre: 'Semana', datos: [['Producto', 'Lunes'], ['Espresso'], ['Latte'], ['Concha']], estilos: { 'A1:H1': ENC }, objetivo: 'C1:H1', cols: 9, filas: 8 }], herramientas: ['portapapeles'] },
-        pruebas: [{ tipo: 'valores', rango: 'C1:H1', esperado: ['Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'], mensaje: '{celda} debería decir {esperado}: selecciona B1 y arrastra el cuadrito verde hacia la derecha.' }],
-        pista: ['Selecciona B1; en su esquina inferior derecha está el cuadrito verde. Arrástralo hasta H1.'],
-      },
-      {
-        titulo: 'Buscar y reemplazar', tipo: 'hoja',
-        enunciado: 'En el menú escribieron «Expreso». Cámbialo por «Espresso» en <b>todas</b> las celdas con un solo comando (Ctrl+L).',
-        hoja: { hojas: [{ nombre: 'Menú', datos: [['Bebida', 'Precio'], ['Expreso', 35], ['Expreso doble', 45], ['Americano', 40], ['Expreso cortado', 40], ['Capuchino', 52], ['Latte con expreso extra', 62]], formatos: { 'B2:B7': '$#,##0' }, estilos: { 'A1:B1': ENC }, anchos: { A: 190 }, filas: 10, cols: 5 }], herramientas: ['edicion'] },
-        pruebas: [{ tipo: 'fn', fn: (x) => {
-          const t = Object.values(x.estado.hojas[0].celdas).join(' | ');
-          if (/expreso/i.test(t)) return 'Todavía hay celdas con «Expreso». Abre Buscar y reemplazar y usa «Reemplazar todos».';
-          return (t.match(/Espresso/g) || []).length >= 4 ? true : 'Revisa que las cuatro bebidas digan «Espresso».';
-        } }],
-        pista: ['Pulsa Ctrl+L (o el botón de reemplazar de la barra). En «Buscar» escribe Expreso y en «Reemplazar con» Espresso.'],
-      },
-      {
-        titulo: 'Pegar solo valores', tipo: 'hoja',
-        enunciado: 'La columna C calcula el precio con IVA con fórmulas. Copia C2:C6 y pégalos en D2:D6 <b>como valores</b> (Pegado especial › Valores), para que no dependan de las fórmulas.',
-        hoja: { hojas: [{ nombre: 'IVA', datos: [['Producto', 'Precio', 'Con IVA', 'Con IVA (valores)'], ...D.productos.slice(0, 5).map((p, i) => [p.nombre, p.precio, '=B' + (i + 2) + '*1.16'])], formatos: { 'B2:D6': '$#,##0.00' }, estilos: { 'A1:D1': ENC }, anchos: { A: 130, D: 130 }, objetivo: 'D2:D6', filas: 9, cols: 6 }], herramientas: ['portapapeles'] },
-        pruebas: [
-          { tipo: 'valores', rango: 'D2:D6', esperado: D.productos.slice(0, 5).map((p) => Math.round(p.precio * 1.16 * 100) / 100), mensaje: '{celda} muestra {obtenido}; debería tener el precio con IVA {esperado}.' },
-          { tipo: 'fn', fn: (x) => { const c = x.celdas('D2:D6').find((y) => String(x.entrada(y.dir)).startsWith('=')); return c ? c.dir + ' tiene una fórmula: usa Pegado especial › Valores.' : true; } },
-        ],
-        pista: ['Selecciona C2:C6 y copia (Ctrl+C). Selecciona D2 y abre Pegado especial con Ctrl+Alt+V (o el botón «Especial»). Elige «Valores».'],
-      },
+      { titulo: 'Ubica las partes', tipo: 'widget', enunciado: 'Haz clic en cada parte que se te pide.', crear: (c, listo) => LT.widgets.pantallaExcel(c, { modo: 'quiz', preguntas: PARTES_MICRO, alTerminar: () => listo() }) },
+      { titulo: 'Autoguardado o Autorrecuperación', tipo: 'opcion', enunciado: '¿Qué afirmación es correcta?', opciones: ['El Autoguardado guarda continuamente los archivos en OneDrive/SharePoint; la Autorrecuperación guarda copias de recuperación de los archivos locales cada cierto tiempo', 'Son lo mismo con distinto nombre', 'La Autorrecuperación sustituye a guardar el archivo', 'El Autoguardado funciona con cualquier archivo, aunque esté en el escritorio'], correcta: 0, explicacion: 'Son complementarios. Y ninguno sustituye a guardar con Ctrl+G.' },
+      { titulo: 'Un botón siempre a la mano', tipo: 'opcion', enunciado: 'Quieres que el botón «Vista previa de impresión» esté siempre visible, sin importar en qué pestaña estés. ¿Qué haces?', opciones: ['Lo agrego a la barra de herramientas de acceso rápido', 'Cambio de pestaña cada vez', 'Lo agrego a la barra de estado', 'Inmovilizo paneles'], correcta: 0, explicacion: 'La barra de herramientas de acceso rápido siempre está visible. Usa su flecha ▾ o clic derecho sobre el botón › «Agregar a la barra de herramientas de acceso rápido».' },
     ],
     reto: {
-      titulo: 'Pasar a limpio la lista de precios', tipo: 'hoja',
-      intro: 'La hoja <i>Precios</i> tiene la lista que pasó Marta. Déjala lista para imprimir el menú.',
+      titulo: 'Recorrido por la pantalla y tu barra de acceso rápido', tipo: 'widget', crear: crearReto,
       base: {
-        hoja: hojaPrecios(),
-        pruebas: pruebas(precios),
-        instrucciones: [
-          'Faltan los códigos de casi todos los productos: cada familia (CAF, FRI, PAN) tiene solo el primero.',
-          'Falta el <b>Moka</b> (Café caliente, $60) entre el Latte y el Café de olla: debe quedar como CAF-005.',
-          '«Capuchno» está mal escrito.',
-          'El Latte cuesta $55, no $5.5.',
-          'En las categorías, «Cafe» va con acento: «Café».',
-        ],
-        pistas: ['Hay cinco herramientas en juego: insertar fila, autorrelleno, editar celda, buscar y reemplazar… y atención al orden: inserta la fila del Moka antes de rellenar los códigos.', 'Clic derecho en el número de fila 6 › «Insertar fila arriba». Para los códigos, selecciona el primer código de cada familia y arrastra el cuadrito verde. Ctrl+L abre Buscar y reemplazar.', 'Pasos exactos: inserta la fila 6 y escribe Moka, Cafe caliente, 60; arrastra A2 hasta A7, A8 hasta A10 y A11 hasta A12; corrige B4 y D5; reemplaza «Cafe» por «Café».'],
+        instrucciones: ['<b>Pestaña 1:</b> identifica las 10 partes de la ventana que se te piden.', '<b>Pestaña 2:</b> configura la Autorrecuperación cada 5 minutos y que conserve la última versión si cierras sin guardar.', '<b>Pestaña 3:</b> agrega a la barra de acceso rápido los comandos que pide Marta.'],
+        pistas: ['Pasa por las tres pestañas del reto: pantalla, Autorrecuperación y barra de acceso rápido.', 'La Autorrecuperación está en la categoría «Guardar» de las Opciones de Excel. Para la barra, los comandos que no ves están en «Todos los comandos».', 'Opciones › Guardar › Autorrecuperación cada 5 minutos + Conservar la última versión. Barra: agrega Vista previa de impresión e Imprimir y Orden ascendente.'],
       },
       niveles: {
-        explorador: {
-          instrucciones: [
-            'Clic derecho en el <b>número de fila 6</b> › «Insertar fila arriba». En la fila nueva escribe <b>Moka</b> (B6), <b>Cafe caliente</b> (C6) y <b>60</b> (D6).',
-            'Selecciona <b>A2</b> y arrastra el cuadrito verde hasta <b>A7</b>: aparecen CAF-002 a CAF-006. Haz lo mismo desde <b>A8</b> hasta A10 y desde <b>A11</b> hasta A12.',
-            'Haz doble clic en <b>B4</b> y corrige «Capuchino».',
-            'En <b>D5</b> escribe 55.',
-            'Pulsa <kbd>Ctrl+L</kbd>: busca <b>Cafe</b>, reemplaza con <b>Café</b> y elige «Reemplazar todos».',
-          ],
-        },
-        experto: {
-          instrucciones: ['La lista tiene <b>cinco problemas</b> (códigos, un nombre, un precio, acentos y un producto faltante: el Moka, CAF-005, Café caliente, $60). Encuéntralos y corrígelos.', 'Además, sube <b>10 %</b> los precios de Panadería sin escribirlos a mano y sin fórmulas: escribe 1.1 en una celda auxiliar, cópiala y usa <b>Pegado especial › Multiplicar</b> sobre los precios; después borra la celda auxiliar.'],
-          pruebas: pruebas(precios.slice(0, 9).concat([41.8, 24.2])).concat([
-            { tipo: 'fn', titulo: 'Los precios de Panadería son valores, no fórmulas', fn: (x) => (x.celdas('D11:D12').some((c) => String(x.entrada(c.dir)).startsWith('=')) ? 'Los precios de Panadería deben quedar como valores: usa Pegado especial › Multiplicar.' : true) },
-          ]),
-          pistas: ['Revisa columna por columna: códigos, nombres, categorías y precios.', 'Pegado especial (Ctrl+Alt+V) tiene la sección «Operación».', 'Escribe 1.1 en F1, cópiala, selecciona D11:D12 y en Pegado especial elige Valores + Multiplicar. Luego borra F1.'],
-        },
+        explorador: { instrucciones: ['Pestaña 1: verás una pista de cada parte.', 'Pestaña 2: sigue los pasos que aparecen arriba de la ventana de opciones.', 'Pestaña 3: agrega «Vista previa de impresión e Imprimir» y «Orden ascendente» (Guardar, Deshacer y Rehacer ya están).'] },
+        experto: { instrucciones: ['Identifica las 10 partes y configura la Autorrecuperación (5 minutos, conservar la última versión).', 'Barra de acceso rápido con los comandos pedidos y además «Formulario…», con «Guardar» primero y la barra debajo de la cinta.'] },
       },
     },
     lab: {
-      archivo: 'lab01-lista-precios.xlsx', titulo: 'Lista de precios de té, postres y alimentos',
-      contexto: 'La segunda parte de la lista de precios tiene problemas parecidos. Resuélvela en Excel.',
+      archivo: 'lab01-mi-primer-libro.xlsx', titulo: 'Mi primer libro en Excel',
+      contexto: 'Abre el libro y recorre la pantalla de Excel haciendo cambios sencillos que el verificador puede revisar.',
       pasos: {
-        explorador: [
-          { texto: 'Inserta una fila antes de «Galleta de avna» (clic derecho en el número de fila 5 › Insertar) y escribe: Brownie, Postre, 40.', ruta: ['Inicio', 'Insertar', 'Insertar filas de hoja'] },
-          { texto: 'Rellena los códigos que faltan arrastrando el controlador de relleno desde TE-001, POS-001 y ALI-001.', ruta: ['Inicio', 'Rellenar', 'Hacia abajo'] },
-          'Corrige «Galleta de avna» → «Galleta de avena» y el precio del Panini caprese: 85.',
-          { texto: 'Reemplaza la categoría «Postre» por «Postres».', ruta: ['Inicio', 'Buscar y seleccionar', 'Reemplazar…'] },
-          'Guarda y sube el libro.',
-        ],
-        analista: ['Inserta el <b>Brownie</b> (Postres, $40) entre el Pay de queso y la Galleta de avena.', 'Completa los códigos que faltan con autorrelleno.', 'Corrige el nombre mal escrito y el precio del Panini caprese ($85).', 'Cambia la categoría «Postre» por «Postres» en toda la lista.', 'Guarda y sube el libro.'],
-        experto: ['Corrige los cinco problemas de la lista (incluye el Brownie, POS-002, Postres, $40, que falta antes de la Galleta).', 'Sube 10 % los precios de Alimentos con Pegado especial › Multiplicar (deben quedar como números, sin fórmulas).', 'Guarda y sube el libro.'],
+        explorador: [{ texto: 'Doble clic en la pestaña «Hoja1» y cambia su nombre a <b>Mi primera hoja</b>.' }, 'Haz clic en el cuadro de nombres, escribe <b>D10</b> y pulsa Enter; escribe tu nombre.', 'En A1 escribe <b>Mi primer libro en La Taza</b>.', { texto: 'Ajusta el zoom a 120 % (barra de estado o Vista › Zoom).', ruta: ['Vista', 'Zoom'] }, { texto: 'Archivo › Información › Propiedades: escribe el título <b>Mi primer libro</b>.', ruta: ['Archivo', 'Información'] }, 'Configura la Autorrecuperación cada 5 minutos (Archivo › Opciones › Guardar). Guarda el libro y súbelo.'],
+        analista: ['Nombre de la hoja: «Mi primera hoja». En A1: «Mi primer libro en La Taza». En D10 (usa el cuadro de nombres): tu nombre.', 'Zoom al 120 % y título del documento «Mi primer libro» (Archivo › Información › Propiedades).', 'Configura la Autorrecuperación cada 5 minutos. Guarda y sube el libro.'],
+        experto: ['Lo del nivel Analista.', 'Deja la hoja en la vista «Diseño de página» y agrega «curso» a las palabras clave (Etiquetas) del documento.', 'Agrega «Formulario» a tu barra de acceso rápido. Guarda y sube el libro.'],
       },
+      notaWeb: 'En Excel para la web el título se cambia desde Archivo › Información › Propiedades y el zoom está en la barra de estado.',
       pruebas: [
-        { titulo: 'Lista completa y bien escrita', fn: (L, A) => {
-          A.hoja('Precios');
-          const esp = [['TE-001', 'Chai latte', 'Té'], ['TE-002', 'Té verde', 'Té'], ['POS-001', 'Pay de queso', 'Postres'], ['POS-002', 'Brownie', 'Postres'], ['POS-003', 'Galleta de avena', 'Postres'], ['ALI-001', 'Sándwich de pavo', 'Alimentos'], ['ALI-002', 'Panini caprese', 'Alimentos']];
-          for (let i = 0; i < esp.length; i++) for (let j = 0; j < 3; j++) {
-            const d = 'ABC'[j] + (i + 2);
-            const v = String(L.valor('Precios', d) == null ? '' : L.valor('Precios', d)).trim();
-            if (v.toLowerCase() !== esp[i][j].toLowerCase()) return d + ' dice «' + v + '», pero debería decir «' + esp[i][j] + '».';
-          }
-          return true;
-        } },
-        { titulo: 'Precios correctos', fn: (L, A, nivel) => {
-          const esp = [54, 38, 55, 40, 25, 78, 85].map((p, i) => (nivel === 'experto' && i >= 5 ? Math.round(p * 1.1 * 100) / 100 : p));
-          for (let i = 0; i < esp.length; i++) {
-            const v = L.valor('Precios', 'D' + (i + 2));
-            if (typeof v !== 'number') return 'D' + (i + 2) + ' no es un número (¿quedó como texto?).';
-            if (!A.cerca(v, esp[i])) return 'D' + (i + 2) + ' muestra ' + A.fmtEs(v) + '; el precio es ' + A.fmtEs(esp[i]) + '.';
-          }
-          return true;
-        } },
-        { titulo: 'Los precios de Alimentos son valores (Pegado especial)', nivel: 'experto', fn: (L) => (L.tieneFormula('Precios', 'D7') || L.tieneFormula('Precios', 'D8') ? 'D7 y D8 deben ser valores: usa Pegado especial › Multiplicar en lugar de fórmulas.' : true) },
+        { titulo: 'Hoja llamada «Mi primera hoja»', fn: (L) => (L.hoja('Mi primera hoja') ? true : 'Cambia el nombre de Hoja1 a «Mi primera hoja» (las hojas actuales son: ' + L.hojas.map((x) => x.nombre).join(', ') + ').') },
+        { titulo: 'Texto en A1 y tu nombre en D10', fn: (L) => { const a1 = String(L.valor('Mi primera hoja', 'A1') || ''); if (!/mi primer libro en la taza/i.test(a1)) return 'En A1 escribe «Mi primer libro en La Taza».'; const d10 = L.valor('Mi primera hoja', 'D10'); return typeof d10 === 'string' && d10.trim().length >= 3 ? true : 'Escribe tu nombre en D10 (usa el cuadro de nombres para llegar).'; } },
+        { titulo: 'Zoom al 120 %', fn: (L) => { if (!L.hoja('Mi primera hoja')) return 'Primero cambia el nombre de la hoja a «Mi primera hoja».'; const z = L.hoja('Mi primera hoja').zoom; return z === 120 ? true : 'El zoom de la hoja es ' + z + ' %; ajústalo a 120 %.'; } },
+        { titulo: 'Título del documento', fn: (L) => (/mi primer libro/i.test(L.propiedades.titulo) ? true : 'Escribe el título «Mi primer libro» en Archivo › Información › Propiedades (ahora: «' + (L.propiedades.titulo || 'vacío') + '»).') },
+        { titulo: 'Vista Diseño de página', nivel: 'experto', fn: (L) => (!L.hoja('Mi primera hoja') ? 'Primero cambia el nombre de la hoja a «Mi primera hoja».' : L.hoja('Mi primera hoja').vista === 'pageLayout' ? true : 'Cambia a la vista Diseño de página (Vista › Diseño de página o el botón de la barra de estado).') },
+        { titulo: 'Palabra clave «curso»', nivel: 'experto', fn: (L) => (/curso/i.test(L.propiedades.palabrasClave) ? true : 'Agrega «curso» a las etiquetas o palabras clave del documento.') },
       ],
     },
     donde: [
-      { comando: 'Reemplazar', ruta: ['Inicio', 'Buscar y seleccionar', 'Reemplazar…'], nota: 'Atajo: Ctrl+L. En Mac: ⌃H.' },
-      { comando: 'Pegado especial', ruta: ['Inicio', 'Pegar', 'Pegado especial…'], nota: 'Atajo: Ctrl+Alt+V.' },
-      { comando: 'Insertar filas', ruta: ['Inicio', 'Insertar', 'Insertar filas de hoja'], nota: 'También con clic derecho sobre el número de fila.' },
-      { comando: 'Rellenar series', ruta: ['Inicio', 'Rellenar', 'Series…'] },
+      { comando: 'Opciones (Autorrecuperación)', ruta: ['Archivo', 'Opciones'], nota: 'En Mac: Excel › Preferencias › Guardar.' },
+      { comando: 'Recuperar libros no guardados', ruta: ['Archivo', 'Información', 'Administrar libro'], nota: 'Dentro de «Administrar libro» elige «Recuperar libros no guardados».' },
+      { comando: 'Zoom', ruta: ['Vista', 'Zoom'] },
+      { comando: 'Vista Diseño de página', ruta: ['Vista', 'Diseño de página'] },
     ],
-    atajos: ['<kbd>F2</kbd> editar la celda · <kbd>Esc</kbd> cancelar · <kbd>Supr</kbd> borrar contenido', '<kbd>Ctrl+C</kbd>, <kbd>Ctrl+X</kbd>, <kbd>Ctrl+V</kbd>, <kbd>Ctrl+Alt+V</kbd> (pegado especial)', '<kbd>Ctrl+Z</kbd> deshacer · <kbd>Ctrl+Y</kbd> rehacer', '<kbd>Ctrl+B</kbd> buscar · <kbd>Ctrl+L</kbd> reemplazar', '<kbd>Ctrl+J</kbd> rellenar hacia abajo (Excel en español)'],
+    atajos: ['<kbd>Ctrl+G</kbd> guardar (Excel en español; en inglés es Ctrl+S) · <kbd>F12</kbd> Guardar como', '<kbd>Alt</kbd> muestra las letras de acceso a la cinta; <kbd>Alt</kbd>+número activa un botón de la barra de acceso rápido', '<kbd>Ctrl+F1</kbd> oculta o muestra la cinta de opciones'],
   });
 })();

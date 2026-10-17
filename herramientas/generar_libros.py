@@ -1,17 +1,26 @@
-"""Genera los libros de Excel del curso a partir de los datos del caso.
+"""Genera los libros de Excel (y la carta de Word) del curso, versión 2: 13 módulos.
 
   datos/la-taza-base.xlsx                 libro de datos del caso
-  laboratorios/labXX-*.xlsx               19 laboratorios (etapa 4)
-  laboratorios/soluciones/*-solucion.xlsx soluciones
-  integradores/int-*.xlsx                 retos integradores y sus soluciones
+  laboratorios/labXX-*.xlsx               13 laboratorios (etapa 4) y lab13-carta.docx
+  integradores/int-*.xlsx                 retos integradores
+  <privado>/soluciones/laboratorios/      soluciones de los laboratorios   } fuera del sitio:
+  <privado>/soluciones/integradores/      soluciones de los integradores   } no se publican
+
+<privado> es la carpeta hermana «curso-excel-la-taza-v2-privado» (o la variable de
+entorno LT_PRIVADO). Después ejecuta herramientas/proteger_docente.py para cifrar las
+soluciones dentro del área docente.
 
 Uso:  python herramientas/generar_libros.py
 La disposición de las celdas coincide con las pruebas de assets/js/modulos/mXX.js
 y assets/js/paginas.js: si cambias una, cambia la otra.
 """
 import datetime as dt
+import os
 import pathlib
 import random
+import re
+import zipfile
+from xml.sax.saxutils import escape
 
 from openpyxl import Workbook
 from openpyxl.chart import BarChart, LineChart, Reference
@@ -29,6 +38,7 @@ from openpyxl.worksheet.table import Table, TableColumn, TableFormula, TableStyl
 import lataza_datos as LD
 
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
+PRIVADO = pathlib.Path(os.environ.get("LT_PRIVADO") or RAIZ.parent / (RAIZ.name + "-privado"))
 D = LD.generar()
 PROD = {p["codigo"]: p for p in D["productos"]}
 CATS = D["categorias"]
@@ -122,14 +132,22 @@ def guardar(wb, ruta):
     wb.save(ruta)
 
 
+def numerar(wb, nombre):
+    """Los constructores de la versión 1 se reutilizan: ajusta «Laboratorio N» al número nuevo."""
+    n = int(nombre[3:5])
+    a1 = wb["Instrucciones"]["A1"]
+    a1.value = re.sub(r"^Laboratorio \d+", f"Laboratorio {n}", a1.value)
+    return wb
+
+
 def lab(nombre, constructor):
-    guardar(constructor(False), RAIZ / "laboratorios" / f"{nombre}.xlsx")
-    guardar(constructor(True), RAIZ / "laboratorios" / "soluciones" / f"{nombre}-solucion.xlsx")
+    guardar(numerar(constructor(False), nombre), RAIZ / "laboratorios" / f"{nombre}.xlsx")
+    guardar(numerar(constructor(True), nombre), PRIVADO / "soluciones" / "laboratorios" / f"{nombre}-solucion.xlsx")
 
 
 def integrador(nombre, constructor):
     guardar(constructor(False), RAIZ / "integradores" / f"{nombre}.xlsx")
-    guardar(constructor(True), RAIZ / "integradores" / "soluciones" / f"{nombre}-solucion.xlsx")
+    guardar(constructor(True), PRIVADO / "soluciones" / "integradores" / f"{nombre}-solucion.xlsx")
 
 
 def hoja_ventas(wb, nombre="Ventas"):
@@ -274,6 +292,10 @@ def lab01(sol):
             ws.cell(row=i, column=j, value=v)
         ws.cell(row=i, column=4).number_format = MONEDA
     anchos(ws, A=10, B=22, C=14, D=10)
+    if sol:
+        hoja_solucion(wb, ["Esta solución corresponde al nivel Analista.",
+                           "Nivel Experto: escribe 1.1 en una celda libre, cópiala, selecciona D7:D8 y usa Pegado especial › Valores + Multiplicar.",
+                           "Resultado Experto: Sándwich de pavo $85.80 y Panini caprese $93.50 (valores, sin fórmulas); después borra la celda con 1.1."])
     return wb
 
 
@@ -487,58 +509,6 @@ def lab06(sol):
     return wb
 
 
-def lab07(sol):
-    wb = libro("Laboratorio 7 · Reporte anual listo para enviar", "Configura la impresión y exporta a PDF. Sube el libro y el PDF juntos.",
-               ["Hoja «Reporte anual»: área de impresión A1:N23 (sin las notas internas), orientación horizontal, ajustada a 1 página, número de página en el pie.",
-                "Exporta la hoja a PDF (Archivo › Exportar › Crear PDF/XPS).", "Nivel Experto: hoja «Detalle» con columnas a lo ancho de una página, fila 1 repetida y pie «Página X de Y»."])
-    ws = wb.create_sheet("Reporte anual")
-    ws["A1"] = "Ventas 2025 por producto"
-    ws["A1"].font = Font(bold=True, size=14)
-    encabezados(ws, 2, ["Producto"] + MESES + ["Total"])
-    mp = mensual("producto")
-    for i, p in enumerate(D["productos"], 3):
-        ws.cell(row=i, column=1, value=p["nombre"])
-        for j in range(12):
-            ws.cell(row=i, column=j + 2, value=mp.get(p["nombre"], [0] * 12)[j]).number_format = MONEDA0
-        ws.cell(row=i, column=14, value=f"=SUM(B{i}:M{i})").number_format = MONEDA0
-    ws.cell(row=23, column=1, value="Total").font = NEGRITA
-    for j in range(2, 15):
-        L = get_column_letter(j)
-        ws.cell(row=23, column=j, value=f"=SUM({L}3:{L}22)").number_format = MONEDA0
-    ws["A26"] = "Notas internas (no imprimir):"
-    ws["A26"].font = NEGRITA
-    ws["A27"] = "Revisar con proveedores el costo del Panini caprese."
-    ws["A28"] = "Las ventas de diciembre incluyen el evento de fin de año en Centro."
-    anchos(ws, A=24, N=12)
-    wd = wb.create_sheet("Detalle")
-    encabezados(wd, 1, ["Producto · Sucursal"] + MESES + ["Total"])
-    det = {}
-    for v in D["ventas"]:
-        det.setdefault(v["producto"] + " · " + v["sucursal"], [0] * 12)[int(v["fecha"][5:7]) - 1] += v["total"]
-    r = 2
-    for p in D["productos"]:
-        for s in ("Centro", "Norte", "Sur"):
-            wd.cell(row=r, column=1, value=p["nombre"] + " · " + s)
-            vals = det.get(p["nombre"] + " · " + s, [0] * 12)
-            for j in range(12):
-                wd.cell(row=r, column=j + 2, value=vals[j]).number_format = MONEDA0
-            wd.cell(row=r, column=14, value=f"=SUM(B{r}:M{r})").number_format = MONEDA0
-            r += 1
-    anchos(wd, A=30)
-    if sol:
-        ws.print_area = "A1:N23"
-        ws.page_setup.orientation = "landscape"
-        ws.sheet_properties.pageSetUpPr.fitToPage = True
-        ws.page_setup.fitToWidth, ws.page_setup.fitToHeight = 1, 1
-        ws.oddFooter.center.text = "Página &P"
-        wd.page_setup.orientation = "landscape"
-        wd.sheet_properties.pageSetUpPr.fitToPage = True
-        wd.page_setup.fitToWidth, wd.page_setup.fitToHeight = 1, 0
-        wd.print_title_rows = "1:1"
-        wd.oddFooter.center.text = "Página &P de &N"
-    return wb
-
-
 def lab08(sol):
     wb = libro("Laboratorio 8 · Comisiones de noviembre", "Mismo cálculo de comisiones con las ventas de noviembre, y un resumen por sucursal.",
                ["D2:D21: comisión = ventas × tasa (F2) si las ventas alcanzan la meta (F1); si no, 0.", "F4: cuántos vendedores alcanzaron la meta (CONTAR.SI).",
@@ -675,24 +645,6 @@ def lab11(sol):
     return wb
 
 
-def lab12(sol):
-    wb = libro("Laboratorio 12 · Revisión del presupuesto en parejas", "Trabajen en parejas con el libro guardado en OneDrive.",
-               ["Persona A: sube el libro a OneDrive y compártelo con B (Puede editar).", "Persona B: deja al menos un comentario sobre una cifra; A lo responde y hace el cambio.",
-                "Desbloqueen B4:G11 (celdas de captura) y protejan la hoja.", "Revisen el historial de versiones (Archivo › Información).",
-                "Descarguen una copia y súbanla.", "Nivel Experto: nota en A11 y protección de la estructura del libro."])
-    ws = wb.create_sheet("Presupuesto")
-    escribir_presupuesto(ws)
-    if sol:
-        for fila in ws["B4:G11"]:
-            for c in fila:
-                c.protection = Protection(locked=False)
-        ws.protection.sheet = True
-        ws["A11"].comment = Comment("Incluye servicio de cafeteras", "Docente")
-        wb.security.lockStructure = True
-        hoja_solucion(wb, ["Los comentarios en hilo se crean en Excel (Revisar › Nuevo comentario); openpyxl solo crea notas."])
-    return wb
-
-
 def lideres():
     t = {}
     for v in D["ventas"]:
@@ -702,235 +654,277 @@ def lideres():
     return t, [max(t[q], key=t[q].get) for q in (1, 2, 3, 4)]
 
 
-def lab13(sol):
-    wb = libro("Laboratorio 13 · Tabla dinámica en Excel", "La hoja Ventas tiene las 720 ventas de 2025.",
-               ["Inserta una tabla dinámica: Fecha agrupada por trimestres en filas, Sucursal en columnas, suma de Total en valores.",
-                "En Respuestas!B2:B5 escribe la sucursal que más vendió en cada trimestre.", "Nivel Experto: otra tabla dinámica con Categoría en filas y Total como % del total general."])
+# ================================================================ versión 2
+def lab_inicio(sol):
+    wb = libro("Laboratorio 1 · Mi primer libro en Excel", "Recorre la pantalla de Excel haciendo cambios sencillos que el verificador puede revisar.",
+               ["Cambia el nombre de «Hoja1» a «Mi primera hoja» (doble clic en la pestaña).",
+                "En A1 escribe «Mi primer libro en La Taza». Con el cuadro de nombres ve a D10 y escribe tu nombre.",
+                "Ajusta el zoom de la hoja a 120 % (barra de estado o Vista › Zoom).",
+                "Archivo › Información › Propiedades: escribe el título «Mi primer libro».",
+                "Configura la Autorrecuperación cada 5 minutos (Archivo › Opciones › Guardar) y personaliza tu barra de acceso rápido.",
+                "Nivel Experto: deja la hoja en la vista Diseño de página y agrega «curso» a las palabras clave (Etiquetas)."],
+               ["Nombre de la hoja, A1 y D10.", "Zoom de la hoja y título del documento.", "Experto: vista Diseño de página y palabra clave."])
+    ws = wb.create_sheet("Mi primera hoja" if sol else "Hoja1")
+    if sol:
+        ws["A1"] = "Mi primer libro en La Taza"
+        ws["D10"] = "Ana Torres"
+        ws.sheet_view.zoomScale = 120
+        ws.sheet_view.view = "pageLayout"
+        wb.properties.title = "Mi primer libro"
+        wb.properties.keywords = "curso; La Taza"
+        hoja_solucion(wb, ["La Autorrecuperación y la barra de acceso rápido son opciones de Excel, no del libro: se revisan en el simulador (reto del módulo 1).",
+                           "Título y palabras clave: Archivo › Información › Propiedades (o Propiedades avanzadas › Resumen)."])
+    wb.active = 1
+    return wb
+
+
+def mejor_mes_norte():
+    m = [0] * 12
+    for v in D["ventas"]:
+        if v["sucursal"] == "Norte":
+            m[int(v["fecha"][5:7]) - 1] += v["total"]
+    return D["meses"][m.index(max(m))]
+
+
+def lider_anual():
+    t = {}
+    for v in D["ventas"]:
+        t[v["sucursal"]] = t.get(v["sucursal"], 0) + v["total"]
+    return max(t, key=t.get), t
+
+
+def lab_dinamicas(sol):
+    wb = libro("Laboratorio 12 · Tablas dinámicas y tablero", "La hoja Ventas tiene las 720 ventas de 2025. La hoja Respuestas es para tus conclusiones.",
+               ["Inserta una tabla dinámica: Fecha agrupada por trimestres en filas, Sucursal en columnas y suma de Total en valores.",
+                "En Respuestas escribe la sucursal que más vendió en cada trimestre (B2:B5), el mes con más ventas de Norte (B7) y la sucursal que más vendió en el año (B8).",
+                "Tablero: otra tabla dinámica por meses, un gráfico dinámico y una segmentación por Sucursal conectada.",
+                "Nivel Experto: valores como % del total en alguna tabla dinámica y una escala de tiempo por Fecha."],
+               ["Tabla dinámica por trimestre y sucursal.", "Respuestas B2:B5, B7 y B8.", "Gráfico dinámico y segmentación conectada."])
     hoja_ventas(wb)
     ws = wb.create_sheet("Respuestas")
     encabezados(ws, 1, ["Trimestre", "Sucursal que más vendió"])
     t, lid = lideres()
     for i in range(4):
         ws.cell(row=i + 2, column=1, value=f"T{i + 1}")
-        if sol:
+    ws["A7"], ws["A8"] = "Mes con más ventas de Norte", "Sucursal que más vendió en el año"
+    ws["A7"].font = ws["A8"].font = NEGRITA
+    for d in ("B2", "B3", "B4", "B5", "B7", "B8"):
+        ws[d].fill = RELLENO_ENTRADA
+    anchos(ws, A=34, B=26)
+    if sol:
+        for i in range(4):
             ws.cell(row=i + 2, column=2, value=lid[i])
-    anchos(ws, A=12, B=26)
-    if sol:
-        s = hoja_solucion(wb, ["1. Clic en Ventas › Insertar › Tabla dinámica › Nueva hoja.", "2. Fecha a Filas; clic derecho en una fecha › Agrupar › Trimestres.",
-                               "3. Sucursal a Columnas; Total a Valores (Suma).", "Totales por trimestre (referencia):"])
-        encabezados(s, 8, ["Trimestre", "Centro", "Norte", "Sur"])
+        ws["B7"] = mejor_mes_norte()
+        lider, tot = lider_anual()
+        ws["B8"] = lider
+        s = hoja_solucion(wb, ["1. Clic en Ventas › Insertar › Tabla dinámica › Nueva hoja.", "2. Fecha a Filas; clic derecho en una fecha › Agrupar › solo Trimestres.",
+                               "3. Sucursal a Columnas; Total a Valores (Suma).", "4. Tablero: Fecha (Meses) en filas, Total en valores; Gráfico dinámico › Líneas; Insertar segmentación › Sucursal.",
+                               "5. Experto: Mostrar valores como › % del total general; Insertar escala de tiempo › Fecha.",
+                               "openpyxl no crea tablas dinámicas: estos son los resultados esperados.", "Totales por trimestre:"])
+        encabezados(s, 11, ["Trimestre", "Centro", "Norte", "Sur"])
         for q in range(1, 5):
-            s.cell(row=8 + q, column=1, value=f"T{q}")
+            s.cell(row=11 + q, column=1, value=f"T{q}")
             for j, su in enumerate(["Centro", "Norte", "Sur"], 2):
-                s.cell(row=8 + q, column=j, value=t[q][su]).number_format = MONEDA0
+                s.cell(row=11 + q, column=j, value=t[q][su]).number_format = MONEDA0
+        s.cell(row=16, column=1, value="Año").font = NEGRITA
+        for j, su in enumerate(["Centro", "Norte", "Sur"], 2):
+            s.cell(row=16, column=j, value=tot[su]).number_format = MONEDA0
     return wb
 
 
-def lab14(sol):
-    wb = libro("Laboratorio 14 · Tablero de ventas", "Arma el tablero en una hoja nueva llamada «Tablero».",
-               ["Tabla dinámica: meses en filas y suma de Total en valores.", "Gráfico dinámico de líneas.", "Segmentación por Sucursal conectada a la tabla dinámica.",
-                "Nivel Experto: escala de tiempo por Fecha y segmentación por Categoría."])
-    hoja_ventas(wb)
-    if sol:
-        hoja_solucion(wb, ["1. Insertar › Tabla dinámica (hoja nueva «Tablero»): Fecha (Meses) en filas, Total en valores.", "2. Análisis de tabla dinámica › Gráfico dinámico › Líneas.",
-                           "3. Análisis de tabla dinámica › Insertar segmentación de datos › Sucursal.", "4. (Experto) Insertar escala de tiempo › Fecha; segmentación por Categoría.",
-                           "openpyxl no crea tablas dinámicas: esta solución describe los pasos."])
-    return wb
+# ---------------------------------------------------- gestión de pedidos (módulo 13)
+CLIENTES = D["clientesCorp"]
+PRODUCTOS = D["productos"]
 
 
-def lab15(sol):
-    wb = libro("Laboratorio 15 · Cazador de errores", "El resumen de la sucursal Norte tiene ocho errores sembrados.",
-               ["Usa Comprobación de errores, Rastrear precedentes y Evaluar fórmula.", "Corrige los 8 errores (unidades, referencia eliminada, nombre de función, circular, división entre cero, referencia sin fijar, código buscado y texto sin comillas).",
-                "Nivel Experto: usa SI.ERROR solo donde el error es esperado."])
-    ws = wb.create_sheet("Resumen")
-    ws["A1"] = "Resumen de productos · Norte, octubre"
-    ws["A1"].font = Font(bold=True, size=14)
-    encabezados(ws, 3, ["Código", "Producto", "Precio", "Costo", "Unidades", "Ventas", "Utilidad", "Margen", "Participación"])
-    cods = ["CAF-002", "CAF-003", "CAF-004", "CAF-005", "FRI-001", "PAN-001", "PAN-002", "POS-001"]
-    unidades = [190, 160, "1O8", 88, 175, 0, 290, 66]
-    for i, c in enumerate(cods):
-        r = i + 4
-        p = PROD[c]
-        vals = [c, p["nombre"], p["precio"], p["costo"], (108 if (sol and i == 2) else unidades[i])]
-        for j, v in enumerate(vals, 1):
-            ws.cell(row=r, column=j, value=v)
-        ws.cell(row=r, column=6, value=f"=C{r}*E{r}")
-        ws.cell(row=r, column=7, value=(f"=F{r}-D{r}*E{r}" if (sol or r != 7) else "=F7-#REF!*E7"))
-        ws.cell(row=r, column=8, value=("=IFERROR(G9/F9,0)" if (sol and r == 9) else f"=G{r}/F{r}"))
-        ws.cell(row=r, column=9, value=(f"=F{r}/$F$12" if sol else f"=F{r}/F{12 + i}"))
-        for col in (3, 4, 6, 7):
-            ws.cell(row=r, column=col).number_format = MONEDA0
-        ws.cell(row=r, column=8).number_format = "0.0%"
-        ws.cell(row=r, column=9).number_format = "0.0%"
-    ws["A12"] = "Total"
-    ws["F12"] = "=SUM(F4:F11)" if sol else "=SUMAR(F4:F11)"
-    ws["G12"] = "=SUM(G4:G11)" if sol else "=SUM(G4:G12)"
-    ws["H12"] = "=G12/F12"
-    ws["F12"].number_format = ws["G12"].number_format = MONEDA0
-    ws["H12"].number_format = "0.0%"
-    for celda, txt in (("K3", "Código buscado"), ("K4", "Producto"), ("K5", "Precio"), ("K6", "Diagnóstico")):
-        ws[celda] = txt
-        ws[celda].font = NEGRITA
-    ws["L3"] = "CAF-004" if sol else "CAF-04"
-    ws["L4"] = "=_xlfn.XLOOKUP(L3,A4:A11,B4:B11)"
-    ws["L5"] = "=_xlfn.XLOOKUP(L3,A4:A11,C4:C11)"
-    ws["L6"] = '=IF(H12>0.6,"Rentable","Revisar")' if sol else '=IF(H12>0.6,Rentable,"Revisar")'
-    anchos(ws, A=10, B=16, F=11, G=11, H=10, I=13, J=3, K=16, L=13)
-    return wb
+def hoja_catalogo(wb):
+    ws = wb.create_sheet("Catálogo")
+    encabezados(ws, 1, ["Producto", "Precio", "Categoría"])
+    for i, p in enumerate(PRODUCTOS, 2):
+        ws.cell(row=i, column=1, value=p["nombre"])
+        ws.cell(row=i, column=2, value=p["precio"]).number_format = MONEDA0
+        ws.cell(row=i, column=3, value=p["categoria"])
+    anchos(ws, A=22, B=9, C=15)
+    return ws
 
 
-def lab16(sol):
-    wb = libro("Laboratorio 16 · Pedidos atrasados", "La fecha de corte está en L1.",
-               ["A2:A41: formato personalizado para ver PED-2501.", "F2:F41: formato personalizado para ver «12 pzas».",
-                "Regla con fórmula en A2:I41 que pinte la fila completa de los pedidos pendientes con compromiso anterior a L1.", "Nivel Experto: amarillo para los pendientes que vencen en los 3 días siguientes."])
+def hoja_clientes(wb):
+    ws = wb.create_sheet("Clientes")
+    encabezados(ws, 1, ["Cliente", "Contacto", "Correo", "Teléfono"])
+    for i, c in enumerate(CLIENTES, 2):
+        for j, k in enumerate(["cliente", "contacto", "correo", "telefono"], 1):
+            ws.cell(row=i, column=j, value=c[k])
+    anchos(ws, A=24, B=22, C=26, D=13)
+    return ws
+
+
+def validaciones_pedidos(ws, hasta):
+    dv = DataValidation(type="list", formula1="Clientes!$A$2:$A$11", allow_blank=True, showErrorMessage=True, errorTitle="Cliente", error="Elige un cliente de la lista.")
+    dv.add(f"C2:C{hasta}")
+    dp = DataValidation(type="list", formula1="'Catálogo'!$A$2:$A$21", allow_blank=True, showErrorMessage=True, errorTitle="Producto", error="Elige un producto del catálogo.")
+    dp.add(f"D2:D{hasta}")
+    dc = DataValidation(type="whole", operator="between", formula1="1", formula2="200", allow_blank=True, showErrorMessage=True,
+                        showInputMessage=True, promptTitle="Cantidad", prompt="Entero de 1 a 200", errorTitle="Cantidad", error="Escribe un número entero de 1 a 200.")
+    dc.add(f"E2:E{hasta}")
+    for v in (dv, dp, dc):
+        ws.add_data_validation(v)
+
+
+def hoja_pedidos_gestion(wb, sol, filas=None):
     ws = wb.create_sheet("Pedidos")
-    escribir_pedidos(ws, D["pedidos"])
-    ws["K1"] = "Fecha de corte"
-    ws["K1"].font = NEGRITA
-    poner_fecha(ws["L1"], "2025-11-12")
-    anchos(ws, K=15, L=12)
+    encabezados(ws, 1, ["Folio", "Fecha", "Cliente", "Producto", "Cantidad", "Precio", "Importe", "Entrega"])
+    ped = filas or D["pedidos"]
+    for i, p in enumerate(ped, 2):
+        ws.cell(row=i, column=1, value=p["folio"])
+        poner_fecha(ws.cell(row=i, column=2), p["fecha"])
+        ws.cell(row=i, column=3, value=p["cliente"])
+        ws.cell(row=i, column=4, value=p["producto"])
+        ws.cell(row=i, column=5, value=p["cantidad"])
+        poner_fecha(ws.cell(row=i, column=8), p["compromiso"])
+        ws.cell(row=i, column=6).number_format = MONEDA
+        ws.cell(row=i, column=7).number_format = MONEDA
+        if sol:
+            ws.cell(row=i, column=6, value=f"=_xlfn.XLOOKUP(D{i},Catálogo!$A$2:$A$21,Catálogo!$B$2:$B$21)")
+            ws.cell(row=i, column=7, value=f"=E{i}*F{i}")
+    ws.freeze_panes = "A2"
+    anchos(ws, A=8, B=11, C=24, D=22, E=10, F=10, G=12, H=11)
     if sol:
-        for r in range(2, 42):
-            ws.cell(row=r, column=1).number_format = '"PED-"0'
-            ws.cell(row=r, column=6).number_format = '0 "pzas"'
-        ws.conditional_formatting.add("A2:I41", FormulaRule(formula=['AND($I2="Pendiente",$H2<$L$1)'], fill=ROJO))
-        ws.conditional_formatting.add("A2:I41", FormulaRule(formula=['AND($I2="Pendiente",$H2>=$L$1,$H2<=$L$1+3)'], fill=AMARILLO))
-    return wb
+        validaciones_pedidos(ws, 60)
+    return ws
 
 
-def lab17(sol):
-    wb = libro("Laboratorio 17 · Buscador y resumen", "Hojas: Productos, Ventas, Buscador y Resumen.",
-               ["Buscador!C4:C6: producto, categoría y precio del código de C2 con BUSCARX (cuarto argumento «No existe»).", "Buscador!C7: rango de precio con SI.CONJUNTO (Premium ≥60, Clásico ≥40, Básico).",
-                "Resumen!B2:G4: ventas por sucursal y categoría con SUMAR.SI.CONJUNTO.", "Nivel Experto: C6 con INDICE+COINCIDIR y C9 con FILTRAR (productos de la misma categoría)."])
-    hoja_productos(wb)
-    hoja_ventas(wb)
-    ws = wb.create_sheet("Buscador")
-    ws["B1"] = "Buscador de productos"
+def hoja_consulta(wb, sol, cliente="Notaría 14"):
+    ws = wb.create_sheet("Consulta")
+    ws["B1"] = "Consulta de clientes"
     ws["B1"].font = TITULO
-    ws["B2"], ws["C2"] = "Código:", "CAF-004"
+    ws["B2"], ws["C2"] = "Cliente:", cliente
     ws["C2"].fill = RELLENO_ENTRADA
-    for celda, txt in (("B4", "Producto"), ("B5", "Categoría"), ("B6", "Precio"), ("B7", "Rango de precio"), ("B9", "Misma categoría")):
-        ws[celda] = txt
-        ws[celda].font = NEGRITA
-    ws["C6"].number_format = MONEDA0
-    anchos(ws, A=3, B=20, C=24)
-    wr = wb.create_sheet("Resumen")
-    encabezados(wr, 1, ["Sucursal \\ Categoría"] + CATS)
-    for i, s in enumerate(["Centro", "Norte", "Sur"], 2):
-        wr.cell(row=i, column=1, value=s).font = NEGRITA
-        for j in range(2, 8):
-            wr.cell(row=i, column=j).number_format = MONEDA0
-    anchos(wr, A=22, B=14, C=12, D=10, E=12, F=10, G=12)
+    ws["C2"].font = NEGRITA
+    ws["B4"], ws["B5"] = "Número de pedidos", "Total comprado"
+    ws["B4"].font = ws["B5"].font = NEGRITA
+    ws["C5"].number_format = MONEDA
+    anchos(ws, A=3, B=22, C=26)
     if sol:
-        ws["C4"] = '=_xlfn.XLOOKUP(C2,Productos!A2:A21,Productos!B2:B21,"No existe")'
-        ws["C5"] = '=_xlfn.XLOOKUP(C2,Productos!A2:A21,Productos!C2:C21,"No existe")'
-        ws["C6"] = "=INDEX(Productos!D2:D21,MATCH(C2,Productos!A2:A21,0))"
-        ws["C7"] = '=_xlfn.IFS(C6>=60,"Premium",C6>=40,"Clásico",TRUE,"Básico")'
-        for i in range(2, 5):
-            for j in range(2, 8):
-                L = get_column_letter(j)
-                wr.cell(row=i, column=j, value=f"=SUMIFS(Ventas!$I:$I,Ventas!$C:$C,$A{i},Ventas!$F:$F,{L}$1)")
-        hoja_solucion(wb, ["C9 (Experto): =FILTRAR(Productos!B2:B21, Productos!C2:C21=C5). openpyxl no escribe matrices dinámicas: escríbela en Excel."])
+        ws["C4"] = "=COUNTIF(Pedidos!C2:C60,C2)"
+        ws["C5"] = "=SUMIF(Pedidos!C2:C60,C2,Pedidos!G2:G60)"
+    return ws
+
+
+def lab_gestion(sol):
+    wb = libro("Laboratorio 13 · Registro de pedidos y cartas de confirmación",
+               "Parte 1 en Excel: base de pedidos con captura validada, búsqueda y consulta. Parte 2 en Word: cartas con combinar correspondencia (lab13-carta.docx).",
+               ["Pedidos: lista desplegable de clientes en C2:C60 (origen =Clientes!$A$2:$A$11) y de productos en D2:D60 (origen =Catálogo!$A$2:$A$21); en E2:E60 solo enteros de 1 a 200.",
+                "Pedidos: Precio (F) con BUSCARX desde el Catálogo e Importe (G) = Cantidad × Precio, para todos los pedidos.",
+                "Consulta: C4 = número de pedidos del cliente de C2 (CONTAR.SI) y C5 = total comprado (SUMAR.SI).",
+                "Guarda y cierra el libro. En Word abre lab13-carta.docx: Correspondencia › Iniciar combinación › Cartas › Seleccionar destinatarios › Usar una lista existente (este libro, hoja Pedidos).",
+                "Inserta los campos combinados donde dice [Folio], [Cliente], [Cantidad], [Producto], [Importe] y [Entrega]. Revisa la vista previa y guarda la carta.",
+                "Sube el libro y la carta juntos.",
+                "Nivel Experto: macro que limpie Consulta!C2 asignada a un botón (guarda como .xlsm) y formato de moneda en el campo Importe con \\# \"$#,##0.00\"."],
+               ["Validaciones de captura.", "Precio e importe con fórmulas.", "Consulta que cambia con el cliente de C2.", "Carta con los campos combinados."])
+    hoja_pedidos_gestion(wb, sol)
+    hoja_catalogo(wb)
+    hoja_clientes(wb)
+    hoja_consulta(wb, sol)
+    if sol:
+        hoja_solucion(wb, ["Validación: Datos › Validación de datos › Permitir Lista › Origen =Clientes!$A$2:$A$11 (y =Catálogo!$A$2:$A$21); Número entero entre 1 y 200.",
+                           "F2: =BUSCARX(D2,Catálogo!$A$2:$A$21,Catálogo!$B$2:$B$21) · G2: =E2*F2 (copiar hasta la última fila).",
+                           "Consulta: C4 =CONTAR.SI(Pedidos!C2:C60,C2) · C5 =SUMAR.SI(Pedidos!C2:C60,C2,Pedidos!G2:G60).",
+                           "Experto (macro): Programador › Grabar macro «LimpiarConsulta» › seleccionar Consulta!C2 › Supr › Detener; botón con la macro; guardar como .xlsm.",
+                           "Sub LimpiarConsulta()", '    Range("C2").Select', "    Selection.ClearContents", "End Sub",
+                           "La carta resuelta (lab13-carta-solucion.docx) muestra los campos combinados y el modificador de moneda en Importe."])
     return wb
 
 
-def modelo(ws, precio, costo, cafes, fijos, con_tabla=False):
-    ws["A1"] = "Punto de equilibrio · Cafetería La Taza"
-    ws["A1"].font = TITULO
-    filas = {3: ("Precio promedio por café", precio, MONEDA), 4: ("Costo variable por café", costo, MONEDA), 5: ("Cafés vendidos al mes", cafes, "#,##0.00")}
-    for r, (t, v, f) in filas.items():
-        ws.cell(row=r, column=1, value=t).fill = RELLENO_ENTRADA
-        ws.cell(row=r, column=2, value=v).number_format = f
-    ws["A7"] = "Costos fijos mensuales"
-    ws["A7"].font = NEGRITA
-    for i, (c, m) in enumerate(fijos, 8):
-        ws.cell(row=i, column=1, value=c)
-        ws.cell(row=i, column=2, value=m).number_format = MONEDA0
-    ws["A12"], ws["B12"] = "Total costos fijos", "=SUM(B8:B11)"
-    ws["A14"], ws["B14"] = "Ingresos", "=B3*B5"
-    ws["A15"], ws["B15"] = "Costos variables", "=B4*B5"
-    ws["A16"], ws["B16"] = "Utilidad", "=B14-B15-B12"
-    for d in ("B12", "B14", "B15", "B16"):
-        ws[d].number_format = MONEDA0
-    ws["A12"].font = ws["A16"].font = NEGRITA
-    ws["D2"] = "Cafés completos"
-    ws["D2"].font = NEGRITA
-    if con_tabla:
-        ws["D13"], ws["E13"] = "Precio", "Utilidad"
-        for i, p in enumerate([42, 46, 50, 54, 58], 15):
-            ws.cell(row=i, column=4, value=p).number_format = MONEDA0
-    anchos(ws, A=28, B=14, C=3, D=16, E=14)
+# ---------------------------------------------------- documento de Word mínimo
+def _p(texto="", negrita=False, tam=None, centrado=False, color=None):
+    """Párrafo; en el texto, {Campo} o {Campo|modificador} se convierte en campo combinado."""
+    ppr = '<w:pPr><w:jc w:val="center"/></w:pPr>' if centrado else ""
+    rpr = ""
+    if negrita or tam or color:
+        rpr = "<w:rPr>" + ("<w:b/>" if negrita else "") + (f'<w:color w:val="{color}"/>' if color else "") + (f'<w:sz w:val="{tam * 2}"/>' if tam else "") + "</w:rPr>"
+    runs = []
+    for parte in re.split(r"(\{[^}]+\})", texto):
+        if not parte:
+            continue
+        m = re.fullmatch(r"\{([^}|]+)(?:\|([^}]*))?\}", parte)
+        if m:
+            campo, mod = m.group(1), m.group(2)
+            instr = f" MERGEFIELD {campo} " + (mod + " " if mod else "")
+            runs.append(f'<w:fldSimple w:instr="{escape(instr, {chr(34): "&quot;"})}"><w:r>{rpr}<w:t>«{escape(campo)}»</w:t></w:r></w:fldSimple>')
+        else:
+            runs.append(f'<w:r>{rpr}<w:t xml:space="preserve">{escape(parte)}</w:t></w:r>')
+    return f"<w:p>{ppr}{''.join(runs)}</w:p>"
 
 
-def lab18(sol):
-    wb = libro("Laboratorio 18 · Punto de equilibrio de Norte", "El mismo modelo con los costos de la sucursal Norte.",
-               ["Buscar objetivo: B16 con valor 0 cambiando B5.", "D3: =REDONDEAR.MAS(B5,0).", "Escenarios sobre B8:B9: «Base» (actuales), «Renta sube» (+5,000 de renta) y «Más personal» (+14,000 de sueldos).",
-                "Nivel Experto: tabla de datos en D14:E19 (E14 =B16, celda de entrada de columna B3)."])
-    ws = wb.create_sheet("Modelo")
-    fijos = [("Renta", 24000), ("Sueldos", 88000), ("Servicios", 8200), ("Otros gastos", 5800)]
-    precio, costo = 50, 13
-    total_fijos = sum(m for _, m in fijos)
-    eq = total_fijos / (precio - costo)
-    modelo(ws, precio, costo, round(eq, 6) if sol else 2800, fijos, con_tabla=True)
+def docx(ruta, parrafos, titulo):
+    ns = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+    documento = (f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document {ns}><w:body>{"".join(parrafos)}'
+                 '<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1418" w:right="1418" w:bottom="1418" w:left="1418" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr>'
+                 "</w:body></w:document>")
+    estilos = (f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles {ns}><w:docDefaults><w:rPrDefault><w:rPr>'
+               '<w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="Calibri" w:cs="Calibri"/><w:sz w:val="22"/><w:lang w:val="es-MX"/></w:rPr></w:rPrDefault>'
+               '<w:pPrDefault><w:pPr><w:spacing w:after="160" w:line="276" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>'
+               '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style></w:styles>')
+    ajustes = f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:settings {ns}><w:defaultTabStop w:val="708"/><w:compat/></w:settings>'
+    tipos = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+             '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>'
+             '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+             '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>'
+             '<Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/>'
+             '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>')
+    rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'
+            '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>')
+    rels_doc = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+                '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/></Relationships>')
+    core = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" '
+            'xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
+            f'<dc:title>{escape(titulo)}</dc:title><dc:creator>Cafetería La Taza</dc:creator></cp:coreProperties>')
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(ruta, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("[Content_Types].xml", tipos)
+        z.writestr("_rels/.rels", rels)
+        z.writestr("docProps/core.xml", core)
+        z.writestr("word/document.xml", documento)
+        z.writestr("word/_rels/document.xml.rels", rels_doc)
+        z.writestr("word/styles.xml", estilos)
+        z.writestr("word/settings.xml", ajustes)
+
+
+def carta(sol):
     if sol:
-        ws["D3"] = "=ROUNDUP(B5,0)"
-        ws.scenarios = ScenarioList(scenario=[
-            Scenario(name="Base", inputCells=[InputCells(r="B8", val="24000"), InputCells(r="B9", val="88000")]),
-            Scenario(name="Renta sube", inputCells=[InputCells(r="B8", val="29000"), InputCells(r="B9", val="88000")]),
-            Scenario(name="Más personal", inputCells=[InputCells(r="B8", val="24000"), InputCells(r="B9", val="102000")]),
-        ])
-        ws["E14"] = "=B16"
-        ws["E15"] = DataTableFormula(ref="E15:E19", r1="B3")
-    return wb
-
-
-def tabla_semana(ws, suc, fila0=1, col0=1, con_formato=False):
-    filas = D["semanaSucursal"][suc] if suc != "Centro" else D["semana"]
-    cab = ["Producto", "Precio", "Unidades", "Ventas", "Participación"]
-    for j, v in enumerate(cab):
-        ws.cell(row=fila0, column=col0 + j, value=v)
-    L = lambda k: get_column_letter(col0 + k)
-    ini, fin = fila0 + 1, fila0 + len(filas)
-    for i, p in enumerate(filas):
-        r = fila0 + 1 + i
-        ws.cell(row=r, column=col0, value=p["producto"])
-        ws.cell(row=r, column=col0 + 1, value=p["precio"])
-        ws.cell(row=r, column=col0 + 2, value=sum(p["cantidades"]))
-        ws.cell(row=r, column=col0 + 3, value=f"={L(1)}{r}*{L(2)}{r}")
-        ws.cell(row=r, column=col0 + 4, value=f"={L(3)}{r}/SUM(${L(3)}${ini}:${L(3)}${fin})")
-    if con_formato:
-        for j in range(5):
-            c = ws.cell(row=fila0, column=col0 + j)
-            c.font, c.fill = NEGRITA, RELLENO_ENC
-        for r in range(ini, fin + 1):
-            ws.cell(row=r, column=col0 + 3).number_format = MONEDA
-        bordes(ws, f"{L(0)}{fila0}:{L(4)}{fin}")
-
-
-def lab19(sol):
-    wb = libro("Laboratorio 19 · Macro en Excel de escritorio", "Necesitas Excel para Windows o Mac. Al final guarda como .xlsm.",
-               ["Activa la pestaña Programador.", "En «Semana 42», graba la macro FormatoReporte: A1:E1 en negrita y con relleno, D2:D9 en moneda, bordes en A1:E9.",
-                "Ejecútala en «Semana 43».", "Inserta un botón y asígnale la macro.", "Guarda como Libro de Excel habilitado para macros (.xlsm).",
-                "Nivel Experto: graba con referencias relativas y ejecútala en «Semana 44» (el reporte empieza en B3)."])
-    for nombre, suc, f0, c0 in (("Semana 42", "Centro", 1, 1), ("Semana 43", "Norte", 1, 1), ("Semana 44", "Sur", 3, 2)):
-        ws = wb.create_sheet(nombre)
-        tabla_semana(ws, suc, f0, c0, con_formato=sol)
-        anchos(ws, A=22 if c0 == 1 else 4, B=22 if c0 == 2 else 10)
-    if sol:
-        hoja_solucion(wb, ["Código que genera la grabadora (referencias relativas, desde A1):", "Sub FormatoReporte()", '    ActiveCell.Range("A1:E1").Select',
-                           "    Selection.Font.Bold = True", "    Selection.Interior.Color = RGB(243, 235, 223)", '    ActiveCell.Offset(1, 3).Range("A1:A8").Select',
-                           '    Selection.NumberFormat = "$#,##0.00"', '    ActiveCell.Offset(-1, -3).Range("A1:E9").Select', "    Selection.Borders.LineStyle = xlContinuous",
-                           "End Sub", "", "Guarda como .xlsm e inserta un botón (Programador › Insertar › Botón) con la macro asignada.",
-                           "openpyxl no guarda código VBA: este archivo muestra el resultado del formato."])
-    return wb
+        c = lambda campo, mod=None: "{" + campo + ("|" + mod if mod else "") + "}"
+    else:
+        c = lambda campo, mod=None: "[" + campo + "]"
+    return [
+        _p("Cafetería La Taza", negrita=True, tam=20, color="5B3A29"),
+        _p("Pedidos para empresas · catering@lataza.example", color="7A6A5E"),
+        _p(""),
+        _p("Confirmación de pedido", negrita=True, tam=14),
+        _p("Pedido número: " + c("Folio")),
+        _p("Cliente: " + c("Cliente")),
+        _p(""),
+        _p("Estimado cliente:"),
+        _p("Le confirmamos su pedido de " + c("Cantidad") + " piezas de " + c("Producto") + ", por un importe de "
+           + c("Importe", '\\# "$#,##0.00"') + ". La entrega está programada para el " + c("Entrega", '\\@ "dd/MM/yyyy"') + "."),
+        _p("Si necesita algún cambio, responda a este correo antes de la fecha de entrega."),
+        _p("¡Gracias por su preferencia!"),
+        _p(""),
+        _p("Marta Ríos", negrita=True),
+        _p("Gerente general · Cafetería La Taza"),
+    ]
 
 
 # ================================================================ integradores
 def int_basico(sol):
-    wb = libro("Reto integrador básico · Reporte semanal de ventas", "Reporte semanal de la sucursal Sur: cálculos, formato, gráfica e impresión.",
-               ["J4:J11 unidades de la semana (suma de Lun a Dom); K4:K11 ventas (precio × unidades); J12 y K12 totales; N4 promedio de ventas por producto; N5 venta mayor.",
+    wb = libro("Reto integrador básico · Reporte semanal de ventas", "Reporte semanal de la sucursal Sur: cálculos, formato, gráfico, logo y resumen.",
+               ["Semana: J4:J11 unidades de la semana (suma de Lun a Dom); K4:K11 ventas (precio × unidades); J12 y K12 totales; N4 promedio de ventas por producto; N5 venta mayor.",
                 "Formato: título destacado, encabezados A3:K3 en negrita con relleno, precio y ventas en moneda, bordes en A3:K12.",
-                "Gráfico de columnas o barras de las ventas por producto, con título.", "Impresión horizontal ajustada a una página; exporta a PDF y sube ambos archivos."])
+                "Gráfico de columnas o barras de las ventas por producto, con título.",
+                "Inserta el logo de La Taza (logo-la-taza.png) en la hoja Semana.",
+                "Agrega una hoja llamada «Resumen» con el total de la semana en B2 (fórmula que tome Semana!K12).",
+                "Escribe el título del documento «Reporte semanal Sur» (Archivo › Información › Propiedades)."])
     ws = wb.create_sheet("Semana")
     ws["A1"] = "Reporte semanal · Sucursal Sur · Semana 42"
     cab = ["Producto", "Precio"] + DIAS + ["Unidades", "Ventas"]
@@ -964,17 +958,22 @@ def int_basico(sol):
         ch.add_data(Reference(ws, min_col=11, min_row=3, max_row=11), titles_from_data=True)
         ch.set_categories(Reference(ws, min_col=1, min_row=4, max_row=11))
         ws.add_chart(ch, "A15")
-        ws.page_setup.orientation = "landscape"
-        ws.sheet_properties.pageSetUpPr.fitToPage = True
-        ws.page_setup.fitToWidth, ws.page_setup.fitToHeight = 1, 1
+        img = Image(str(RAIZ / "assets" / "img" / "logo-la-taza.png"))
+        img.width, img.height = 60, 60
+        ws.add_image(img, "P1")
+        wr = wb.create_sheet("Resumen")
+        wr["A2"], wr["B2"] = "Total de la semana", "=Semana!K12"
+        wr["B2"].number_format = MONEDA
+        anchos(wr, A=22, B=14)
+        wb.properties.title = "Reporte semanal Sur"
     return wb
 
 
 def int_intermedio(sol):
     wb = libro("Reto integrador intermedio · Base de pedidos confiable", "Limpia la base de pedidos y calcula las comisiones del mes.",
                ["Pedidos: quita los duplicados.", "Convierte los pedidos en la tabla «Pedidos» con la columna calculada Importe y la fila de totales.",
-                "Formato condicional para los pedidos con Estado «Pendiente».", "Comisiones: D2:D21 (meta F1, tasa F2) y F4 (cuántos alcanzaron la meta).",
-                "Protege la hoja Comisiones dejando editables solo F1 y F2."])
+                "Formato condicional para los pedidos con Estado «Pendiente».", "Lista desplegable en la columna Estado (I2:I41) con Pendiente y Entregado.",
+                "Comisiones: D2:D21 (meta F1, tasa F2) y F4 (cuántos alcanzaron la meta)."])
     ws = wb.create_sheet("Pedidos")
     ped = list(D["pedidos"])
     if not sol:
@@ -1012,59 +1011,48 @@ def int_intermedio(sol):
         t.tableColumns[9].calculatedColumnFormula = TableFormula(attr_text="Pedidos[[#This Row],[Cantidad]]*Pedidos[[#This Row],[Precio]]")
         ws.add_table(t)
         ws.conditional_formatting.add("I2:I41", CellIsRule(operator="equal", formula=['"Pendiente"'], fill=AMARILLO))
+        dv = DataValidation(type="list", formula1='"Pendiente,Entregado"', allow_blank=True)
+        dv.add("I2:I41")
+        ws.add_data_validation(dv)
         for i in range(2, 22):
             wc.cell(row=i, column=4, value=f"=IF(C{i}>=$F$1,C{i}*$F$2,0)")
         wc["F4"] = '=COUNTIF(C2:C21,">="&F1)'
-        wc["F1"].protection = Protection(locked=False)
-        wc["F2"].protection = Protection(locked=False)
-        wc.protection.sheet = True
     return wb
 
 
 def int_avanzado(sol):
-    wb = libro("Reto integrador avanzado · Tablero anual automatizado", "Tablero, buscador, escenarios y una macro de formato. Entrega en .xlsm.",
-               ["Hoja nueva «Tablero»: tabla dinámica (suma de Total por mes), gráfico dinámico y segmentación por Sucursal.",
-                "Buscador!C4:C6: producto, categoría y precio del código de C2 con BUSCARX.", "Modelo: al menos dos escenarios cambiando los cafés vendidos (B5).",
-                "Macro que dé formato a la hoja Reporte (encabezados en negrita con relleno y ventas en moneda), asignada a un botón.", "Guarda como .xlsm."])
-    hoja_productos(wb)
+    wb = libro("Reto integrador avanzado · Tablero y gestión automatizada",
+               "Tablero de ventas con tablas dinámicas y un registro de pedidos con captura validada, búsqueda, consulta y una macro. Entrega en .xlsm.",
+               ["Hoja nueva «Tablero»: tabla dinámica con la suma de Total por mes, gráfico dinámico y segmentación por Sucursal.",
+                "Pedidos: listas desplegables de clientes (C2:C60) y productos (D2:D60) y cantidad entera de 1 a 200 (E2:E60).",
+                "Pedidos: Precio (F) con BUSCARX desde el Catálogo e Importe (G) = Cantidad × Precio.",
+                "Consulta: C4 número de pedidos y C5 total comprado del cliente de C2.",
+                "Una macro que limpie Consulta!C2, asignada a un botón. Guarda como .xlsm."])
     hoja_ventas(wb)
-    wbus = wb.create_sheet("Buscador")
-    wbus["B1"] = "Buscador de productos"
-    wbus["B1"].font = TITULO
-    wbus["B2"], wbus["C2"] = "Código:", "CAF-004"
-    wbus["C2"].fill = RELLENO_ENTRADA
-    for celda, txt in (("B4", "Producto"), ("B5", "Categoría"), ("B6", "Precio")):
-        wbus[celda] = txt
-        wbus[celda].font = NEGRITA
-    anchos(wbus, A=3, B=18, C=24)
-    wm = wb.create_sheet("Modelo")
-    E = D["equilibrio"]
-    modelo(wm, E["precio"], E["costoVariable"], E["cafes"], [(c["concepto"], c["monto"]) for c in E["costosFijos"]])
-    wr = wb.create_sheet("Reporte")
-    tabla_semana(wr, "Centro", 1, 1, con_formato=sol)
-    anchos(wr, A=22)
+    hoja_pedidos_gestion(wb, sol, D["pedidos"][:30])
+    hoja_catalogo(wb)
+    hoja_clientes(wb)
+    hoja_consulta(wb, sol, "Hospital San Rafael")
     if sol:
-        for d, col in (("C4", "B"), ("C5", "C"), ("C6", "D")):
-            wbus[d] = f'=_xlfn.XLOOKUP(C2,Productos!A2:A21,Productos!{col}2:{col}21,"No existe")'
-        wm.scenarios = ScenarioList(scenario=[Scenario(name="Base", inputCells=[InputCells(r="B5", val="3000")]), Scenario(name="Optimista", inputCells=[InputCells(r="B5", val="4200")])])
         hoja_solucion(wb, ["Tablero: Insertar › Tabla dinámica (Fecha por meses, Suma de Total), Gráfico dinámico, Segmentación por Sucursal.",
-                           "Macro: Programador › Grabar macro (FormatoReporte) sobre Reporte!A1:E9; botón con la macro; guardar como .xlsm.",
-                           "openpyxl no crea tablas dinámicas ni guarda VBA: esta solución incluye el buscador, los escenarios y el formato final del reporte."])
+                           "Macro: Programador › Grabar macro «LimpiarConsulta» (seleccionar Consulta!C2, Supr); botón con la macro; guardar como .xlsm.",
+                           "openpyxl no crea tablas dinámicas ni guarda VBA: esta solución incluye las validaciones, las fórmulas y la consulta."])
     return wb
 
 
 def main():
     libro_base()
-    for nombre, f in [("lab01-lista-precios", lab01), ("lab02-corte-caja", lab02), ("lab03-reporte-semanal", lab03), ("lab04-menu", lab04),
-                      ("lab05-sucursales", lab05), ("lab06-graficos", lab06), ("lab07-impresion", lab07), ("lab08-comisiones", lab08),
-                      ("lab09-clientes", lab09), ("lab10-pedidos", lab10), ("lab11-inventario", lab11), ("lab12-presupuesto", lab12),
-                      ("lab13-ventas-2025", lab13), ("lab14-tablero", lab14), ("lab15-errores", lab15), ("lab16-pedidos", lab16),
-                      ("lab17-buscador", lab17), ("lab18-equilibrio", lab18), ("lab19-reporte-macro", lab19)]:
+    for nombre, f in [("lab01-mi-primer-libro", lab_inicio), ("lab02-lista-precios", lab01), ("lab03-corte-caja", lab02), ("lab04-reporte-semanal", lab03),
+                      ("lab05-menu", lab04), ("lab06-sucursales", lab05), ("lab07-graficos", lab06), ("lab08-comisiones", lab08),
+                      ("lab09-clientes", lab09), ("lab10-pedidos", lab10), ("lab11-inventario", lab11), ("lab12-tablas-dinamicas", lab_dinamicas),
+                      ("lab13-gestion-pedidos", lab_gestion)]:
         lab(nombre, f)
+    docx(RAIZ / "laboratorios" / "lab13-carta.docx", carta(False), "Confirmación de pedido")
+    docx(PRIVADO / "soluciones" / "laboratorios" / "lab13-carta-solucion.docx", carta(True), "Confirmación de pedido (solución)")
     integrador("int-basico", int_basico)
     integrador("int-intermedio", int_intermedio)
     integrador("int-avanzado", int_avanzado)
-    print("libros generados")
+    print("libros generados · soluciones en", PRIVADO / "soluciones")
 
 
 if __name__ == "__main__":

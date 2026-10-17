@@ -196,6 +196,10 @@
       L.hojas.push(hoja);
       if (hoja.ruta && hoja.tipoParte === 'worksheet') await leerHoja(L, hoja);
     }
+    // propiedades del documento (Archivo › Información › Propiedades)
+    const core = await L.xml('docProps/core.xml');
+    const prop = (n) => { const e = uno(core, n); return e ? e.textContent.trim() : ''; };
+    L.propiedades = { titulo: prop('title'), asunto: prop('subject'), autor: prop('creator'), palabrasClave: prop('keywords'), descripcion: prop('description') };
     // tema
     const tema = await L.xml('xl/theme/theme1.xml');
     L.tema = tema ? { nombre: atr(tema.documentElement, 'name'), colores: atr(uno(tema, 'clrScheme'), 'name'), fuentes: atr(uno(tema, 'fontScheme'), 'name') } : null;
@@ -319,6 +323,8 @@
     hoja.inmovilizada = !!(pane && (atr(pane, 'state') === 'frozen' || atr(pane, 'state') === 'frozenSplit'));
     const sv = uno(raiz, 'sheetView');
     hoja.sinCuadricula = sv && atr(sv, 'showGridLines') === '0';
+    hoja.zoom = sv && atr(sv, 'zoomScale') ? +atr(sv, 'zoomScale') : 100;
+    hoja.vista = (sv && atr(sv, 'view')) || 'normal';
     const sheetPr = hijo(raiz, 'sheetPr');
     hoja.colorPestana = colorDe(hijo(sheetPr, 'tabColor'));
     const psp = hijo(sheetPr, 'pageSetUpPr');
@@ -541,6 +547,43 @@
     });
   }
 
+  /* Documento de Word (.docx): texto, campos de combinación de correspondencia y origen de datos */
+  async function leerDocx(fuente) {
+    const buf = fuente instanceof ArrayBuffer ? fuente : await fuente.arrayBuffer();
+    let zip;
+    try { zip = await JSZip.loadAsync(buf); } catch (e) { throw new Error('El archivo de Word no es un .docx válido. Guárdalo como Documento de Word (.docx).'); }
+    const f = zip.file('word/document.xml');
+    if (!f) throw new Error('El archivo no contiene un documento de Word.');
+    const xml = await f.async('string');
+    const campos = [];
+    const instrucciones = [];
+    // Códigos de campo: simples (w:fldSimple) o complejos (fldChar begin … instrText … separate/end),
+    // que Word puede partir en varios instrText al editarlos a mano (Alt+F9).
+    const dec = (s) => s.replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+    const codigos = [];
+    const pila = [];
+    const reTok = /<w:fldSimple\b[^>]*?w:instr="([^"]*)"|<w:fldChar\b[^>]*?w:fldCharType="(begin|separate|end)"|<w:instrText\b[^>]*>([^<]*)<\/w:instrText>/g;
+    let t;
+    while ((t = reTok.exec(xml))) {
+      if (t[1] != null) codigos.push(dec(t[1]));
+      else if (t[2] === 'begin') pila.push({ txt: '', listo: false });
+      else if (t[2]) { const top = pila[pila.length - 1]; if (top && !top.listo) { top.listo = true; codigos.push(top.txt); } if (t[2] === 'end') pila.pop(); }
+      else if (pila.length && !pila[pila.length - 1].listo) pila[pila.length - 1].txt += dec(t[3]);
+    }
+    for (const c of codigos) {
+      const m = /^\s*MERGEFIELD\s+(?:"([^"]+)"|(\S+))([\s\S]*)$/i.exec(c);
+      if (!m) continue;
+      const n = (m[1] || m[2]).trim();
+      if (!campos.includes(n)) campos.push(n);
+      instrucciones.push({ campo: n, resto: (m[3] || '').trim() });
+    }
+    const doc = parsear(xml);
+    const parrafos = todos(doc, 'p').map((p) => todos(p, 't').map((t) => t.textContent).join(''));
+    const ajustes = zip.file('word/settings.xml') ? await zip.file('word/settings.xml').async('string') : '';
+    const origen = /<w:mailMerge[\s>]/.test(ajustes) ? ((/<w:query w:val="([^"]*)"/.exec(ajustes) || [])[1] || 'sí') : null;
+    return { texto: parrafos.join('\n'), parrafos, campos, instrucciones, origenDatos: origen, saltosSeccion: (xml.match(/<w:sectPr/g) || []).length };
+  }
+
   /* Número de páginas de un PDF (estimación sin bibliotecas) */
   async function paginasPDF(fuente) {
     const buf = fuente instanceof ArrayBuffer ? fuente : await fuente.arrayBuffer();
@@ -630,5 +673,5 @@
     return A;
   }
 
-  LT.xlsx = { leer, revisar, ayudas, paginasPDF, FORMATOS_INTEGRADOS };
+  LT.xlsx = { leer, leerDocx, revisar, ayudas, paginasPDF, FORMATOS_INTEGRADOS };
 })();

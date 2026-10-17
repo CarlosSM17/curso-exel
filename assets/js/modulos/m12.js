@@ -1,88 +1,158 @@
-/* Módulo 12 · Colaborar con Excel */
+/* Módulo 12 · Tablas dinámicas */
 (function () {
-  const { D, ENC } = LT.caso;
-  const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'];
-  const pres = D.presupuesto;
-  const BRUNO = 'Bruno Castillo (Norte)';
-  const datos = [['Presupuesto de gastos · 1.er semestre 2026'], [], ['Concepto', ...MESES, 'Total'], ...pres.map((p, i) => [p.concepto, ...p.meses, '=SUMA(B' + (i + 4) + ':G' + (i + 4) + ')']), ['Total', ...'BCDEFGH'.split('').map((c) => '=SUMA(' + c + '4:' + c + '11)')]];
-  const filaPub = 4 + pres.findIndex((p) => p.concepto === 'Publicidad');
-  const filaIns = 4 + pres.findIndex((p) => p.concepto === 'Insumos');
-  const C_PUB = 'C' + filaPub, G_INS = 'G' + filaIns;
-  const hojaPres = (notas) => ({
-    hojas: [{
-      nombre: 'Presupuesto', datos, formatos: { 'B4:H12': '$#,##0' }, estilos: { A1: { b: true, fs: 15 }, 'A3:H3': ENC, 'A12:H12': { b: true } }, anchos: { A: 160 },
-      comentarios: {
-        [C_PUB]: { hilo: [{ autor: BRUNO, texto: '¿Por qué Publicidad baja a $3,000 en febrero? Creo que debe ser $4,500, como en enero.' }], resuelto: false },
-        [G_INS]: { hilo: [{ autor: BRUNO, texto: 'Insumos de junio: confirmé con el proveedor que son $70,400, no $72,100.' }], resuelto: false },
-        H12: { hilo: [{ autor: BRUNO, texto: '¿El total del semestre ya incluye mantenimiento?' }], resuelto: false },
-      },
-      notas: notas || {}, filas: 15,
-    }],
-    herramientas: ['revisar', 'celdas', 'portapapeles'], autor: 'Tú', altura: 400,
-  });
-  const hilo = (x, d) => (x.estado.hojas[0].comentarios || {})[d];
-  const pruebasBase = [
-    { tipo: 'fn', titulo: 'Respondiste los tres comentarios', fn: (x) => { for (const d of [C_PUB, G_INS, 'H12']) { const c = hilo(x, d); if (!c) return 'El comentario de ' + d + ' desapareció: no lo elimines, respóndelo.'; if (!c.hilo.some((m) => m.autor === 'Tú')) return 'Falta tu respuesta al comentario de ' + d + ' (selecciona la celda › Comentario › Responder).'; } return true; } },
-    { tipo: 'valores', rango: C_PUB + ',' + G_INS, esperado: [4500, 70400], titulo: 'Corregiste los dos valores', mensaje: '{celda} muestra {obtenido}; según Bruno debería ser {esperado}.' },
-    { tipo: 'fn', titulo: 'Resolviste los dos comentarios atendidos', fn: (x) => { for (const d of [C_PUB, G_INS]) if (!hilo(x, d) || !hilo(x, d).resuelto) return 'Marca como resuelto el comentario de ' + d + ' (ya hiciste el cambio).'; return true; } },
-    { tipo: 'fn', titulo: 'Celdas de captura desbloqueadas', fn: (x) => { const e = x.estado.hojas[0].estilos; for (const c of x.celdas('B4:G11')) if (!(e[c.dir] && e[c.dir].desbloqueada)) return c.dir + ' sigue bloqueada: selecciona B4:G11 y desbloquéala (botón Bloquear o Formato de celdas › Bloqueada).'; for (const c of x.celdas('H4:H12,B12:G12')) if (e[c.dir] && e[c.dir].desbloqueada) return c.dir + ' tiene una fórmula: debe quedar bloqueada.'; return true; } },
-    { tipo: 'fn', titulo: 'Hoja protegida', fn: (x) => (x.estado.hojas[0].protegida ? true : 'Protege la hoja (Revisar › Proteger hoja).') },
+  const { D, filasDinamica, CAMPOS_DINAMICA, lideresTrimestre, trimestre, totalesPor, mes } = LT.caso;
+  const DATOS = filasDinamica();
+  const LIDERES = lideresTrimestre();
+  const anual = Object.entries(totalesPor('sucursal')).sort((a, b) => b[1] - a[1]);
+  const LIDER_ANUAL = anual[0][0];
+  const topCat = Object.entries(totalesPor('categoria')).sort((a, b) => b[1] - a[1])[0][0];
+  const frioSuc = Object.entries(totalesPor('sucursal', (v) => v.categoria === 'Café frío')).sort((a, b) => b[1] - a[1])[0][0];
+  const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const mejorMes = (filtro) => { const m = new Array(12).fill(0); D.ventas.filter(filtro).forEach((v) => { m[mes(v.fecha) - 1] += v.total; }); return MESES[m.indexOf(Math.max(...m))]; };
+  const MES_NORTE = mejorMes((v) => v.sucursal === 'Norte');
+  const MES_NORTE_FRIO = mejorMes((v) => v.sucursal === 'Norte' && v.categoria === 'Café frío');
+  const norteQ = [1, 2, 3, 4].map((q) => D.ventas.filter((v) => v.sucursal === 'Norte' && trimestre(v.fecha) === q).reduce((s, v) => s + v.total, 0));
+  const MEJOR_Q_NORTE = 'Trim.' + (norteQ.indexOf(Math.max(...norteQ)) + 1);
+  const otraT3 = LIDERES[2] !== LIDER_ANUAL;
+  const INTERPRETACION = [
+    otraT3 ? LIDER_ANUAL + ' es la sucursal que más vende en el año, pero ' + LIDERES[2] + ' la supera en el 3.er trimestre' : LIDER_ANUAL + ' es la sucursal que más vende en el año',
+    anual[2][0] + ' es la sucursal que más vende en el año',
+    LIDER_ANUAL + ' vende más que las otras en todos los trimestres',
+    'Las tres sucursales venden casi lo mismo en cada trimestre',
   ];
+  const pivote = (c, estado, extra) => LT.TablaDinamica(c, Object.assign({ datos: DATOS, campos: CAMPOS_DINAMICA, estado }, extra || {}));
+
+  function crearReto(cont, nivel) {
+    const { h } = LT.u;
+    const experto = nivel === 'experto', explorador = nivel === 'explorador';
+    let e1 = null, e2 = null, t1 = null, t2 = null;
+    const resp = {};
+    const sel = (clave, opciones) => h('select', { class: 'herr-sel', onchange: (ev) => { resp[clave] = ev.target.value; } }, h('option', { value: '' }, 'Elige…'), opciones.map((o) => h('option', { value: o }, o)));
+    const pestanas = h('div', { class: 'grupo-btn', style: { marginBottom: '10px' } });
+    const p1 = h('div'), p2 = h('div');
+    const mostrar = (i) => { p1.style.display = i === 1 ? '' : 'none'; p2.style.display = i === 2 ? '' : 'none'; pestanas.querySelectorAll('button').forEach((b, k) => b.classList.toggle('primario', k + 1 === i)); };
+    pestanas.append(h('button', { class: 'btn chico', onclick: () => mostrar(1) }, '1. Trimestres por sucursal'), h('button', { class: 'btn chico', onclick: () => mostrar(2) }, '2. Tablero mensual'));
+    const z1 = h('div'), z2 = h('div');
+    const preguntas1 = h('div', { class: 'aviso-caja info' });
+    if (experto) preguntas1.append('Con los valores como % del total de columnas: ¿en qué trimestre obtuvo Norte el mayor porcentaje de su año? ', sel('q', ['Trim.1', 'Trim.2', 'Trim.3', 'Trim.4']));
+    else {
+      preguntas1.appendChild(h('div', { style: { marginBottom: '6px' } }, '¿Qué sucursal vendió más en cada trimestre?'));
+      const fila = h('div', { class: 'grupo-btn' });
+      for (let q = 1; q <= 4; q++) fila.appendChild(h('label', null, 'T' + q + ': ', sel('t' + q, ['Centro', 'Norte', 'Sur'])));
+      preguntas1.appendChild(fila);
+    }
+    if (!explorador) preguntas1.append(h('div', { style: { marginTop: '10px' } }, 'Interpretación: ¿qué conclusión es correcta? '), sel('interp', INTERPRETACION.slice().sort()));
+    p1.append(z1, preguntas1);
+    p2.append(z2, h('div', { class: 'aviso-caja info' }, experto ? 'Con las segmentaciones en Norte y Café frío, ¿en qué mes vendió más Norte de café frío? ' : 'Con la segmentación en Norte, ¿en qué mes vendió más la sucursal Norte? ', sel('mes', MESES)));
+    cont.append(pestanas, p1, p2);
+    setTimeout(() => {
+      t1 = pivote(z1, explorador ? { filas: [{ campo: 'Fecha', agrupar: ['trimestres'] }] } : {}, { alCambiar: (e) => { e1 = e; } });
+      t2 = LT.TablaDinamica(z2, { datos: DATOS, campos: CAMPOS_DINAMICA, estado: explorador ? { filas: [{ campo: 'Fecha', agrupar: ['meses'] }], valores: ['Total'] } : {}, segmentaciones: ['Sucursal', 'Categoría'], grafico: true, alCambiar: (e) => { e2 = e; } });
+      mostrar(1);
+    }, 0);
+    return {
+      verificar: () => {
+        const r = [];
+        const add = (ok, titulo, mensaje) => r.push({ ok, titulo, mensaje: ok ? titulo : mensaje });
+        const a = e1 || { filas: [], columnas: [], valores: [] };
+        const f = a.filas[0];
+        add(a.filas.length === 1 && f.campo === 'Fecha' && (f.agrupar || []).includes('trimestres') && !(f.agrupar || []).includes('meses'), 'Tabla 1 · Filas: la fecha agrupada por trimestres', 'Tabla 1: en Filas pon solo la Fecha, agrupada por Trimestres (menú ▾ de la ficha › Agrupar…).');
+        add(a.columnas.length === 1 && a.columnas[0].campo === 'Sucursal', 'Tabla 1 · Columnas: Sucursal', 'Tabla 1: pon Sucursal en Columnas.');
+        const v = a.valores[0];
+        add(a.valores.length === 1 && v.campo === 'Total' && v.funcion === 'suma', 'Tabla 1 · Valores: Suma de Total', 'Tabla 1: en Valores pon «Suma de Total».');
+        if (experto) {
+          add(v && v.mostrarComo === 'pctColumna', 'Tabla 1 · % del total de columnas', 'Tabla 1: Configuración de campo de valor › Mostrar valores como › % del total de columnas.');
+          add(resp.q === MEJOR_Q_NORTE, 'Respuesta sobre Norte correcta', resp.q ? 'Revisa la columna Norte: el mayor porcentaje no está en ' + resp.q + '.' : 'Responde la pregunta de la tabla 1.');
+        } else for (let q = 1; q <= 4; q++) add(resp['t' + q] === LIDERES[q - 1], 'Trimestre ' + q + ': ' + LIDERES[q - 1], resp['t' + q] ? 'Trimestre ' + q + ': la sucursal con el número más alto de la fila Trim.' + q + ' no es ' + resp['t' + q] + '.' : 'Responde qué sucursal vendió más en el trimestre ' + q + '.');
+        if (!explorador) add(resp.interp === INTERPRETACION[0], 'Interpretación correcta', resp.interp ? 'Revisa la interpretación: compara la fila «Total general» con cada trimestre.' : 'Elige la conclusión correcta.');
+        const b = e2 || { filas: [], valores: [], segmentaciones: {} };
+        const g = b.filas[0];
+        add(b.filas.length === 1 && g.campo === 'Fecha' && JSON.stringify(g.agrupar) === '["meses"]' && (!b.columnas || !b.columnas.length), 'Tabla 2 · Meses en filas', 'Tabla 2: pon la Fecha en Filas agrupada solo por Meses, sin campos en Columnas.');
+        add(b.valores.length === 1 && b.valores[0].campo === 'Total' && b.valores[0].funcion === 'suma' && b.valores[0].mostrarComo === 'ninguno', 'Tabla 2 · Suma de Total', 'Tabla 2: en Valores pon «Suma de Total».');
+        add(b.tipoGrafico === 'lineas' || b.tipoGrafico === 'columnas', 'Gráfico dinámico de líneas o columnas', 'Tabla 2: elige un gráfico dinámico de líneas o columnas.');
+        const s = b.segmentaciones || {};
+        add(JSON.stringify(s.Sucursal) === '["Norte"]', 'Segmentación Sucursal en Norte', 'Tabla 2: en la segmentación Sucursal deja solo «Norte».');
+        if (experto) add(JSON.stringify(s['Categoría']) === '["Café frío"]', 'Segmentación Categoría en Café frío', 'Tabla 2: en la segmentación Categoría deja solo «Café frío».');
+        else add(!s['Categoría'], 'Sin filtro de categoría', 'Tabla 2: quita el filtro de Categoría (⨯) para ver todas.');
+        const esp = experto ? MES_NORTE_FRIO : MES_NORTE;
+        add(resp.mes === esp, 'Mes de mayor venta correcto', resp.mes ? 'Mira el punto o la barra más alta del gráfico filtrado: no es ' + resp.mes + '.' : 'Responde la pregunta del tablero.');
+        return { ok: r.every((x) => x.ok), resultados: r };
+      },
+      tablas: () => ({ t1, t2 }),
+    };
+  }
 
   LT.definirModulo({
     id: 12,
-    objetivo: 'Compartir en OneDrive, comentar, consultar el historial de versiones y proteger hojas.',
-    situacion: 'Bruno (de la sucursal Norte) y tú van a revisar juntos el presupuesto del semestre. Él ya dejó comentarios. <b>Contéstale, corrige lo necesario y protege las fórmulas</b> para que nadie las borre por accidente.',
+    objetivo: 'Crear tablas dinámicas con campos de filas, columnas, valores y filtros; agrupar información; resumir con suma, promedio, conteo, máximo y mínimo; filtrar con segmentaciones; crear gráficos dinámicos e interpretar los resultados.',
+    situacion: 'Tengo las ' + D.ventas.length + ' ventas del año en una lista. Quiero saber <b>qué sucursal vende más cada trimestre</b> y un <b>tablero</b> donde vea las ventas por mes de cada sucursal con un clic. Y, sobre todo, que me digas <b>qué significan</b> esos números.',
     explicacion: [
-      { html: '<h3>Trabajar en equipo sobre el mismo libro</h3><ul><li><b>Compartir:</b> guarda el libro en OneDrive (o SharePoint) y usa el botón <b>Compartir</b>: eliges si la otra persona puede editar o solo ver. Varias personas pueden editar al mismo tiempo (<b>coautoría</b>).</li><li><b>Comentarios</b> (Revisar › Nuevo comentario): conversaciones con respuestas, @menciones y la opción <b>Resolver</b> cuando el asunto queda atendido.</li><li><b>Notas</b> (Revisar › Notas): anotaciones simples, sin respuestas.</li><li><b>Historial de versiones</b> (Archivo › Información): ve o restaura una versión anterior si algo se borró.</li><li><b>Proteger hoja</b> (Revisar › Proteger hoja): impide cambiar las celdas bloqueadas. Todas las celdas están bloqueadas por omisión, así que <b>primero desbloquea las celdas de captura</b> (Formato de celdas › Proteger › quita «Bloqueada») y después protege.</li><li><b>Proteger libro:</b> impide agregar, borrar o renombrar hojas.</li></ul>' },
-      { titulo: 'Prueba la protección', instr: 'B2 está desbloqueada y C2 no. La hoja está protegida: intenta escribir en las dos.', hoja: { altura: 170, hojas: [{ nombre: 'Prueba', datos: [['Concepto', 'Monto', 'Con IVA'], ['Renta', 28000, '=B2*1.16']], formatos: { 'B2:C2': '$#,##0' }, estilos: { 'A1:C1': ENC, B2: { desbloqueada: true, bg: '#fff8d6' } }, protegida: true, filas: 5, cols: 5 }], herramientas: ['revisar'] } },
+      { html: '<h3>Crear una tabla dinámica</h3><p>Una <b>tabla dinámica</b> resume una lista grande sin escribir fórmulas. Haz clic dentro de los datos y usa <b>Insertar › Tabla dinámica</b> (mejor en una hoja nueva). Los datos deben tener encabezados en la primera fila, sin filas vacías ni subtotales; si están en una <b>tabla de Excel</b>, la tabla dinámica incluye solas las filas nuevas.</p><h3>Las cuatro áreas</h3><ul><li><b>Filas:</b> una fila por cada valor distinto del campo (cada sucursal, cada producto).</li><li><b>Columnas:</b> una columna por cada valor distinto.</li><li><b>Valores:</b> lo que se calcula. Por omisión, los números se <b>suman</b> y los textos se <b>cuentan</b>; en «Configuración de campo de valor» se elige <b>Suma, Promedio, Cuenta, Máx. o Mín.</b>, y «Mostrar valores como» % del total.</li><li><b>Filtros:</b> limita todo el informe a un valor (por ejemplo, solo Café frío).</li></ul><h3>Agrupar información</h3><p>Las fechas se agrupan por <b>meses, trimestres o años</b> (clic derecho en una fecha › Agrupar). También se pueden agrupar números en rangos (de 0 a 20, de 20 a 40…). Si cambian los datos de origen, pulsa <b>Actualizar</b>.</p>' },
+      { widget: 'agrupacion', titulo: 'Qué hace por dentro: agrupar y resumir', instr: 'Estas son 12 ventas sueltas. Pulsa el botón y mira cómo la tabla dinámica las agrupa por sucursal y suma sus totales.', opts: { campo: 'sucursal', filas: D.ventas.slice(0, 12).map((v) => ({ grupo: v.sucursal, etiqueta: v.producto + ' · ' + LT.caso.fecha(v.fecha), valor: v.total })) } },
+      { html: '<h3>Segmentación de datos y gráficos dinámicos</h3><ul><li>Una <b>segmentación de datos</b> es un panel de botones para filtrar con un clic (Ctrl+clic para varios). Una <b>escala de tiempo</b> filtra fechas con una barra deslizante.</li><li>Un <b>gráfico dinámico</b> está conectado a su tabla dinámica: si cambias campos o filtros, el gráfico cambia. Con <b>Conexiones de filtro</b>, una segmentación controla varias tablas: así se arma un tablero.</li></ul><h3>Interpretar los resultados</h3><ul><li>Empieza por el <b>Total general</b>: da la escala y permite ver qué parte representa cada fila.</li><li>Compara en la misma dirección (fila contra fila, columna contra columna) y busca cambios de líder.</li><li>No confundas <b>Cuenta</b> (cuántos registros) con <b>Suma</b> (cuánto dinero): una sucursal puede tener más ventas registradas pero menos importe.</li><li>Un promedio de registros no es el promedio por cliente ni por día: revisa qué representa cada fila de la base.</li><li>Antes de concluir, verifica con una segunda vista (porcentajes, otro filtro).</li></ul>' },
+      { titulo: 'Explora un tablero', instr: 'Arrastra campos, cambia el resumen (▾ de la ficha de Valores) y usa las segmentaciones.', widget: (c) => pivote(c, { filas: ['Sucursal'], valores: ['Total'] }, { segmentaciones: ['Categoría'], grafico: true }) },
     ],
     ejemplo: {
-      tipo: 'pasos', titulo: 'Proteger fórmulas dejando celdas editables',
-      pasos: ['Selecciona las celdas donde sí se va a capturar (por ejemplo B4:G11).', { texto: 'Formato de celdas (Ctrl+1) › Proteger › quita la marca de «Bloqueada».', ruta: ['Inicio', 'Formato', 'Formato de celdas…'] }, { texto: 'Revisar › Proteger hoja › (opcional) contraseña › Aceptar.', ruta: ['Revisar', 'Proteger hoja'] }],
-      pregunta: { texto: 'Proteges la hoja <b>sin desbloquear</b> ninguna celda. ¿Qué pasa cuando alguien quiere capturar un dato?', opciones: ['Excel no lo deja: todas las celdas están bloqueadas por omisión', 'Puede capturar en las celdas vacías', 'Solo se protegen las fórmulas', 'No pasa nada hasta guardar'], correcta: 0, explicacion: 'Todas las celdas nacen bloqueadas; la protección se activa al proteger la hoja. Por eso se desbloquean primero las de captura.' },
+      tipo: 'pasos', titulo: 'Ventas por sucursal en cuatro pasos',
+      widget: (c) => pivote(c, { filas: ['Sucursal'], valores: ['Total'] }),
+      pasos: ['Haz clic en una celda de la lista de ventas.', { texto: 'Insertar › Tabla dinámica › Aceptar (en una hoja nueva).', ruta: ['Insertar', 'Tabla dinámica'] }, 'En la lista de campos, arrastra Sucursal a Filas.', 'Arrastra Total a Valores: aparece «Suma de Total» por sucursal (arriba puedes probarlo).'],
+      pregunta: { texto: 'En la tabla de arriba, si arrastras <b>Categoría</b> al área de <b>Columnas</b>, ¿cuántas columnas de datos aparecen (sin contar el Total general)?', opciones: ['3', '6', '20', '1'], correcta: 1, explicacion: 'Una columna por cada categoría distinta: hay <b>6</b> categorías.' },
     },
     micro: [
-      { titulo: 'Comentario o nota', tipo: 'opcion', enunciado: 'Quieres hacerle una pregunta a Bruno sobre una cifra y que él te responda en la misma conversación.', opciones: ['Comentario', 'Nota', 'Cuadro de texto', 'Validación de datos'], correcta: 0, explicacion: 'Los <b>comentarios</b> son conversaciones con respuestas y se pueden resolver; las notas son anotaciones sin respuesta.' },
-      { titulo: 'Recuperar una versión', tipo: 'opcion', enunciado: 'Alguien borró ayer una fórmula del presupuesto compartido en OneDrive. ¿Cómo recuperas cómo estaba?', opciones: ['Archivo › Información › Historial de versiones', 'Ctrl+Z', 'Revisar › Proteger libro', 'Datos › Actualizar todo'], correcta: 0, explicacion: 'El <b>historial de versiones</b> guarda versiones anteriores del archivo en OneDrive; puedes verlas o restaurarlas. Ctrl+Z solo deshace tus cambios de esta sesión.' },
+      { titulo: 'Conteo', tipo: 'widget', enunciado: '¿Cuántos <b>registros de venta</b> tuvo cada sucursal? Sucursal en Filas y un campo en Valores resumido por <b>Cuenta</b>.',
+        crear: (c, listo) => { const info = LT.u.h('div', { class: 'retro' }); const z = LT.u.h('div'); c.append(z, info); pivote(z, {}, { alCambiar: (e) => { const ok = e.filas.length === 1 && e.filas[0].campo === 'Sucursal' && e.valores.length === 1 && e.valores[0].funcion === 'cuenta'; info.innerHTML = ''; if (ok) { info.appendChild(LT.u.h('div', { class: 'aviso-caja ok' }, '✓ Cada sucursal tiene 240 registros: la cuenta no suma importes, cuenta filas.')); listo(); } } }); } },
+      { titulo: 'Máximo y promedio', tipo: 'widget', enunciado: '¿Cuál fue el <b>registro de venta más alto</b> de cada sucursal? Sucursal en Filas y Total en Valores resumido por <b>Máx.</b> (prueba también Promedio y Mín.).',
+        crear: (c, listo) => { const info = LT.u.h('div', { class: 'retro' }); const z = LT.u.h('div'); c.append(z, info); pivote(z, {}, { alCambiar: (e) => { const ok = e.filas.length === 1 && e.filas[0].campo === 'Sucursal' && e.valores.length === 1 && e.valores[0].campo === 'Total' && e.valores[0].funcion === 'max'; info.innerHTML = ''; if (ok) { info.appendChild(LT.u.h('div', { class: 'aviso-caja ok' }, '✓ Máx. muestra la venta individual más alta de cada sucursal; Promedio, el importe medio por registro.')); listo(); } } }); } },
+      { titulo: 'Filtros', tipo: 'widget', enunciado: 'Pon <b>Categoría en Filtros</b> y elige solo «Café frío»; deja Sucursal en Filas y Suma de Total en Valores. ¿Qué sucursal vende más café frío?',
+        crear: (c, listo) => {
+          const { h } = LT.u; let est = null; const z = h('div'); const info = h('div', { class: 'retro' });
+          const s = h('select', { class: 'herr-sel' }, h('option', { value: '' }, 'Elige…'), ['Centro', 'Norte', 'Sur'].map((x) => h('option', { value: x }, x)));
+          const revisar = () => { const f = est && est.filtros.find((x) => x.campo === 'Categoría'); const ok = est && f && JSON.stringify(f.valores) === '["Café frío"]' && est.filas.length === 1 && est.filas[0].campo === 'Sucursal' && est.valores.length === 1 && est.valores[0].campo === 'Total' && s.value === frioSuc; info.innerHTML = ''; if (ok) { info.appendChild(h('div', { class: 'aviso-caja ok' }, '✓ ' + frioSuc + ' vende más café frío. El filtro afecta a todo el informe.')); listo(); } else if (s.value && est && f) info.appendChild(h('div', { class: 'aviso-caja alerta' }, 'Revisa la tabla filtrada: la sucursal con más café frío no es ' + s.value + '.')); };
+          s.addEventListener('change', revisar);
+          c.append(z, h('div', { class: 'aviso-caja info' }, '¿Qué sucursal vende más café frío? ', s), info);
+          pivote(z, {}, { alCambiar: (e) => { est = e; revisar(); } });
+        } },
+      { titulo: 'Datos nuevos', tipo: 'opcion', enunciado: 'Agregaste ventas nuevas a la lista de origen, pero la tabla dinámica sigue mostrando los totales anteriores. ¿Qué falta?', opciones: ['Actualizar la tabla dinámica', 'Volver a guardar el archivo', 'Borrar la tabla y hacerla de nuevo', 'Usar SUMA en lugar de la tabla dinámica'], correcta: 0, explicacion: 'Las tablas dinámicas no se recalculan solas: <b>Análisis de tabla dinámica › Actualizar</b> (o clic derecho › Actualizar). La categoría que más vende es ' + topCat + '.' },
     ],
     reto: {
-      titulo: 'Revisión del presupuesto en parejas', tipo: 'hoja', intro: 'Las celdas con un triángulo morado tienen comentarios de Bruno. Pasa el cursor para leerlos.',
+      titulo: 'Analizar el año: sucursales, trimestres y tablero', tipo: 'widget', crear: crearReto,
       base: {
-        hoja: hojaPres(), pruebas: pruebasBase,
-        instrucciones: ['Lee y <b>responde</b> los tres comentarios de Bruno.', 'Haz los dos cambios que pide (Publicidad de febrero e Insumos de junio) y <b>resuelve</b> esos dos comentarios.', '<b>Desbloquea</b> las celdas de captura B4:G11 (las fórmulas de la columna H y la fila 12 quedan bloqueadas).', '<b>Protege</b> la hoja.'],
-        pistas: ['Selecciona la celda con comentario y usa el botón Comentario: ahí puedes responder y resolver.', 'Para desbloquear: selecciona B4:G11 y pulsa «Bloquear» (o Ctrl+1 › quita «Bloqueada»). Después, «Proteger hoja».', C_PUB + ' → 4500; ' + G_INS + ' → 70400; responde H12 (por ejemplo «Sí, está en la fila 11»).'],
+        instrucciones: ['<b>Tabla 1:</b> trimestres en Filas (agrupa la Fecha), sucursales en Columnas y suma del Total en Valores. Responde qué sucursal vendió más cada trimestre y elige la interpretación correcta.', '<b>Tabla 2 (tablero):</b> meses en Filas y suma del Total en Valores, gráfico dinámico de líneas o columnas, y segmentación de Sucursal en Norte. Responde en qué mes vendió más Norte.'],
+        pistas: ['Cada pregunta de negocio es una combinación de áreas: lo que comparas va en filas o columnas, lo que mides en valores.', 'Al poner Fecha en Filas se agrupa por meses; en su menú ▾ elige «Agrupar…» y marca solo Trimestres (tabla 1). En la tabla 2 deja Meses.', 'Tabla 1: Fecha (Trimestres) · Sucursal · Suma de Total. Tabla 2: Fecha (Meses) · Suma de Total · Líneas · Segmentación Sucursal = Norte.'],
       },
       niveles: {
-        explorador: { instrucciones: ['Selecciona ' + C_PUB + ' › botón <b>Comentario</b> › escribe una respuesta › Responder. Haz lo mismo en ' + G_INS + ' y en H12.', 'Escribe 4500 en ' + C_PUB + ' y 70400 en ' + G_INS + '. Luego abre esos dos comentarios y pulsa <b>Resolver conversación</b>.', 'Selecciona B4:G11 y pulsa el botón <b>Bloquear</b> (queda desbloqueado).', 'Pulsa <b>Proteger hoja</b> › Aceptar.'] },
-        experto: {
-          instrucciones: ['Atiende la revisión como en el nivel Analista (respuestas, correcciones, resolver, desbloquear y proteger).', 'Agrega una <b>nota</b> en A11 (Mantenimiento): «Incluye servicio de cafeteras».'],
-          pruebasExtra: [{ tipo: 'fn', titulo: 'Nota en Mantenimiento', fn: (x) => (/cafetera/i.test((x.estado.hojas[0].notas || {}).A11 || '') ? true : 'Agrega en A11 una nota que diga «Incluye servicio de cafeteras».') }],
-        },
+        explorador: { instrucciones: ['Tabla 1: la Fecha ya está agrupada por trimestres; arrastra <b>Sucursal</b> a Columnas y marca <b>Total</b>. Responde los cuatro trimestres.', 'Tabla 2: los meses y el total ya están; elige <b>Líneas</b> y haz clic en <b>Norte</b> en la segmentación. Responde el mes.'] },
+        experto: { instrucciones: ['Tabla 1: como en el nivel Analista, pero muestra los valores como <b>% del total de columnas</b> y responde en qué trimestre obtuvo Norte el mayor porcentaje de su año. Elige la interpretación correcta.', 'Tabla 2: tablero mensual con dos segmentaciones: Sucursal = Norte y Categoría = Café frío.'] },
       },
     },
     lab: {
-      archivo: 'lab12-presupuesto.xlsx', titulo: 'Revisión en parejas en OneDrive',
-      contexto: 'Trabajen en parejas. Una persona sube el libro a OneDrive y lo comparte con la otra con permiso de edición.',
+      archivo: 'lab12-tablas-dinamicas.xlsx', titulo: 'Tablas dinámicas y tablero en Excel',
+      contexto: 'La hoja Ventas tiene las ' + D.ventas.length + ' ventas de 2025. La hoja Respuestas es para tus conclusiones.',
       pasos: {
-        explorador: [{ texto: 'Persona A: sube el libro a OneDrive y compártelo con B (Puede editar).', ruta: ['Archivo', 'Compartir'] }, { texto: 'Persona B: abre el libro y deja al menos un comentario en una cifra.', ruta: ['Revisar', 'Nuevo comentario'] }, 'Persona A: responde el comentario y haz el cambio acordado.', { texto: 'Desbloquea B4:G11 y protege la hoja.', ruta: ['Revisar', 'Proteger hoja'] }, { texto: 'Revisen juntos el historial de versiones.', ruta: ['Archivo', 'Información', 'Historial de versiones'] }, 'Descarguen una copia (Archivo › Guardar como › Descargar una copia) y súbanla aquí.'],
-        analista: ['Compartan el libro en OneDrive, conversen con comentarios (al menos un comentario con respuesta), atiendan el cambio, desbloqueen B4:G11 y protejan la hoja.', 'Descarguen una copia y súbanla.'],
-        experto: ['Lo del nivel Analista.', 'Agreguen una nota en A11 y protejan también la estructura del libro (Revisar › Proteger libro).', 'Descarguen una copia y súbanla.'],
+        explorador: [{ texto: 'Clic en la lista › Insertar › Tabla dinámica › Nueva hoja.', ruta: ['Insertar', 'Tabla dinámica'] }, 'Fecha a Filas (clic derecho › Agrupar › solo Trimestres), Sucursal a Columnas y Total a Valores.', 'En Respuestas escribe la sucursal líder de cada trimestre (B2:B5), el mes con más ventas de Norte (B7) y la sucursal líder del año (B8).', { texto: 'Con otra tabla dinámica por meses, inserta un gráfico dinámico y una segmentación por Sucursal.', ruta: ['Análisis de tabla dinámica', 'Insertar segmentación de datos'] }, 'Guarda y sube el libro.'],
+        analista: ['Tabla dinámica: trimestres × sucursales con la suma de Total.', 'Respuestas: líderes por trimestre (B2:B5), mes con más ventas de Norte (B7) y líder del año (B8).', 'Tablero: tabla dinámica por meses, gráfico dinámico y segmentación por Sucursal conectada.', 'Guarda y sube el libro.'],
+        experto: ['Lo del nivel Analista.', 'Muestra en alguna tabla dinámica los valores como porcentaje del total.', 'Agrega una escala de tiempo por Fecha al tablero.', 'Guarda y sube el libro.'],
       },
+      notaWeb: 'Excel para la web permite crear tablas dinámicas, agrupar fechas, gráficos dinámicos y segmentaciones.',
       pruebas: [
-        { titulo: 'Comentario con respuesta', fn: (L, A) => { const h = A.hoja('Presupuesto'); const raices = h.comentarios.filter((c) => !c.padre); const conResp = raices.find((c) => h.comentarios.some((r) => r.padre === c.id)); if (!raices.length) return 'No encontré comentarios: agrega uno con Revisar › Nuevo comentario.'; if (!conResp) return 'Hay comentarios, pero ninguno tiene respuesta.'; const autores = new Set(h.comentarios.map((c) => c.autor)); return autores.size >= 2 ? true : { ok: true, mensaje: 'Comentario con respuesta (nota: todos los mensajes son de la misma cuenta; en parejas deberían verse dos autores).' }; } },
-        { titulo: 'Celdas de captura desbloqueadas', fn: (L) => { for (const x of L.celdasRango('B4:G11')) if (L.estilo('Presupuesto', x.dir).bloqueada) return x.dir + ' sigue bloqueada.'; for (const x of L.celdasRango('H4:H12')) if (!L.estilo('Presupuesto', x.dir).bloqueada) return x.dir + ' tiene fórmula y debería quedar bloqueada.'; return true; } },
-        { titulo: 'Hoja protegida', fn: (L) => (L.hoja('Presupuesto').protegida ? true : 'Protege la hoja Presupuesto.') },
-        { titulo: 'Nota en A11', nivel: 'experto', fn: (L) => (L.hoja('Presupuesto').notas.some((n) => n.ref === 'A11') ? true : 'Agrega una nota en A11.') },
-        { titulo: 'Estructura del libro protegida', nivel: 'experto', fn: (L) => (L.proteccionLibro ? true : 'Protege la estructura del libro (Revisar › Proteger libro).') },
+        { titulo: 'Tabla dinámica por trimestre y sucursal', fn: (L) => { if (!L.dinamicas.length) return 'No encontré ninguna tabla dinámica.'; return L.dinamicas.find((p) => p.columnas.some((c) => /sucursal/i.test(c.nombre)) && p.valores.some((v) => /total/i.test(v.campo) && v.funcion === 'sum') && (p.filas.some((f) => f.agruparPor === 'quarters' || /trim/i.test(f.nombre)) || p.agrupaciones.some((g) => g.por === 'quarters'))) ? true : 'La tabla dinámica debe tener los trimestres en filas, Sucursal en columnas y Suma de Total en valores.'; } },
+        { titulo: 'Líderes por trimestre', fn: (L, A) => { A.hoja('Respuestas'); for (let q = 1; q <= 4; q++) { const v = String(L.valor('Respuestas', 'B' + (q + 1)) || '').trim(); if (v.toLowerCase() !== LIDERES[q - 1].toLowerCase()) return 'Trimestre ' + q + ': ' + (v ? '«' + v + '» no es la sucursal que más vendió.' : 'falta la respuesta en B' + (q + 1) + '.'); } return true; } },
+        { titulo: 'Interpretación: mes de Norte y líder del año', fn: (L) => { const m = String(L.valor('Respuestas', 'B7') || '').trim().toLowerCase(); if (!m.startsWith(MES_NORTE)) return 'B7: el mes con más ventas de Norte no es «' + (m || 'vacío') + '».'; return String(L.valor('Respuestas', 'B8') || '').trim().toLowerCase() === LIDER_ANUAL.toLowerCase() ? true : 'B8: revisa el Total general para saber qué sucursal gana el año.'; } },
+        { titulo: 'Gráfico dinámico', fn: (L) => (L.graficos.some((g) => g.dinamico) ? true : 'Falta un gráfico dinámico (conectado a una tabla dinámica).') },
+        { titulo: 'Segmentación por Sucursal conectada', fn: (L) => { const s = L.segmentaciones.find((x) => /sucursal/i.test(x.campo || x.nombre)); if (!s) return 'Inserta una segmentación por Sucursal.'; return s.dinamicas.length ? true : 'La segmentación no está conectada a ninguna tabla dinámica.'; } },
+        { titulo: 'Valores como porcentaje', nivel: 'experto', fn: (L) => (L.dinamicas.some((p) => p.valores.some((v) => /percent/i.test(v.mostrarComo || ''))) ? true : 'Muestra en alguna tabla dinámica los valores como porcentaje (Mostrar valores como).') },
+        { titulo: 'Escala de tiempo', nivel: 'experto', fn: (L) => (L.escalasTiempo.length ? true : 'Agrega una escala de tiempo por Fecha.') },
       ],
     },
     donde: [
-      { comando: 'Nuevo comentario', ruta: ['Revisar', 'Nuevo comentario'] },
-      { comando: 'Nueva nota', ruta: ['Revisar', 'Notas', 'Nueva nota'] },
-      { comando: 'Proteger hoja', ruta: ['Revisar', 'Proteger hoja'] },
-      { comando: 'Historial de versiones', ruta: ['Archivo', 'Información', 'Historial de versiones'], nota: 'Solo para archivos guardados en OneDrive o SharePoint.' },
+      { comando: 'Tabla dinámica', ruta: ['Insertar', 'Tabla dinámica'] },
+      { comando: 'Agrupar selección (fechas)', ruta: ['Análisis de tabla dinámica', 'Agrupar selección'], nota: 'También: clic derecho sobre una fecha › Agrupar.' },
+      { comando: 'Configuración de campo de valor (Suma, Promedio, Máx.)', ruta: ['Análisis de tabla dinámica', 'Configuración de campo'] },
+      { comando: 'Insertar segmentación de datos', ruta: ['Análisis de tabla dinámica', 'Insertar segmentación de datos'] },
+      { comando: 'Gráfico dinámico', ruta: ['Análisis de tabla dinámica', 'Gráfico dinámico'] },
+      { comando: 'Actualizar', ruta: ['Análisis de tabla dinámica', 'Actualizar'] },
     ],
-    atajos: ['<kbd>Ctrl+Alt+M</kbd> nuevo comentario (Excel para Windows).', '<kbd>Mayús+F2</kbd> nueva nota.'],
+    glosario: ['SUMA', 'PROMEDIO', 'CONTAR', 'MAX', 'MIN'],
+    atajos: ['Clic derecho sobre un valor › Resumir valores por › Suma, Recuento, Promedio, Máx., Mín.', 'Doble clic sobre un número de la tabla dinámica: Excel crea una hoja con los registros que lo forman.', '<kbd>Ctrl</kbd>+clic en una segmentación para elegir varios elementos.'],
   });
 })();

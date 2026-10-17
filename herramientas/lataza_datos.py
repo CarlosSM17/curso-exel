@@ -114,6 +114,9 @@ APELLIDOS = ["Hernández", "García", "Martínez", "López", "González", "Pére
              "Domínguez", "Castro", "Ortiz", "Rubio", "Silva", "Navarro", "Romero", "Cortés",
              "Estrada", "Mejía", "Lara", "Cabrera", "Ponce", "Zamora", "Bravo", "Acosta"]
 
+CONTACTOS = ["Lic. Sofía Luna", "Mtra. Paola Reyes", "Dr. Arturo Ponce", "Ing. Raúl Estrada", "Lic. Brenda Cortés",
+             "Mtro. Diego Lara", "Andrés Bravo", "Dra. Itzel Romero", "Mónica Silva", "Gustavo Mejía"]
+
 PRESUPUESTO = [
     # concepto, ene..jun
     ("Renta", [28000] * 6),
@@ -292,6 +295,10 @@ def generar():
         "clientesSucios": clientes_sucios,
         "pedidos": pedidos,
         "fechaCorte": _fecha_str(fecha_corte),
+        "clientesCorp": [
+            {"cliente": c, "contacto": n, "correo": "contacto@" + "".join(ch for ch in c.lower().split()[0] if ch.isalpha()).replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u").replace("ñ", "n") + ".mx", "telefono": f"55{5100 + 37 * i:04d}{2200 + 91 * i:04d}"}
+            for i, (c, n) in enumerate(zip(CLIENTES_CORP, CONTACTOS))
+        ],
         "inventario": [
             {"insumo": a, "unidad": b, "existencia": c, "minimo": d, "maximo": e, "costo": f, "proveedor": g}
             for a, b, c, d, e, f, g in INSUMOS
